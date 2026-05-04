@@ -1,4 +1,4 @@
-const CACHE_NAME = 'catalogo-v3';
+const CACHE_NAME = 'catalogo-v4';
 const PRE_CACHE = [
   './',
   './index.html',
@@ -16,27 +16,32 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then(keys => Promise.all(
       keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-    ))
+    )).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  
-  // No cachear peticiones a Firebase Realtime Database
-  if (event.request.url.includes('firebaseio.com')) return;
 
+  // No cachear Firebase
+  if (event.request.url.includes('firebaseio.com')) return;
+  if (event.request.url.includes('firebasestorage.googleapis.com')) return;
+  if (event.request.url.includes('googleapis.com')) return;
+
+  // Estrategia: Network-First para HTML, JS y CSS
+  // Si la red falla, sirve desde caché (modo offline)
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
+    fetch(event.request)
+      .then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200) {
           const cacheCopy = networkResponse.clone();
           caches.open(CACHE_NAME).then(c => c.put(event.request, cacheCopy));
         }
         return networkResponse;
-      }).catch(() => null);
-
-      return cachedResponse || fetchPromise;
-    })
+      })
+      .catch(() => {
+        // Sin red → intenta caché
+        return caches.match(event.request);
+      })
   );
 });
