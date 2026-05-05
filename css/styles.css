@@ -162,41 +162,11 @@ body {
   overflow: hidden;
 }
 
-.product-image-container::after {
-  content: "";
-  position: absolute;
-  top: 0; right: 0; bottom: 0; left: 0;
-  transform: translateX(-100%);
-  background-image: linear-gradient(90deg, rgba(255,255,255,0) 0, rgba(255,255,255,0.3) 20%, rgba(255,255,255,0.6) 60%, rgba(255,255,255,0));
-  animation: shimmer 2s infinite;
-  pointer-events: none;
-}
-
-/* Detener shimmer cuando la imagen cargó */
-.product-image-container.img-loaded::after {
-  display: none;
-}
-
-@keyframes shimmer {
-  100% { transform: translateX(100%); }
-}
-
 .product-image-container img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0;
-  transition: opacity 0.4s ease-in;
-}
-
-/* Mostrar imagen al cargar */
-.product-image-container img.loaded {
-  opacity: 1;
-}
-
-.product-image-container img[src] {
-  opacity: 1;
 }
 
 .product-info { padding: 1rem; flex-grow: 1; display: flex; flex-direction: column; }
