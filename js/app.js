@@ -23,7 +23,7 @@ let products = [];
 let settings = {
   storeName: 'Mi Tienda', tagline: 'Pedidos por WhatsApp', whatsapp: '',
   color: '#6c63ff', currency: 'COP', logo: '', adminPassword: '',
-  paymentInfo: '', paymentQR: ''
+  paymentInfo: '', paymentQR: '', shippingCost: 0
 };
 let orders = [];
 let cart = {};
@@ -393,6 +393,7 @@ function loadSettingsForm() {
   if (currencyEl) currencyEl.value = settings.currency || 'COP';
   safeValue('settings-payment-info', settings.paymentInfo || '');
   safeValue('settings-admin-password', settings.adminPassword || '');
+  safeValue('settings-shipping-cost', settings.shippingCost || 0);
   if (settings.logo) {
     safeSet('settings-logo-preview', 'src', settings.logo);
     safeStyle('settings-logo-preview', 'display', 'block');
@@ -487,6 +488,34 @@ window.copyPaymentInfo = () => {
     showToast('Copiado al portapapeles');
   }
 };
+
+// ====== SHIPPING ======
+function getShippingCost(dept) {
+  if (!dept) return null;
+  if (dept === 'Bogotá D.C.') return 0;
+  return settings.shippingCost || 0;
+}
+
+function updateShippingDisplay(dept) {
+  const display = document.getElementById('shipping-cost-display');
+  const freeMsg = document.getElementById('shipping-free-msg');
+  if (!display) return;
+  if (!dept) {
+    display.textContent = '—';
+    if (freeMsg) freeMsg.style.display = 'none';
+    return;
+  }
+  const cost = getShippingCost(dept);
+  if (cost === 0) {
+    display.textContent = 'GRATIS';
+    display.style.color = '#25D366';
+    if (freeMsg) freeMsg.style.display = dept === 'Bogotá D.C.' ? 'block' : 'none';
+  } else {
+    display.textContent = formatMoney(cost);
+    display.style.color = 'var(--primary)';
+    if (freeMsg) freeMsg.style.display = 'none';
+  }
+}
 
 // ====== DOM READY ======
 document.addEventListener('DOMContentLoaded', () => {
@@ -680,7 +709,8 @@ document.addEventListener('DOMContentLoaded', () => {
       color: document.getElementById('settings-color')?.value || '#6c63ff',
       currency: document.getElementById('settings-currency')?.value || 'COP',
       paymentInfo: document.getElementById('settings-payment-info')?.value || '',
-      adminPassword: document.getElementById('settings-admin-password')?.value || ''
+      adminPassword: document.getElementById('settings-admin-password')?.value || '',
+      shippingCost: parseFloat(document.getElementById('settings-shipping-cost')?.value) || 0
     };
     await set(ref(db, 'settings'), newSettings);
     showToast('Configuración guardada');
@@ -722,9 +752,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const p = products.find(x => x.id === id);
       return { ...p, qty: q };
     });
-    const total = items.reduce((t, i) => t + (i.price * i.qty), 0);
+    const subtotal = items.reduce((t, i) => t + (i.price * i.qty), 0);
+    const shippingCost = getShippingCost(customer.dept);
+    const total = subtotal + (shippingCost || 0);
     const totalCost = items.reduce((t, i) => t + ((i.cost || 0) * i.qty), 0);
-    const orderData = { customer, items, total, totalCost, timestamp: Date.now(), status: 'pending' };
+    const orderData = { customer, items, subtotal, shippingCost, total, totalCost, timestamp: Date.now(), status: 'pending' };
     
     push(ref(db, 'orders'), orderData).then((newRef) => {
       const orderId = newRef.key;
@@ -747,6 +779,16 @@ document.addEventListener('DOMContentLoaded', () => {
         itemsEl.innerHTML = items.map(i =>
           `<div class="ticket-item"><span>${i.name} x${i.qty}</span><span>${formatMoney(i.price * i.qty)}</span></div>`
         ).join('');
+      }
+      // Envío en ticket
+      const shippingRow = document.getElementById('ticket-shipping-row');
+      if (shippingRow) {
+        if (shippingCost !== null && shippingCost !== undefined) {
+          shippingRow.style.display = 'flex';
+          safeText('ticket-shipping-cost', shippingCost === 0 ? 'GRATIS' : formatMoney(shippingCost));
+        } else {
+          shippingRow.style.display = 'none';
+        }
       }
       safeText('ticket-total', formatMoney(total));
       const notesEl = document.getElementById('ticket-notes-wrapper');
@@ -772,7 +814,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (waBtn && settings.whatsapp) {
         const waText = encodeURIComponent(
           `*Pedido ${ticketNum}*\nCliente: ${customer.name}\nTotal: ${formatMoney(total)}\n\nProductos:\n` +
-          items.map(i => `- ${i.name} x${i.qty}: ${formatMoney(i.price * i.qty)}`).join('\n')
+          items.map(i => `- ${i.name} x${i.qty}: ${formatMoney(i.price * i.qty)}`).join('\n') +
+          (shippingCost === 0 ? '\n\n🚚 Envío: GRATIS' : shippingCost > 0 ? `\n\n🚚 Envío: ${formatMoney(shippingCost)}` : '')
         );
         waBtn.href = `https://wa.me/${settings.whatsapp}?text=${waText}`;
         waBtn.style.display = 'flex';
@@ -822,6 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
         citySelect.appendChild(opt);
       });
       citySelect.disabled = cities.length === 0;
+      updateShippingDisplay(deptSelect.value);
     });
     citySelect.disabled = true;
   }
