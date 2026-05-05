@@ -191,6 +191,15 @@
             maxlength="200"></textarea>
         </div>
 
+        <!-- Costo de envío -->
+        <div class="customer-card" id="shipping-cost-card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="field-label" style="margin:0; font-size:1rem;">🚚 Costo de envío</span>
+            <span id="shipping-cost-display" style="font-size:1.1rem; font-weight:700; color:var(--primary);">—</span>
+          </div>
+          <div id="shipping-free-msg" style="display:none; color:#25D366; font-size:0.85rem; margin-top:0.25rem;">✅ ¡Envío gratis para Bogotá!</div>
+        </div>
+
         <button class="btn-generate-ticket" id="btn-generate-ticket">
           Generar ticket
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -489,6 +498,12 @@
             </div>
             <small class="settings-hint">Los clientes podrán escanear este QR para pagarte más rápido.</small>
           </div>
+          <div class="settings-group">
+            <label class="settings-label">Costo de envío (otras ciudades)</label>
+            <input type="number" id="settings-shipping-cost" class="settings-input" placeholder="Ej: 10000" min="0" />
+            <small class="settings-hint">El envío a Bogotá D.C. siempre es <strong>GRATIS</strong>. Este valor aplica para todas las demás ciudades. Deja en 0 para envío gratis en todas partes.</small>
+          </div>
+
           <div class="settings-group">
             <label class="settings-label">Contraseña de administrador</label>
             <input type="password" id="settings-admin-password" class="settings-input" placeholder="••••••"
