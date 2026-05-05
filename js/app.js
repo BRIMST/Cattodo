@@ -19,6 +19,23 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+// ====== GLOBAL MAPPINGS (Resilience) ======
+// Map these first so they are available to the HTML even if later code fails
+window.closeModal = (id) => {
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
+  // Corrección: resetear estado de edición al cerrar cualquier modal
+  window.currentEditId = null;
+};
+window.closeImageModal = () => {
+  const el = document.getElementById('image-viewer-modal');
+  if (el) el.style.display = 'none';
+};
+window.closeAdmin = () => {
+  const el = document.getElementById('panel-admin');
+  if (el) el.style.display = 'none';
+};
+
 // State Management
 let products = [];
 let settings = {
@@ -33,26 +50,29 @@ let currentProductImages = [];
 let viewerImages = [];        
 let viewerIndex = 0;          
 
-// DOM Elements
-const views = {
-  catalog: document.getElementById('view-catalog'),
-  order: document.getElementById('view-order'),
-  ticket: document.getElementById('view-ticket')
-};
-const els = {
-  productsGrid: document.getElementById('products-grid'),
-  categoryFilters: document.getElementById('category-filters'),
-  cartBar: document.getElementById('cart-bar'),
-  cartCount: document.getElementById('cart-count'),
-  cartTotal: document.getElementById('cart-total-bar'),
-  orderList: document.getElementById('order-items-list'),
-  orderTotalAmount: document.getElementById('order-total-amount'),
-  searchInput: document.getElementById('search-input'),
-  toast: document.getElementById('toast')
-};
+// DOM Elements — se inicializan dentro de DOMContentLoaded
+let views = {};
+let els = {};
+
+document.addEventListener('DOMContentLoaded', () => {
+  views = {
+    catalog: document.getElementById('view-catalog'),
+    order: document.getElementById('view-order'),
+    ticket: document.getElementById('view-ticket')
+  };
+  els = {
+    productsGrid: document.getElementById('products-grid'),
+    categoryFilters: document.getElementById('category-filters'),
+    cartBar: document.getElementById('cart-bar'),
+    cartCount: document.getElementById('cart-count'),
+    cartTotal: document.getElementById('cart-total-bar'),
+    orderList: document.getElementById('order-items-list'),
+    orderTotalAmount: document.getElementById('order-total-amount'),
+    searchInput: document.getElementById('search-input'),
+    toast: document.getElementById('toast')
+  };
 
 // ====== UTILS ======
-
 const compressImage = (base64Str, maxWidth = 600, quality = 0.5) => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -76,21 +96,38 @@ const formatMoney = (amount) => {
 };
 
 const showToast = (msg) => {
-  els.toast.textContent = msg;
-  els.toast.classList.add('show');
-  setTimeout(() => els.toast.classList.remove('show'), 3000);
+  const toast = document.getElementById('toast');
+  if (toast) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+  }
 };
 
 const switchView = (viewName) => {
   window.scrollTo(0, 0);
-  Object.values(views).forEach(v => v.classList.remove('active'));
-  views[viewName].classList.add('active');
+  Object.values(views).forEach(v => {
+    if (v) v.classList.remove('active');
+  });
+  if (views[viewName]) views[viewName].classList.add('active');
 };
 
 const formatInputCurrency = (e) => {
   let value = e.target.value.replace(/\D/g, "");
   if (value === "") { e.target.value = ""; return; }
   e.target.value = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(value);
+};
+
+const safeSet = (id, prop, val) => {
+  const el = document.getElementById(id);
+  if (el) el[prop] = val;
+};
+const safeText = (id, txt) => safeSet(id, 'textContent', txt);
+const safeHTML = (id, html) => safeSet(id, 'innerHTML', html);
+const safeValue = (id, val) => safeSet(id, 'value', val);
+const safeStyle = (id, prop, val) => {
+  const el = document.getElementById(id);
+  if (el) el.style[prop] = val;
 };
 
 // ====== INITIALIZATION ======
@@ -103,59 +140,51 @@ function init() {
   });
 
   onValue(ref(db, 'products'), snap => {
+    console.log('Firebase Products Data received');
     const val = snap.val();
-    products = val ? Object.keys(val).map(key => ({...val[key], id: key})) : [];
+    if (!val) {
+      products = [];
+    } else if (Array.isArray(val)) {
+      products = val.filter(p => p !== null); 
+    } else {
+      products = Object.keys(val).map(key => ({...val[key], id: key}));
+    }
+    
+    console.log('Processed Products:', products.length);
     renderFilters();
     renderProducts();
     updateCartUI();
-    if (document.getElementById('panel-admin').style.display === 'flex') renderAdminProducts();
+    const panel = document.getElementById('panel-admin');
+    if (panel && panel.style.display === 'flex') {
+      renderAdminProducts();
+    }
   });
 
-  initColombiaLocations();
-  
   // Tab Switching
   document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.onclick = () => {
       document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
       tab.classList.add('active');
-      document.getElementById(tab.dataset.tab).classList.add('active');
+      const contentId = 'tab-' + tab.dataset.tab;
+      const contentEl = document.getElementById(contentId);
+      if (contentEl) contentEl.classList.add('active');
     };
   });
 }
 
-function initColombiaLocations() {
-  const deptSelect = document.getElementById('customer-dept');
-  const citySelect = document.getElementById('customer-city');
-  if (typeof window.COLOMBIA_LOCATIONS === 'undefined') return;
-  Object.keys(window.COLOMBIA_LOCATIONS).sort().forEach(dept => {
-    const opt = document.createElement('option');
-    opt.value = opt.textContent = dept;
-    deptSelect.appendChild(opt);
-  });
-  deptSelect.onchange = (e) => {
-    const dept = e.target.value;
-    citySelect.innerHTML = '<option value="">Selecciona municipio...</option>';
-    if (dept && window.COLOMBIA_LOCATIONS[dept]) {
-      window.COLOMBIA_LOCATIONS[dept].sort().forEach(city => {
-        const opt = document.createElement('option');
-        opt.value = opt.textContent = city;
-        citySelect.appendChild(opt);
-      });
-      citySelect.disabled = false;
-    } else citySelect.disabled = true;
-  };
-}
-
 function applySettings() {
   document.documentElement.style.setProperty('--primary', settings.color);
-  const hex = settings.color.replace('#', '');
+  const hex = (settings.color || '#6c63ff').replace('#', '');
   const r = parseInt(hex.substring(0,2), 16), g = parseInt(hex.substring(2,4), 16), b = parseInt(hex.substring(4,6), 16);
   document.documentElement.style.setProperty('--primary-rgb', `${r}, ${g}, ${b}`);
-  document.getElementById('header-store-name').textContent = settings.storeName;
-  document.getElementById('header-store-tagline').textContent = settings.tagline;
-  const logoArea = document.getElementById('header-logo-area');
-  logoArea.innerHTML = settings.logo ? `<img src="${settings.logo}" style="width:100%;height:100%;object-fit:contain;" />` : `<span class="logo-emoji">🛒</span>`;
+  
+  safeText('header-store-name', settings.storeName);
+  safeText('header-store-tagline', settings.tagline);
+  
+  const logoHTML = settings.logo ? `<img src="${settings.logo}" style="width:100%;height:100%;object-fit:contain;" />` : `<span class="logo-emoji">🛒</span>`;
+  safeHTML('header-logo-area', logoHTML);
+
   const waBtn = document.getElementById('floating-wa-btn');
   if (waBtn) {
     if (settings.whatsapp) {
@@ -324,9 +353,13 @@ function renderViewer() {
 
 // ====== ADMIN ======
 function openAdmin() {
-  document.getElementById('panel-admin').style.display = 'flex';
+  console.log('Opening Admin Panel...');
+  const panel = document.getElementById('panel-admin');
+  if (panel) panel.style.display = 'flex';
+  
   if (!window.ordersListenerAttached) {
     window.ordersListenerAttached = true;
+    console.log('Attaching Orders Listener...');
     onValue(ref(db, 'orders'), snap => {
       const val = snap.val();
       orders = val ? Object.keys(val).map(key => ({...val[key], id: key})).reverse() : [];
@@ -339,16 +372,42 @@ function openAdmin() {
 }
 
 function renderAdminProducts() {
+  console.log('Rendering Admin Products...');
   const list = document.getElementById('admin-products-list');
-  const search = (document.getElementById('admin-search-input')?.value || '').toLowerCase();
+  if (!list) {
+    console.error('Error: admin-products-list element not found');
+    return;
+  }
+  
+  const searchInput = document.getElementById('admin-search-input');
+  const search = (searchInput?.value || '').toLowerCase();
   let filtered = products;
-  if (search) filtered = products.filter(p => p.name.toLowerCase().includes(search) || (p.ref && p.ref.toLowerCase().includes(search)));
+  
+  if (search) {
+    filtered = products.filter(p => 
+      (p.name && p.name.toLowerCase().includes(search)) || 
+      (p.ref && p.ref.toLowerCase().includes(search))
+    );
+  }
+  
+  console.log('Products to render in admin:', filtered.length);
+  
+  if (filtered.length === 0) {
+    list.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--text-muted);">No hay productos para mostrar.</div>';
+    return;
+  }
+
   list.innerHTML = filtered.map(p => `
     <div class="admin-product-row" onclick="openProductModal('${p.id}')">
-      <div class="admin-product-img">${p.images && p.images[0] ? `<img src="${p.images[0]}" loading="lazy" />` : '📦'}</div>
+      <div class="admin-product-img">
+        ${p.images && p.images[0] ? `<img src="${p.images[0]}" loading="lazy" />` : '📦'}
+      </div>
       <div class="admin-product-info">
-        <div class="admin-product-title">${p.name} ${!p.active ? '<span class="badge-inactive">Oculto</span>' : ''}</div>
-        <div class="admin-product-price">${formatMoney(p.price)}</div>
+        <div class="admin-product-title">
+          ${p.name || 'Sin nombre'} 
+          ${!p.active ? '<span class="badge-inactive">Oculto</span>' : ''}
+        </div>
+        <div class="admin-product-price">${formatMoney(p.price || 0)}</div>
       </div>
     </div>
   `).join('');
@@ -356,15 +415,22 @@ function renderAdminProducts() {
 
 function renderAdminOrders() {
   const list = document.getElementById('admin-orders-list');
+  if (!list) return;
+  
+  if (!orders || orders.length === 0) {
+    list.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--text-muted);">No hay pedidos registrados.</div>';
+    return;
+  }
+
   list.innerHTML = orders.map(o => `
     <div class="admin-order-card ${o.status || ''}">
       <div class="admin-order-header">
-        <span class="admin-order-id">#${o.id.slice(-6)}</span>
-        <span class="admin-order-date">${new Date(o.timestamp).toLocaleString()}</span>
+        <span class="admin-order-id">#${(o.id || '').slice(-6)}</span>
+        <span class="admin-order-date">${o.timestamp ? new Date(o.timestamp).toLocaleString() : '---'}</span>
       </div>
-      <div class="admin-order-customer">${o.customer.name}</div>
-      <div class="admin-order-items">${o.items.length} productos</div>
-      <div class="admin-order-total">${formatMoney(o.total)}</div>
+      <div class="admin-order-customer">${o.customer?.name || 'Cliente anónimo'}</div>
+      <div class="admin-order-items">${(o.items || []).length} productos</div>
+      <div class="admin-order-total">${formatMoney(o.total || 0)}</div>
       <div class="admin-order-actions">
         ${o.status !== 'completed' && o.status !== 'cancelled' ? `
           <button class="btn-order-confirm" onclick="confirmOrder('${o.id}')">Completar</button>
@@ -411,10 +477,20 @@ function loadSettingsForm() {
 }
 
 function openProductModal(id = null) {
+  // Corrección: resetear estado antes de abrir el modal
   window.currentEditId = id;
   currentProductImages = [];
-  document.getElementById('modal-product').style.display = 'flex';
+  
   const p = id ? products.find(x => x.id === id) : null;
+  
+  // Corrección de Manejo de Imágenes: cargar imágenes existentes ANTES de renderizar
+  if (p) {
+    currentProductImages = p.images ? [...p.images] : (p.image ? [p.image] : []);
+  } else {
+    currentProductImages = [];
+  }
+  
+  document.getElementById('modal-product').style.display = 'flex';
   document.getElementById('modal-product-title').textContent = p ? 'Editar Producto' : 'Nuevo Producto';
   document.getElementById('product-name').value = p ? p.name : '';
   document.getElementById('product-ref').value = p ? (p.ref || '') : '';
@@ -425,7 +501,6 @@ function openProductModal(id = null) {
   document.getElementById('product-unit').value = p ? (p.unit || 'und') : 'und';
   document.getElementById('product-description').value = p ? (p.description || '') : '';
   document.getElementById('product-active').checked = p ? p.active : true;
-  currentProductImages = p ? (p.images || (p.image ? [p.image] : [])) : [];
   renderProductImagePreview();
   document.getElementById('btn-delete-product').style.display = p ? 'block' : 'none';
 }
@@ -452,8 +527,37 @@ const safeListener = (id, event, fn) => {
   if (el) el[event] = fn;
 };
 
-// Exposición al objeto Window (Necesario para <script type="module">)
+// ====== VÍNCULO GLOBAL DE FUNCIONES (Necesario para <script type="module"> con eventos onclick en HTML) ======
+
+// Función de eliminación explícita con actualización local y Firebase
+function deleteProduct(id) {
+  if (!id) return;
+  // Eliminar del array local
+  const idx = products.findIndex(p => p.id === id);
+  if (idx !== -1) products.splice(idx, 1);
+  // Eliminar de Firebase
+  remove(ref(db, `products/${id}`));
+  // Refrescar vista administrativa
+  renderAdminProducts();
+}
+
 window.updateCart = updateCart;
+window.openProductModal = openProductModal;
+window.openImageModal = openImageModal;
+window.deleteProduct = deleteProduct;
+
+window.closeModal = (id) => {
+  const modal = document.getElementById(id);
+  if (modal) modal.style.display = 'none';
+  // Corrección: resetear estado de edición al cerrar modal
+  window.currentEditId = null;
+};
+
+window.closeImageModal = () => {
+  const modal = document.getElementById('image-viewer-modal');
+  if (modal) modal.style.display = 'none';
+};
+
 window.toggleDesc = (e, id) => {
   e.stopPropagation();
   const desc = document.getElementById(`desc-${id}`);
@@ -462,11 +566,7 @@ window.toggleDesc = (e, id) => {
     e.target.textContent = desc.classList.contains('collapsed') ? 'Ver más' : 'Ver menos';
   }
 };
-window.openImageModal = openImageModal;
-window.closeImageModal = () => {
-  const modal = document.getElementById('image-viewer-modal');
-  if (modal) modal.style.display = 'none';
-};
+
 window.setViewerIndex = (idx) => {
   viewerIndex = idx;
   renderViewer();
@@ -478,15 +578,12 @@ window.closeAdmin = () => {
   const panel = document.getElementById('panel-admin');
   if (panel) panel.style.display = 'none';
 };
-window.openProductModal = openProductModal;
-window.closeModal = (id) => {
-  const modal = document.getElementById(id);
-  if (modal) modal.style.display = 'none';
-};
+
 window.removeProductImage = (idx) => {
   currentProductImages.splice(idx, 1);
   renderProductImagePreview();
 };
+
 window.confirmOrder = (id) => update(ref(db, `orders/${id}`), { status: 'completed' });
 window.cancelOrder = (id) => update(ref(db, `orders/${id}`), { status: 'cancelled' });
 window.copyPaymentInfo = () => {
@@ -511,28 +608,45 @@ safeListener('btn-open-admin', 'onclick', () => {
   }
 });
 
-// Acceso oculto por Triple Clic en el Logo
+// Acceso oculto por Triple Clic o Pulsación Larga en el Logo
 let logoClicks = 0;
 let logoTimer;
-safeListener('header-logo-area', 'onclick', () => {
-  logoClicks++;
-  console.log('Logo clicks:', logoClicks);
-  clearTimeout(logoTimer);
-  if (logoClicks === 3) {
-    console.log('Triple click detected! Opening admin...');
-    logoClicks = 0;
-    if (settings.adminPassword) {
-      const modal = document.getElementById('modal-login');
-      if (modal) modal.style.display = 'flex';
-    } else {
-      openAdmin();
-    }
+let logoPressTimer;
+
+const triggerAdminAccess = () => {
+  if (settings.adminPassword) {
+    const modal = document.getElementById('modal-login');
+    if (modal) modal.style.display = 'flex';
   } else {
-    logoTimer = setTimeout(() => {
-      logoClicks = 0;
-    }, 800); // Aumentado a 800ms para ser más permisivo
+    openAdmin();
   }
-});
+};
+
+const logoEl = document.getElementById('header-logo-area');
+if (logoEl) {
+  // Método 1: Triple Clic
+  logoEl.onclick = () => {
+    logoClicks++;
+    clearTimeout(logoTimer);
+    if (logoClicks === 3) {
+      logoClicks = 0;
+      triggerAdminAccess();
+    } else {
+      logoTimer = setTimeout(() => { logoClicks = 0; }, 1200);
+    }
+  };
+
+  // Método 2: Pulsación Larga (2 segundos)
+  logoEl.onmousedown = logoEl.ontouchstart = () => {
+    logoPressTimer = setTimeout(() => {
+      triggerAdminAccess();
+      showToast('Acceso administrativo detectado');
+    }, 2000);
+  };
+  logoEl.onmouseup = logoEl.onmouseleave = logoEl.ontouchend = () => {
+    clearTimeout(logoPressTimer);
+  };
+}
 
 safeListener('btn-login-submit', 'onclick', () => {
   const passInput = document.getElementById('login-password');
@@ -571,39 +685,72 @@ safeListener('btn-save-product', 'onclick', async () => {
   if (!nameEl || !priceEl) return;
   
   const name = nameEl.value.trim();
-  const price = parseFloat(priceEl.value.replace(/\./g, ''));
-  if (!name || isNaN(price)) return showToast('Nombre y precio requeridos');
+  const price = parseFloat(priceEl.value.replace(/\./g, '').replace(/,/g, ''));
+  if (!name || isNaN(price) || price <= 0) return showToast('Nombre y precio requeridos');
   
   const pData = {
     name, price,
-    ref: document.getElementById('product-ref')?.value || '',
-    category: document.getElementById('product-category')?.value || '',
-    cost: parseFloat(document.getElementById('product-cost')?.value.replace(/\./g, '')) || 0,
+    ref: document.getElementById('product-ref')?.value.trim() || '',
+    category: document.getElementById('product-category')?.value.trim() || '',
+    cost: parseFloat(document.getElementById('product-cost')?.value.replace(/\./g, '').replace(/,/g, '')) || 0,
     stock: parseInt(document.getElementById('product-stock')?.value) || 0,
     unit: document.getElementById('product-unit')?.value || 'und',
-    description: document.getElementById('product-description')?.value || '',
+    description: document.getElementById('product-description')?.value.trim() || '',
     active: document.getElementById('product-active')?.checked ?? true,
-    images: currentProductImages,
-    timestamp: Date.now()
+    images: [...currentProductImages]
   };
   
-  if (window.currentEditId) await update(ref(db, `products/${window.currentEditId}`), pData);
-  else await push(ref(db, 'products'), pData);
+  // Corrección 'Editar vs Crear': usar window.currentEditId estrictamente
+  if (window.currentEditId) {
+    // MODO EDICIÓN: actualizar el producto existente en el array local
+    const existingIdx = products.findIndex(x => x.id === window.currentEditId);
+    if (existingIdx !== -1) {
+      pData.timestamp = products[existingIdx].timestamp || Date.now();
+      // Actualizar en el array local usando map para inmutabilidad
+      products = products.map(p =>
+        p.id === window.currentEditId ? { ...p, ...pData, id: window.currentEditId } : p
+      );
+    } else {
+      pData.timestamp = Date.now();
+    }
+    await update(ref(db, `products/${window.currentEditId}`), pData);
+    showToast('Producto actualizado ✅');
+  } else {
+    // MODO CREACIÓN: solo si currentEditId es null/undefined
+    pData.timestamp = Date.now();
+    const newRef = await push(ref(db, 'products'), pData);
+    // Agregar al array local con el ID generado por Firebase
+    products.push({ ...pData, id: newRef.key });
+    showToast('Producto creado ✅');
+  }
+  
+  // Corrección Limpieza de Estado: resetear ID de edición al guardar
+  window.currentEditId = null;
+  currentProductImages = [];
   
   const modal = document.getElementById('modal-product');
   if (modal) modal.style.display = 'none';
-  showToast('Producto guardado');
+  
+  // Refrescar vista administrativa
+  renderAdminProducts();
 });
 
 safeListener('btn-delete-product', 'onclick', () => {
-  if (confirm('¿Eliminar este producto?')) {
-    if (window.currentEditId) {
-      remove(ref(db, `products/${window.currentEditId}`));
-      const modal = document.getElementById('modal-product');
-      if (modal) modal.style.display = 'none';
-    }
+  if (!window.currentEditId) return;
+  if (confirm('¿Eliminar este producto? Esta acción no se puede deshacer.')) {
+    const idToDelete = window.currentEditId;
+    // Corrección: usar deleteProduct para mantener consistencia local + Firebase
+    deleteProduct(idToDelete);
+    // Corrección Limpieza de Estado
+    window.currentEditId = null;
+    currentProductImages = [];
+    const modal = document.getElementById('modal-product');
+    if (modal) modal.style.display = 'none';
+    showToast('Producto eliminado');
   }
 });
+
+safeListener('btn-add-product', 'onclick', () => openProductModal(null));
 
 safeListener('btn-save-settings', 'onclick', async () => {
   const newSettings = {
@@ -660,11 +807,12 @@ safeListener('search-input', 'oninput', () => {
 });
 
 // Registro del Service Worker
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW error:', err));
-  });
-}
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW error:', err));
+    });
+  }
 
-// Iniciar aplicación
-init();
+  // Iniciar aplicación
+  init();
+}); // fin DOMContentLoaded
