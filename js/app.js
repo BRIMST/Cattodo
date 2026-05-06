@@ -879,43 +879,28 @@ document.addEventListener('DOMContentLoaded', () => {
       const waBtn = document.getElementById('btn-whatsapp');
       if (waBtn && settings.whatsapp) {
         const envioTexto = isBogota(customer.dept) ? 'GRATIS' : 'Por Calcular (cotizar con transportadora)';
-        const waMessage =
-          `🛒 *NUEVO PEDIDO - ${settings.storeName}*
-` +
-          `📋 *Pedido:* ${ticketNum}
-` +
-          `📅 *Fecha:* ${new Date().toLocaleString('es-CO')}
-` +
-          `
-👤 *DATOS DEL CLIENTE*
-` +
-          `• Nombre: ${customer.name}
-` +
-          `• Celular: ${customer.phone}
-` +
-          `• Ciudad: ${customer.city} (${customer.dept})
-` +
-          `• Barrio: ${customer.barrio}
-` +
-          `• Dirección: ${customer.address}
-` +
-          (customer.address2 ? `• Detalle: ${customer.address2}
-` : '') +
-          (customer.notes ? `• Nota: ${customer.notes}
-` : '') +
-          `
-🛍️ *PRODUCTOS*
-` +
-          items.map(i => `• ${i.name} x${i.qty} = ${formatMoney(i.price * i.qty)}`).join('
-') +
-          `
-
-🚚 *Envío:* ${envioTexto}` +
-          `
-💰 *TOTAL: ${formatMoney(total)}*` +
-          (settings.paymentInfo ? `
-
-💳 *Pagar a:* ${settings.paymentInfo}` : '');
+        const nl = '\n';
+        const waMessage = [
+          '🛒 *NUEVO PEDIDO - ' + settings.storeName + '*',
+          '📋 *Pedido:* ' + ticketNum,
+          '📅 *Fecha:* ' + new Date().toLocaleString('es-CO'),
+          '',
+          '👤 *DATOS DEL CLIENTE*',
+          '• Nombre: ' + customer.name,
+          '• Celular: ' + customer.phone,
+          '• Ciudad: ' + customer.city + ' (' + customer.dept + ')',
+          '• Barrio: ' + customer.barrio,
+          '• Dirección: ' + customer.address,
+          customer.address2 ? '• Detalle: ' + customer.address2 : null,
+          customer.notes ? '• Nota: ' + customer.notes : null,
+          '',
+          '🛍️ *PRODUCTOS*',
+          ...items.map(i => '• ' + i.name + ' x' + i.qty + ' = ' + formatMoney(i.price * i.qty)),
+          '',
+          '🚚 *Envío:* ' + envioTexto,
+          '💰 *TOTAL: ' + formatMoney(total) + '*',
+          settings.paymentInfo ? ('\n💳 *Pagar a:* ' + settings.paymentInfo) : null
+        ].filter(line => line !== null).join(nl);
 
         const waText = encodeURIComponent(waMessage);
 
