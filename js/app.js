@@ -360,6 +360,7 @@ function renderAdminOrders() {
           <button class="btn-order-confirm" onclick="confirmOrder('${o.id}')">Completar</button>
           <button class="btn-order-cancel" onclick="cancelOrder('${o.id}')">Anular</button>
         ` : `<span style="text-transform:uppercase;font-weight:bold;">${o.status === 'completed' ? 'Completado ✅' : 'Anulado ❌'}</span>`}
+        <button class="btn-order-download" onclick="downloadOrderTicket('${o.id}')">📥 Ticket</button>
       </div>
     </div>
   `).join('');
@@ -482,6 +483,74 @@ window.setViewerIndex = (idx) => { viewerIndex = idx; renderViewer(); };
 window.removeProductImage = (idx) => { currentProductImages.splice(idx, 1); renderProductImagePreview(); };
 window.confirmOrder = (id) => update(ref(db, `orders/${id}`), { status: 'completed' });
 window.cancelOrder = (id) => update(ref(db, `orders/${id}`), { status: 'cancelled' });
+
+window.downloadOrderTicket = async (id) => {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+
+  // Crear ticket temporal en un div oculto
+  const ticketNum = 'AG-' + id.slice(-6).toUpperCase();
+  const isFreeDept = isBogota(o.customer?.dept);
+  const envioTexto = isFreeDept ? 'GRATIS' : 'Por Calcular';
+  const envioColor = isFreeDept ? '#25D366' : '#e67e22';
+
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;width:360px;padding:24px;font-family:monospace;font-size:13px;color:#1a1a1a;';
+  div.innerHTML = `
+    <div style="text-align:center;margin-bottom:12px;">
+      <div style="font-size:1.3rem;font-weight:800;letter-spacing:1px;">${settings.storeName}</div>
+      <div style="font-size:0.75rem;color:#888;margin-top:4px;">${ticketNum} &nbsp;|&nbsp; ${new Date(o.timestamp).toLocaleString('es-CO')}</div>
+    </div>
+    <hr style="border:none;border-top:1px dashed #ccc;margin:10px 0;">
+    <div style="margin-bottom:8px;">
+      <div><b>Cliente:</b> ${o.customer?.name || '—'}</div>
+      <div><b>Celular:</b> ${o.customer?.phone || '—'}</div>
+      <div><b>Ciudad:</b> ${o.customer?.city || '—'} (${o.customer?.dept || '—'})</div>
+      <div><b>Barrio:</b> ${o.customer?.barrio || '—'}</div>
+      <div><b>Dir:</b> ${o.customer?.address || '—'}</div>
+      ${o.customer?.address2 ? `<div><b>Detalle:</b> ${o.customer.address2}</div>` : ''}
+    </div>
+    <hr style="border:none;border-top:1px dashed #ccc;margin:10px 0;">
+    ${(o.items || []).map(i => `
+      <div style="display:flex;justify-content:space-between;">
+        <span>${i.name} x${i.qty}</span>
+        <span>${formatMoney(i.price * i.qty)}</span>
+      </div>`).join('')}
+    <hr style="border:none;border-top:1px dashed #ccc;margin:10px 0;">
+    <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:#555;">
+      <span>🚚 Costo de Envío</span>
+      <span style="font-weight:600;color:${envioColor};">${envioTexto}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1rem;margin-top:8px;">
+      <span>TOTAL</span>
+      <span>${formatMoney(o.total || 0)}</span>
+    </div>
+    ${o.customer?.notes ? `
+    <hr style="border:none;border-top:1px dashed #ccc;margin:10px 0;">
+    <div style="font-size:0.85rem;color:#555;">${o.customer.notes}</div>` : ''}
+    ${settings.paymentInfo ? `
+    <hr style="border:none;border-top:1px dashed #ccc;margin:10px 0;">
+    <div style="text-align:center;font-size:0.8rem;">
+      <div style="font-weight:600;margin-bottom:4px;">PAGA AQUÍ:</div>
+      <div>${settings.paymentInfo}</div>
+    </div>` : ''}
+  `;
+  document.body.appendChild(div);
+
+  try {
+    const canvas = await html2canvas(div, { scale: 2, backgroundColor: '#ffffff', logging: false });
+    const link = document.createElement('a');
+    link.download = `pedido-${ticketNum}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    showToast('Ticket descargado ✅');
+  } catch (err) {
+    showToast('Error al generar ticket');
+    console.error(err);
+  } finally {
+    document.body.removeChild(div);
+  }
+};
 window.copyPaymentInfo = () => {
   if (settings.paymentInfo) {
     navigator.clipboard.writeText(settings.paymentInfo);
@@ -806,15 +875,77 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
       // Logo removido del ticket por diseño
-      // WhatsApp
+      // WhatsApp — mensaje completo con todos los datos
       const waBtn = document.getElementById('btn-whatsapp');
       if (waBtn && settings.whatsapp) {
-        const waText = encodeURIComponent(
-          `*Pedido ${ticketNum}*\nCliente: ${customer.name}\nTotal: ${formatMoney(total)}\n\nProductos:\n` +
-          items.map(i => `- ${i.name} x${i.qty}: ${formatMoney(i.price * i.qty)}`).join('\n') +
-          (isBogota(customer.dept) ? '\n\n🚚 Envío: GRATIS' : '\n\n🚚 Envío: Por Calcular (se cotiza con transportadora)')
-        );
-        waBtn.href = `https://wa.me/${settings.whatsapp}?text=${waText}`;
+        const envioTexto = isBogota(customer.dept) ? 'GRATIS' : 'Por Calcular (cotizar con transportadora)';
+        const waMessage =
+          `🛒 *NUEVO PEDIDO - ${settings.storeName}*
+` +
+          `📋 *Pedido:* ${ticketNum}
+` +
+          `📅 *Fecha:* ${new Date().toLocaleString('es-CO')}
+` +
+          `
+👤 *DATOS DEL CLIENTE*
+` +
+          `• Nombre: ${customer.name}
+` +
+          `• Celular: ${customer.phone}
+` +
+          `• Ciudad: ${customer.city} (${customer.dept})
+` +
+          `• Barrio: ${customer.barrio}
+` +
+          `• Dirección: ${customer.address}
+` +
+          (customer.address2 ? `• Detalle: ${customer.address2}
+` : '') +
+          (customer.notes ? `• Nota: ${customer.notes}
+` : '') +
+          `
+🛍️ *PRODUCTOS*
+` +
+          items.map(i => `• ${i.name} x${i.qty} = ${formatMoney(i.price * i.qty)}`).join('
+') +
+          `
+
+🚚 *Envío:* ${envioTexto}` +
+          `
+💰 *TOTAL: ${formatMoney(total)}*` +
+          (settings.paymentInfo ? `
+
+💳 *Pagar a:* ${settings.paymentInfo}` : '');
+
+        const waText = encodeURIComponent(waMessage);
+
+        // Al hacer clic: descargar ticket como imagen Y abrir WhatsApp
+        waBtn.onclick = async (e) => {
+          e.preventDefault();
+          const ticketCard = document.getElementById('ticket-card');
+          if (ticketCard && typeof html2canvas !== 'undefined') {
+            try {
+              const actions = document.querySelector('.ticket-actions');
+              if (actions) actions.style.visibility = 'hidden';
+              const canvas = await html2canvas(ticketCard, {
+                scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false
+              });
+              if (actions) actions.style.visibility = '';
+              const link = document.createElement('a');
+              link.download = `pedido-${ticketNum}.png`;
+              link.href = canvas.toDataURL('image/png');
+              link.click();
+              showToast('Ticket guardado 📥 Abriendo WhatsApp...');
+              setTimeout(() => {
+                window.open(`https://wa.me/${settings.whatsapp}?text=${waText}`, '_blank');
+              }, 800);
+            } catch (err) {
+              window.open(`https://wa.me/${settings.whatsapp}?text=${waText}`, '_blank');
+            }
+          } else {
+            window.open(`https://wa.me/${settings.whatsapp}?text=${waText}`, '_blank');
+          }
+        };
         waBtn.style.display = 'flex';
       } else if (waBtn) {
         waBtn.style.display = 'none';
