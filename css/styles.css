@@ -579,6 +579,13 @@ body {
 .btn-order-action {
   flex: 1; padding: 0.5rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer;
 }
+.btn-order-download {
+  background: #1a73e8; color: white; border: none; padding: 0.4rem 0.8rem;
+  border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  margin-top: 0.4rem; width: 100%;
+}
+.btn-order-download:active { background: #1557b0; }
+
 .btn-order-confirm { background: var(--success); color: white; }
 .btn-order-cancel { background: var(--surface); color: var(--danger); border: 1px solid var(--danger); }
 
