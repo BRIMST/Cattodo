@@ -786,9 +786,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       // Envío en ticket — siempre visible
       const isFreeDept = isBogota(customer.dept);
-      safeText('ticket-shipping-cost', isFreeDept ? '✅ GRATIS' : 'Por Calcular');
+      // Etiqueta del envío
+      safeText('ticket-shipping-label', isFreeDept ? '🚚 Costo de Envío' : '🚚 Costo de Envío');
+      safeText('ticket-shipping-cost', isFreeDept ? 'GRATIS' : 'Por Calcular');
       const shippingCostEl = document.getElementById('ticket-shipping-cost');
-      if (shippingCostEl) shippingCostEl.style.color = isFreeDept ? '#25D366' : '#f59e0b';
+      if (shippingCostEl) shippingCostEl.style.color = isFreeDept ? '#25D366' : '#e67e22';
       safeText('ticket-total', formatMoney(total));
       const notesEl = document.getElementById('ticket-notes-wrapper');
       if (notesEl && customer.notes) {
