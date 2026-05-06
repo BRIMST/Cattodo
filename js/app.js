@@ -178,6 +178,8 @@ function renderProducts() {
     container.style.display = 'none'; emptyState.style.display = 'flex'; return;
   }
   container.style.display = 'grid'; emptyState.style.display = 'none';
+  const countEl = document.getElementById('products-count');
+  if (countEl) countEl.textContent = filtered.length + ' artículo' + (filtered.length !== 1 ? 's' : '');
   container.innerHTML = '';
   let currentIndex = 0;
   const batchSize = 10;
@@ -220,7 +222,7 @@ function getProductHTML(p) {
             <button class="btn-qty" onclick="updateCart('${p.id}', -1)">-</button>
             <span class="qty-display">${cart[p.id]}</span>
             <button class="btn-qty" onclick="updateCart('${p.id}', 1)">+</button>
-          ` : `<button class="btn-add" onclick="updateCart('${p.id}', 1)">Agregar</button>`}
+          ` : `<button class="btn-add" onclick="updateCart('${p.id}', 1)">🛒 Lo quiero</button>`}
         </div>
       </div>
     </div>
