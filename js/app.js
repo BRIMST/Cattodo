@@ -1014,11 +1014,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ====== SERVICE WORKER ======
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(registrations => {
-      registrations.forEach(r => r.unregister());
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => {
+        // Cada vez que hay un nuevo SW esperando → recargar automático
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // Hay versión nueva lista → recargar sin avisar
+              window.location.reload();
+            }
+          });
+        });
+      })
+      .catch(err => console.log('SW error:', err));
+
+    // Si el SW toma control (tras activarse) → recargar página
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
     });
-    caches.keys().then(keys => keys.forEach(key => caches.delete(key)));
   }
+
+  // ====== AUTO UPDATE CHECK ======
+  // Verifica version.json cada vez que el usuario abre la app
+  // Si la versión cambió → recarga silenciosa
+  const APP_VERSION_KEY = 'app_version';
+  const checkForUpdate = async () => {
+    try {
+      const res = await fetch('./version.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const savedVersion = localStorage.getItem(APP_VERSION_KEY);
+      if (savedVersion && savedVersion !== data.version) {
+        // Version changed — clear caches and reload
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        localStorage.setItem(APP_VERSION_KEY, data.version);
+        window.location.reload(true);
+        return;
+      }
+      localStorage.setItem(APP_VERSION_KEY, data.version);
+    } catch (e) {
+      // Sin conexión o sin version.json — no hacer nada
+    }
+  };
+  checkForUpdate();
 
   // ====== START ======
   init();
