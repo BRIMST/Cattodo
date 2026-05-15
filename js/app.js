@@ -160,21 +160,40 @@ function init() {
 
 function applySettings() {
   document.documentElement.style.setProperty('--primary', settings.color);
+
   const hex = (settings.color || '#6c63ff').replace('#', '');
-  const r = parseInt(hex.substring(0, 2), 16), g = parseInt(hex.substring(2, 4), 16), b = parseInt(hex.substring(4, 6), 16);
+  const r = parseInt(hex.substring(0, 2), 16),
+        g = parseInt(hex.substring(2, 4), 16),
+        b = parseInt(hex.substring(4, 6), 16);
+
   document.documentElement.style.setProperty('--primary-rgb', `${r}, ${g}, ${b}`);
+
   safeText('header-store-name', settings.storeName);
   safeText('header-store-tagline', settings.tagline);
+
   const logoHTML = settings.logo
     ? `<img src="${settings.logo}" alt="Logo ${settings.storeName || 'Panda Venta'}" style="width:100%;height:100%;object-fit:contain;" />`
     : `<span class="logo-emoji">🛒</span>`;
+
   safeHTML('header-logo-area', logoHTML);
-  const waBtn = document.getElementById('floating-wa-btn');
+
+  // ✅ FIX WHATSAPP BUTTON
+  const waBtn = document.getElementById('global-wa-btn');
+
   if (waBtn) {
-    if (settings.whatsapp) {
+    const phone = String(settings.whatsapp || '').replace(/\D/g, '');
+
+    if (phone.length >= 10) {
+      const message = encodeURIComponent('Hola, tengo una pregunta');
+
       waBtn.style.display = 'flex';
-      waBtn.href = `https://wa.me/${settings.whatsapp}?text=Hola,%20tengo%20una%20pregunta.`;
-    } else waBtn.style.display = 'none';
+      waBtn.href = `https://wa.me/${phone}?text=${message}`;
+    } else {
+      waBtn.style.display = 'none';
+      console.warn('Número de WhatsApp inválido:', settings.whatsapp);
+    }
+  } else {
+    console.warn('⚠️ No se encontró el botón de WhatsApp');
   }
 }
 
