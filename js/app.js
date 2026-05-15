@@ -1989,6 +1989,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error(err);
     }
   });
-
+window.addEventListener('load', applySettings);
 }); // fin DOMContentLoaded
 
