@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Compra online en Panda Venta. Productos con envío a toda Colombia y envío gratis en Bogotá. Haz tu pedido fácil por WhatsApp." />
+  <title>Panda Venta | Tienda Online con Envío a toda Colombia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <meta name="theme-color" content="#0047AB">
+  <link rel="apple-touch-icon" href="favicon.ico">
+  <!-- SEO: Canonical URL para evitar contenido duplicado entre dominios -->
+  <link rel="canonical" href="https://pandaventa.com/" />
+  <!-- SEO: Open Graph básico -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Panda Venta | Tienda Online con Envío a toda Colombia" />
+  <meta property="og:description" content="Compra online en Panda Venta. Productos con envío a toda Colombia y envío gratis en Bogotá. Haz tu pedido fácil por WhatsApp." />
+  <meta property="og:url" content="https://pandaventa.com/" />
+  <!-- SEO: og:image para previews en WhatsApp, Facebook, etc. -->
+  <meta property="og:image" content="https://pandaventa.com/og-banner.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Panda Venta - Variedad, Calidad y Buen Precio" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Panda Venta | Tienda Online con Envío a toda Colombia" />
+  <meta name="twitter:description" content="Compra online en Panda Venta. Productos con envío a toda Colombia y envío gratis en Bogotá." />
+  <meta name="twitter:image" content="https://pandaventa.com/og-banner.png" />
+  <!-- SEO: Schema.org - LocalBusiness + WebSite -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "LocalBusiness",
+        "@id": "https://pandaventa.com/#business",
+        "name": "Panda Venta",
+        "description": "Tienda online con envío a toda Colombia y envío gratis en Bogotá. Pedidos fáciles por WhatsApp.",
+        "url": "https://pandaventa.com/",
+        "telephone": "",
+        "image": "https://pandaventa.com/og-banner.png",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Bogotá",
+          "addressRegion": "Cundinamarca",
+          "addressCountry": "CO"
+        },
+        "areaServed": {
+          "@type": "Country",
+          "name": "Colombia"
+        },
+        "priceRange": "$$",
+        "currenciesAccepted": "COP",
+        "paymentAccepted": "Transferencia bancaria, Nequi, PSE",
+        "openingHours": "Mo-Su 00:00-23:59"
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://pandaventa.com/#website",
+        "url": "https://pandaventa.com/",
+        "name": "Panda Venta",
+        "description": "Tienda online con envío a toda Colombia",
+        "publisher": {
+          "@id": "https://pandaventa.com/#business"
+        }
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  VISTA: CATÁLOGO (pantalla principal del cliente)      -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="view-catalog" class="view active">
+
+    <!-- Header -->
+    <header class="catalog-header">
+      <div class="header-inner">
+        <div class="store-brand">
+          <div class="store-logo" id="header-logo-area">
+            <span class="logo-emoji" id="header-logo-emoji">🛒</span>
+          </div>
+          <div class="store-info">
+            <h1 class="store-name" id="header-store-name">TODO EN UNO</h1>
+            <p class="store-tagline" id="header-store-tagline">Catálogo Digital</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="btn-admin-access" id="btn-open-admin" title="Administrar" style="display:none;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M6 20v-2a6 6 0 0 1 12 0v2" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Trust bar -->
+    <div class="trust-bar">
+      <div class="trust-bar-inner">
+        <span>⭐ <b>+10,000</b> clientes satisfechos</span>
+        <span>🛡️ Compra <b>100% segura</b></span>
+        <span>🚛 Envíos <b>a todo el país</b></span>
+      </div>
+    </div>
+
+    <!-- Hero banner -->
+    <div class="hero-banner" id="hero-banner">
+      <div class="hero-inner">
+        <div class="hero-tag">🔥 Productos en tendencia</div>
+        <h2 class="hero-title">Lo que buscas,<br>al mejor precio</h2>
+        <p class="hero-sub">Compra fácil y rápido — pedidos por WhatsApp</p>
+        <a class="hero-cta" href="#catalog-toolbar" onclick="document.getElementById('search-input').scrollIntoView({behavior:'smooth'});event.preventDefault()">
+          Ver productos
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+      </div>
+    </div>
+
+    <!-- Descuentos section -->
+    <div id="discount-section" style="display:none; background:var(--surface); border-bottom:1px solid var(--border);">
+      <div style="max-width:var(--max-catalog); margin:0 auto; padding:1rem var(--px) 0;">
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
+          <span style="font-size:1.1rem;">🔥</span>
+          <h2 style="font-size:0.95rem; font-weight:800; color:var(--text-main);">En Descuento</h2>
+          <span style="background:#EF4444;color:#fff;font-size:0.62rem;font-weight:800;padding:0.15rem 0.5rem;border-radius:10px;">OFERTA</span>
+        </div>
+      </div>
+      <div style="max-width:var(--max-catalog); margin:0 auto; padding:0 var(--px) 1rem; overflow-x:auto;">
+        <div id="discount-grid" style="display:flex; gap:0.75rem; width:max-content; padding-bottom:0.25rem;"></div>
+      </div>
+    </div>
+
+
+
+    <!-- Search & Filter bar -->
+    <div class="catalog-toolbar" id="catalog-toolbar">
+      <div class="search-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input type="text" id="search-input" placeholder="Buscar producto…" autocomplete="off" />
+      </div>
+      <div class="category-filters" id="category-filters">
+        <!-- Generated by JS -->
+      </div>
+    </div>
+
+    <!-- Product grid -->
+    <main class="catalog-main">
+      <!-- Campaign / Seasonal Section -->
+      <section id="campaign-section" style="display:none; margin-bottom: 2rem;">
+        <div class="catalog-section-header">
+          <h2 class="campaign-title-special" id="campaign-title">Destacados</h2>
+        </div>
+        <div class="carousel-horizontal" id="campaign-carousel" style="padding-top:0.5rem;">
+          <!-- Generado por JS -->
+        </div>
+      </section>
+
+      <div class="catalog-section-header">
+        <h2 class="catalog-section-title">Todos los productos</h2>
+        <span class="catalog-section-count" id="products-count"></span>
+      </div>
+      <div class="products-grid" id="products-grid">
+        <!-- Skeleton Loading -->
+        <div class="product-card skeleton skeleton-card"></div>
+        <div class="product-card skeleton skeleton-card"></div>
+        <div class="product-card skeleton skeleton-card"></div>
+        <div class="product-card skeleton skeleton-card"></div>
+        <div class="product-card skeleton skeleton-card"></div>
+        <div class="product-card skeleton skeleton-card"></div>
+      </div>
+      <!-- SEO: Contenido estático para crawlers que no ejecutan JS -->
+      <noscript>
+        <p style="padding:1rem;text-align:center;">
+          Para ver nuestro catálogo completo de productos con envíos a todo Colombia, 
+          activa JavaScript en tu navegador o visítanos por WhatsApp.
+        </p>
+      </noscript>
+      <!-- SEO: Párrafo indexable con keywords locales - visible solo para crawlers -->
+      <p id="seo-text" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;">
+        Panda Venta es tu tienda online en Bogotá, Colombia. Compra por WhatsApp con envío a domicilio 
+        a todo el país: Medellín, Cali, Barranquilla, Cartagena, Bucaramanga y más ciudades. 
+        Encuentra tecnología, ropa, accesorios, hogar y más productos al mejor precio. 
+        Envío gratis en Bogotá. Pago por Nequi, transferencia bancaria y PSE.
+      </p>
+      <div class="empty-state" id="empty-state" style="display:none">
+        <span>🍃</span>
+        <p>No hay productos disponibles</p>
+      </div>
+    </main>
+
+    <!-- Floating cart bar -->
+    <div class="cart-bar" id="cart-bar" style="display:none">
+      <div class="cart-bar-inner">
+        <div class="cart-summary">
+          <span class="cart-count" id="cart-count">0</span>
+          <span class="cart-label">artículos</span>
+        </div>
+        <div class="cart-total" id="cart-total-bar">COP 0</div>
+        <button class="btn-view-order" id="btn-view-order">
+          Ver pedido →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  VISTA: PEDIDO (resumen + nombre del cliente)          -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="view-order" class="view" data-noindex="true">
+    <div class="page-wrapper">
+      <header class="page-header">
+        <button class="btn-back" id="btn-back-catalog">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Catálogo
+        </button>
+        <h2>Tu pedido</h2>
+        <div></div>
+      </header>
+
+      <div class="order-content">
+        <!-- Order items list -->
+        <div class="order-items-card">
+          <div class="order-items-list" id="order-items-list">
+            <!-- Generated by JS -->
+          </div>
+          <div class="order-divider"></div>
+          <div class="order-total-row">
+            <span>Total</span>
+            <span class="order-total-amount" id="order-total-amount">COP 0</span>
+          </div>
+        </div>
+
+        <!-- Customer name -->
+        <div class="customer-card">
+          <label class="field-label" for="customer-name">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M6 20v-2a6 6 0 0 1 12 0v2" />
+            </svg>
+            Nombre completo *
+          </label>
+          <input type="text" id="customer-name" class="field-input" placeholder="¿Cómo te llamas?"
+            autocomplete="given-name" maxlength="60" />
+        </div>
+
+        <!-- Shipping Details -->
+        <div class="customer-card">
+          <h4>Datos de Envío</h4>
+
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label" for="customer-dept">Departamento *</label>
+              <select id="customer-dept" class="field-input">
+                <option value="">Selecciona...</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="customer-city">Ciudad / Municipio *</label>
+              <select id="customer-city" class="field-input" disabled>
+                <option value="">Selecciona dep...</option>
+              </select>
+            </div>
+          </div>
+
+          <label class="field-label" for="customer-barrio">Barrio *</label>
+          <input type="text" id="customer-barrio" class="field-input" placeholder="Ej: El Poblado" maxlength="60">
+
+          <label class="field-label" for="customer-address">Dirección *</label>
+          <input type="text" id="customer-address" class="field-input" placeholder="Ej: Calle 10 # 43E - 20"
+            maxlength="100">
+
+          <label class="field-label" for="customer-address2">Apto / Casa / Torre (Opcional)</label>
+          <input type="text" id="customer-address2" class="field-input" placeholder="Ej: Torre 2, Apto 501"
+            maxlength="60">
+
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label" for="customer-phone">Celular *</label>
+              <input type="tel" id="customer-phone" class="field-input" placeholder="Ej: 3001234567" maxlength="10"
+                oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="customer-zip">Cód. Postal (Opcional)</label>
+              <input type="text" id="customer-zip" class="field-input" placeholder="Ej: 050021" maxlength="6">
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes (optional) -->
+        <div class="customer-card">
+          <label class="field-label" for="customer-notes">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+            Nota (opcional)
+          </label>
+          <textarea id="customer-notes" class="field-input field-textarea" placeholder="¿Alguna indicación especial?"
+            maxlength="200"></textarea>
+        </div>
+
+        <!-- Costo de envío -->
+        <div class="customer-card" id="shipping-cost-card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="field-label" style="margin:0; font-size:1rem;">🚚 Costo de envío</span>
+            <span id="shipping-cost-display" style="font-size:1.1rem; font-weight:700; color:var(--primary);">—</span>
+          </div>
+          <div id="shipping-free-msg" style="display:none; color:#25D366; font-size:0.85rem; margin-top:0.25rem;">✅ ¡Envío gratis para Bogotá!</div>
+        </div>
+
+        <button class="btn-generate-ticket" id="btn-generate-ticket">
+          Generar ticket
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 12v10H4V12" />
+            <rect x="2" y="7" width="20" height="5" rx="1" />
+            <path d="M12 22V7" />
+            <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+            <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  VISTA: TICKET (comprobante del pedido)               -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="view-ticket" class="view">
+    <div class="page-wrapper">
+      <header class="page-header">
+        <button class="btn-back" id="btn-back-order">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Pedido
+        </button>
+        <h2>Ticket</h2>
+        <div></div>
+      </header>
+
+      <div class="ticket-wrapper">
+        <div class="ticket" id="ticket-card">
+          <!-- Ticket header -->
+          <div class="ticket-header">
+            <div class="ticket-store-name" id="ticket-store-name">Mi Tienda</div>
+            <div class="ticket-meta">
+              <div class="ticket-number" id="ticket-number">AG-000000</div>
+              <div class="ticket-date" id="ticket-date">—</div>
+            </div>
+          </div>
+
+          <div class="ticket-divider dashed"></div>
+
+          <!-- Customer -->
+          <div class="ticket-customer">
+            <div style="margin-bottom:0.25rem"><span class="ticket-label">Cliente:</span> <span
+                id="ticket-customer-name">—</span></div>
+            <div style="margin-bottom:0.25rem"><span class="ticket-label">Celular:</span> <span
+                id="ticket-customer-phone">—</span></div>
+            <div style="margin-bottom:0.25rem"><span class="ticket-label">Ciudad:</span> <span
+                id="ticket-customer-city">—</span> (<span id="ticket-customer-dept">—</span>)</div>
+            <div style="margin-bottom:0.25rem"><span class="ticket-label">Barrio:</span> <span
+                id="ticket-customer-barrio">—</span></div>
+            <div style="margin-bottom:0.25rem"><span class="ticket-label">Dir:</span> <span
+                id="ticket-customer-address">—</span></div>
+            <div id="ticket-address2-wrapper" style="margin-bottom:0.25rem; display:none;"><span
+                class="ticket-label">Detalle:</span> <span id="ticket-customer-address2">—</span></div>
+            <div id="ticket-zip-wrapper" style="display:none;"><span class="ticket-label">C.P.:</span> <span
+                id="ticket-customer-zip">—</span></div>
+          </div>
+
+          <div class="ticket-divider dashed"></div>
+
+          <!-- Items -->
+          <div class="ticket-items" id="ticket-items">
+            <!-- Generated by JS -->
+          </div>
+
+          <div class="ticket-divider solid"></div>
+
+          <!-- Total & Shipping -->
+          <div class="ticket-item" id="ticket-shipping-row" style="font-size:0.9rem; color:#555;">
+            <span id="ticket-shipping-label">🚚 Costo de Envío</span>
+            <span id="ticket-shipping-cost" style="font-weight:600;">—</span>
+          </div>
+
+          <div class="ticket-total-row">
+            <span>TOTAL</span>
+            <span id="ticket-total">COP 0</span>
+          </div>
+
+          <!-- Notes -->
+          <div class="ticket-notes" id="ticket-notes-wrapper" style="display:none">
+            <div class="ticket-divider dashed"></div>
+            <div class="ticket-note-text" id="ticket-note-text"></div>
+          </div>
+
+          <!-- Payment Info -->
+          <div id="ticket-payment-wrapper" style="display:none; margin-top: 1rem; border-top: 1px dashed #000; padding-top: 1rem;">
+            <div style="font-weight: bold; text-align: center; margin-bottom: 0.5rem; font-size: 0.9rem;">PAGA AQUÍ:</div>
+            <div id="ticket-qr-wrapper" style="display:none; text-align: center; margin-bottom: 1rem;">
+              <img id="ticket-qr-img" src="" style="max-width: 150px; border: 1px solid #eee; padding: 5px; border-radius: 8px;" />
+            </div>
+            <div id="ticket-payment-text" style="text-align: center; font-size: 0.85rem; line-height: 1.4; margin-bottom: 0.75rem;"></div>
+            <button onclick="copyPaymentInfo()" style="width: 100%; padding: 0.6rem; background: #f0f2f5; border: 1px solid #ddd; border-radius: 8px; font-size: 0.8rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+               Copiar datos de pago
+            </button>
+          </div>
+
+          <!-- Perforated edge -->
+          <div class="ticket-perforation"></div>
+        </div>
+
+        <!-- Actions -->
+        <div class="ticket-actions">
+          <button class="btn-whatsapp" id="btn-whatsapp">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z" />
+            </svg>
+            Enviar por WhatsApp
+          </button>
+
+          <button class="btn-share-ticket" id="btn-share-ticket" style="display:none; background: #1a73e8; color: #fff; border: none; padding: 0.9rem; border-radius: var(--r-md); font-weight: 700; font-size: 1rem; justify-content: center; align-items: center; gap: 0.5rem; cursor: pointer; width: 100%;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="18" cy="5" r="3"/>
+              <circle cx="6" cy="12" r="3"/>
+              <circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+            Compartir ticket
+          </button>
+
+          <button class="btn-new-order" id="btn-new-order">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="1 4 1 10 7 10" />
+              <path d="M3.51 15a9 9 0 1 0 .49-3.32" />
+            </svg>
+            Nuevo pedido
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  PANEL: ADMINISTRACIÓN                                 -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="panel-admin" class="admin-panel" style="display:none">
+    <div class="admin-overlay" id="admin-overlay"></div>
+    <div class="admin-drawer">
+
+      <div class="admin-header">
+        <h2>Administración</h2>
+        <button class="btn-close-admin" id="btn-close-admin">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Admin tabs -->
+      <div class="admin-tabs">
+        <button class="admin-tab active" data-tab="products">Productos</button>
+        <button class="admin-tab" data-tab="orders">Pedidos</button>
+        <button class="admin-tab" data-tab="reports">Reportes</button>
+        <button class="admin-tab" data-tab="settings">Tienda</button>
+      </div>
+
+      <!-- TAB: Products -->
+      <div class="admin-tab-content active" id="tab-products">
+        <div class="admin-actions-bar">
+          <div class="search-box admin-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" id="admin-search-input" placeholder="Buscar nombre o ref…" autocomplete="off" />
+          </div>
+          <button class="btn-add-product" id="btn-add-product">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Agregar producto
+          </button>
+        </div>
+
+        <div class="admin-products-list" id="admin-products-list">
+          <!-- Generated by JS -->
+        </div>
+      </div>
+
+      <!-- TAB: Orders -->
+      <div class="admin-tab-content" id="tab-orders">
+        <!-- Botón para registrar venta externa -->
+        <button class="btn-external-sale" id="btn-add-external-sale">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Registrar venta externa (ML / Otro)
+        </button>
+        <div id="admin-orders-list">
+          <!-- Generated by JS -->
+        </div>
+      </div>
+
+      <!-- TAB: Reports -->
+      <div class="admin-tab-content" id="tab-reports">
+
+        <!-- Header con selector de período -->
+        <div class="reports-header">
+          <h3 style="margin:0">📊 Dashboard</h3>
+          <select id="report-timeframe" class="field-input" style="width:auto;padding:0.4rem;margin:0">
+            <option value="day">Hoy</option>
+            <option value="week">Esta Semana</option>
+            <option value="month" selected>Este Mes</option>
+            <option value="semester">Este Semestre</option>
+            <option value="all">Todo el tiempo</option>
+          </select>
+        </div>
+
+        <!-- Alerta stock bajo (se muestra dinámicamente) -->
+        <div id="report-low-stock-alert" style="display:none"></div>
+
+        <!-- KPIs financieros 4 tarjetas -->
+        <div class="fin-summary-grid">
+          <div class="fin-card">
+            <div class="fin-label">💰 Ingresos</div>
+            <div class="fin-value success" id="report-revenue-total">COP 0</div>
+            <div style="font-size:0.62rem;color:var(--text-muted);margin-top:0.2rem">pedidos completados</div>
+          </div>
+          <div class="fin-card">
+            <div class="fin-label">✅ Ganancia neta</div>
+            <div class="fin-value success" id="report-profit-total">COP 0</div>
+            <div style="font-size:0.62rem;color:var(--text-muted);margin-top:0.2rem">ingreso − costo</div>
+          </div>
+          <div class="fin-card">
+            <div class="fin-label">⏳ En proceso</div>
+            <div class="fin-value warning" id="report-revenue-pending">COP 0</div>
+            <div style="font-size:0.62rem;color:var(--text-muted);margin-top:0.2rem">pedidos pendientes</div>
+          </div>
+          <div class="fin-card">
+            <div class="fin-label">📦 Órdenes</div>
+            <div class="fin-value" id="report-orders-count" style="color:var(--primary)">0</div>
+            <div style="font-size:0.62rem;color:var(--text-muted);margin-top:0.2rem" id="report-conversion-rate">— conversión</div>
+          </div>
+        </div>
+
+        <!-- Barras de canal -->
+        <div class="report-section">
+          <h4 class="report-title" style="color:var(--primary)">📡 Ventas por canal</h4>
+          <div id="report-channel-bars" class="channel-bars">
+            <div style="color:var(--text-muted);font-size:0.82rem;padding:0.5rem 0">Sin datos aún</div>
+          </div>
+        </div>
+
+        <!-- Resumen de pedidos por estado -->
+        <div class="report-section">
+          <h4 class="report-title" style="color:var(--text-main)">🗂️ Estado de pedidos</h4>
+          <div id="report-status-summary" style="display:flex;gap:0.5rem;flex-wrap:wrap"></div>
+        </div>
+
+        <!-- Más vendidos -->
+        <details class="report-section">
+          <summary class="report-title success" style="cursor: pointer; outline: none;">🔥 Más vendidos</summary>
+          <div id="report-most-sold" class="report-list" style="margin-top: 0.5rem;"></div>
+        </details>
+
+        <!-- Más cancelados -->
+        <details class="report-section">
+          <summary class="report-title danger" style="cursor: pointer; outline: none;">❌ Más cancelados</summary>
+          <div id="report-most-cancelled" class="report-list" style="margin-top: 0.5rem;"></div>
+        </details>
+
+        <!-- Sin ventas -->
+        <details class="report-section">
+          <summary class="report-title warning" style="cursor: pointer; outline: none;">⚠️ Sin ventas</summary>
+          <div id="report-no-sales" class="report-list" style="margin-top: 0.5rem;"></div>
+        </details>
+      </div>
+
+
+      <!-- TAB: Settings -->
+      <div class="admin-tab-content" id="tab-settings">
+        <div class="settings-form">
+          <div class="settings-group">
+            <label class="settings-label">Nombre de la tienda</label>
+            <input type="text" id="settings-store-name" class="settings-input" placeholder="Mi Tienda" maxlength="60" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Eslogan / descripción corta</label>
+            <input type="text" id="settings-tagline" class="settings-input" placeholder="Pedidos por WhatsApp"
+              maxlength="80" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Número de WhatsApp Business</label>
+            <input type="tel" id="settings-whatsapp" class="settings-input" placeholder="573001234567" maxlength="20" />
+            <small class="settings-hint">Código de país sin + (ej: 573001234567)</small>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Color principal</label>
+            <div class="color-picker-row">
+              <input type="color" id="settings-color" class="settings-color" value="#6c63ff" />
+              <span id="settings-color-preview" class="color-label">#6c63ff</span>
+            </div>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Logo de la tienda (opcional)</label>
+            <div class="image-upload-area" id="logo-upload-area">
+              <img id="settings-logo-preview" src="" alt="" style="display:none" />
+              <div class="upload-placeholder" id="logo-upload-placeholder">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="3" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                <span>Toca para subir imagen</span>
+              </div>
+              <input type="file" id="logo-file-input" accept="image/*" style="display:none" />
+            </div>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Moneda</label>
+            <select id="settings-currency" class="settings-input">
+              <option value="COP">COP (Peso colombiano)</option>
+              <option value="S/">S/ (Sol peruano)</option>
+              <option value="$">$ (Dólar)</option>
+              <option value="Q">Q (Quetzal guatemalteco)</option>
+              <option value="Bs">Bs (Bolívar / Boliviano)</option>
+              <option value="₡">₡ (Colón costarricense)</option>
+              <option value="L">L (Lempira hondureño)</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Información de Pago (Banco, Cuenta, etc.)</label>
+            <textarea id="settings-payment-info" class="settings-input" style="min-height: 80px; resize: vertical; padding: 10px;" placeholder="Ej: Bancolombia Ahorros #123-456-789 a nombre de Juan Pérez" maxlength="200"></textarea>
+            <small class="settings-hint">Esta información aparecerá en el resumen y en el ticket del cliente.</small>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">QR de Pago (NuBank, Nequi, etc.)</label>
+            <div class="image-upload-area" id="qr-upload-area" style="height: 150px;">
+              <img id="settings-qr-preview" src="" alt="" style="display:none; max-height: 100%; object-fit: contain;" />
+              <div class="upload-placeholder" id="qr-upload-placeholder">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                  <rect x="7" y="7" width="3" height="3"/><rect x="14" y="7" width="3" height="3"/><rect x="7" y="14" width="3" height="3"/><rect x="14" y="14" width="3" height="3"/>
+                </svg>
+                <span>Sube tu QR de pago</span>
+              </div>
+              <input type="file" id="qr-file-input" accept="image/*" style="display:none" />
+            </div>
+            <small class="settings-hint">Los clientes podrán escanear este QR para pagarte más rápido.</small>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Costo de envío (otras ciudades)</label>
+            <input type="number" id="settings-shipping-cost" class="settings-input" placeholder="Ej: 10000" min="0" />
+            <small class="settings-hint">El envío a Bogotá D.C. siempre es <strong>GRATIS</strong>. Este valor aplica para todas las demás ciudades. Deja en 0 para envío gratis en todas partes.</small>
+          </div>
+
+          <div class="settings-group">
+            <label class="settings-label">Contraseña de administrador</label>
+            <input type="password" id="settings-admin-password" class="settings-input" placeholder="••••••"
+              maxlength="30" />
+            <small class="settings-hint">Deja en blanco para sin contraseña</small>
+          </div>
+
+          <!-- CONFIGURACIÓN DE CAMPAÑA -->
+          <div class="settings-form" style="margin-top:2rem; border-top:1px solid var(--border); padding-top:1.5rem;">
+            <h4 style="margin-bottom:1rem;color:var(--text-main)">🎯 Campaña Activa (Seasonal)</h4>
+            <div class="settings-group">
+              <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;font-weight:600;cursor:pointer;">
+                <input type="checkbox" id="settings-camp-enabled"> Activar sección destacada
+              </label>
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Título de la sección</label>
+              <input type="text" id="settings-camp-title" class="settings-input" placeholder="Ej: 🎁 Especial Día de la Madre" />
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Tag a filtrar (debe coincidir con tags del producto)</label>
+              <input type="text" id="settings-camp-tag" class="settings-input" placeholder="Ej: madre" />
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Texto del Badge (Etiqueta sobre la foto)</label>
+              <input type="text" id="settings-camp-badge" class="settings-input" placeholder="Ej: Regalo Perfecto" />
+            </div>
+          </div>
+          <button class="btn-save-settings" id="btn-save-settings">
+            Guardar configuración
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  MODAL: AGREGAR / EDITAR PRODUCTO                      -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="modal-product" class="modal-overlay" style="display:none">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-product-title">Nuevo producto</h3>
+        <button class="btn-close-modal" id="btn-close-product-modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Product images -->
+        <div class="field-group">
+          <label class="field-label">Fotos del producto (Máx 5)</label>
+          <div class="multi-image-preview-list" id="product-images-list">
+            <!-- Upload trigger -->
+            <div class="product-image-upload" id="btn-trigger-upload" style="margin:0; width:80px; height:80px;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <input type="file" id="product-file-input" accept="image/*" multiple style="display:none" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Fields -->
+        <div class="modal-fields">
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label">Nombre *</label>
+              <input type="text" id="product-name" class="field-input" placeholder="Ej: Mango Tommy" maxlength="80" />
+            </div>
+            <div class="field-group">
+              <label class="field-label">Referencia</label>
+              <input type="text" id="product-ref" class="field-input" placeholder="Ej: REF-001" maxlength="30" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label">Categoría</label>
+              <input type="text" id="product-category" class="field-input" placeholder="Ej: Frutas, Verduras…"
+                maxlength="40" list="categories-datalist" />
+              <datalist id="categories-datalist"></datalist>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Tags 💡 (Campañas)</label>
+              <input type="text" id="product-tags" class="field-input" placeholder="Ej: madre, navidad..." />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label">Precio de venta *</label>
+              <input type="text" id="product-price" class="field-input" placeholder="Ej: 50.000" inputmode="numeric">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Precio antes 🏷️ <span style="font-size:0.65rem;color:var(--text-muted);font-weight:500;">(Opc. descuento)</span></label>
+              <input type="text" id="product-original-price" class="field-input" placeholder="Ej: 70.000" inputmode="numeric">
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label" title="Lo que te costó comprarlo.">Costo (Utilidad) (Opc.)</label>
+              <input type="text" id="product-cost" class="field-input" placeholder="Ej: 30.000" inputmode="numeric">
+            </div>
+            <div class="field-group"></div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Tipo de producto</label>
+            <div class="product-type-selector">
+              <label class="type-option">
+                <input type="radio" name="product-type" value="simple" checked onchange="toggleProductTypeFields()">
+                <span>Sin variantes</span>
+              </label>
+              <label class="type-option">
+                <input type="radio" name="product-type" value="variants" onchange="toggleProductTypeFields()">
+                <span>Con variantes de color</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Stock field (shown only for Simple) -->
+          <div class="field-group" id="group-stock-simple">
+            <label class="field-label">Stock / Existencias</label>
+            <input type="number" id="product-stock" class="field-input" placeholder="Ej: 10" min="0" step="1" />
+          </div>
+
+          <!-- Variants field (shown only for Variants) -->
+          <div class="field-group" id="group-product-variants" style="display:none">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+              <label class="field-label" style="margin:0">Variantes de Color</label>
+              <button type="button" class="btn-add-variant" onclick="addVariantRow()">+ Agregar color</button>
+            </div>
+            <div id="variants-list" class="variants-list">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Unidad</label>
+            <select id="product-unit" class="field-input">
+              <option value="und">und</option>
+              <option value="kg">kg</option>
+              <option value="g">g (gramos)</option>
+              <option value="lb">lb</option>
+              <option value="lt">lt</option>
+              <option value="ml">ml</option>
+              <option value="paq">paq</option>
+              <option value="doc">doc</option>
+              <option value="caja">caja</option>
+              <option value="bolsa">bolsa</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Descripción</label>
+            <textarea id="product-description" class="field-input field-textarea"
+              placeholder="Descripción detallada del producto..." maxlength="500"></textarea>
+          </div>
+          <div class="field-group toggle-group">
+            <label class="field-label">Estado</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="product-active" checked />
+              <span class="toggle-slider"></span>
+              <span class="toggle-text">Activo</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-delete-product" id="btn-delete-product" style="display:none">Eliminar</button>
+        <button class="btn-save-product" id="btn-save-product">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  MODAL: LOGIN ADMIN                                    -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="modal-login" class="modal-overlay" style="display:none">
+    <div class="modal-card modal-card-sm">
+      <div class="modal-header">
+        <h3>Acceso Administrador</h3>
+        <button class="btn-close-modal" id="btn-close-login-modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label class="field-label">Contraseña</label>
+          <input type="password" id="login-password" class="field-input" placeholder="••••••" />
+          <div class="login-error" id="login-error" style="display:none">Contraseña incorrecta</div>
+        </div>
+        <button class="btn-save-product" id="btn-login-submit" style="width:100%">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  MODAL: VENTA EXTERNA (ML / Otro canal)               -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="modal-external-sale" class="modal-overlay" style="display:none">
+    <div class="modal-card" style="max-width:520px">
+      <div class="modal-header">
+        <h3>Registrar Venta Externa</h3>
+        <button class="btn-close-modal" id="btn-close-external-modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Canal de venta -->
+        <div class="field-group">
+          <label class="field-label">Canal de venta</label>
+          <div class="channel-selector" id="ext-channel-selector">
+            <button type="button" class="channel-btn active" data-channel="mercado_libre">🛒 Mercado Libre</button>
+            <button type="button" class="channel-btn" data-channel="whatsapp">💬 WhatsApp</button>
+            <button type="button" class="channel-btn" data-channel="web">🌐 Web</button>
+            <button type="button" class="channel-btn" data-channel="otro">📦 Otro</button>
+          </div>
+          <input type="hidden" id="ext-channel" value="mercado_libre">
+        </div>
+
+        <!-- Datos cliente -->
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label">Nombre cliente</label>
+            <input type="text" id="ext-customer-name" class="field-input" placeholder="Ej: Juan P." maxlength="60">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Celular / Contacto</label>
+            <input type="text" id="ext-customer-phone" class="field-input" placeholder="Ej: 3001234567" maxlength="20">
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">ID Orden externa (opcional)</label>
+          <input type="text" id="ext-order-id" class="field-input" placeholder="Ej: Número de orden ML" maxlength="40">
+        </div>
+
+        <!-- Líneas de productos -->
+        <div class="field-group">
+          <label class="field-label" style="justify-content:space-between">
+            <span>Productos vendidos</span>
+            <button type="button" id="btn-add-ext-item"
+              style="font-size:0.72rem;color:var(--primary);background:none;border:none;cursor:pointer;font-weight:700;">
+              + Agregar ítem
+            </button>
+          </label>
+          <div id="ext-items-list"></div>
+        </div>
+
+        <!-- Costos adicionales -->
+        <div id="ext-ml-costs" class="ext-costs-section">
+          <div class="ext-costs-title">📊 Costos del canal</div>
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label">Comisión (%)</label>
+              <input type="number" id="ext-ml-commission-pct" class="field-input" value="13" min="0" max="100" step="0.1">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Costo envío</label>
+              <input type="text" id="ext-shipping-cost" class="field-input" placeholder="0" inputmode="numeric">
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Publicidad atribuida (opcional)</label>
+            <input type="text" id="ext-ad-cost" class="field-input" placeholder="0" inputmode="numeric">
+            <small class="settings-hint">Parte proporcional de pauta pagada para este pedido</small>
+          </div>
+        </div>
+
+        <!-- Resumen financiero en tiempo real -->
+        <div class="ext-financial-summary" id="ext-financial-summary">
+          <div class="ext-fin-row">
+            <span>Subtotal productos</span>
+            <span id="ext-fin-subtotal" class="ext-fin-val">—</span>
+          </div>
+          <div class="ext-fin-row" id="ext-fin-commission-row" style="display:none">
+            <span>Comisión canal</span>
+            <span id="ext-fin-commission" class="ext-fin-val" style="color:var(--danger)">—</span>
+          </div>
+          <div class="ext-fin-row" id="ext-fin-shipping-row" style="display:none">
+            <span>Costo envío</span>
+            <span id="ext-fin-shipping" class="ext-fin-val" style="color:var(--danger)">—</span>
+          </div>
+          <div class="ext-fin-row" id="ext-fin-ad-row" style="display:none">
+            <span>Publicidad</span>
+            <span id="ext-fin-ad" class="ext-fin-val" style="color:var(--danger)">—</span>
+          </div>
+          <div class="ext-fin-divider"></div>
+          <div class="ext-fin-row" style="font-weight:800">
+            <span>Ganancia neta estimada</span>
+            <span id="ext-fin-profit" class="ext-fin-val">—</span>
+          </div>
+        </div>
+
+        <!-- Notas -->
+        <div class="field-group">
+          <label class="field-label">Notas (opcional)</label>
+          <textarea id="ext-notes" class="field-input field-textarea"
+            placeholder="Observaciones..." maxlength="200" style="min-height:60px"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-save-product" id="btn-save-external-sale" style="width:100%">💾 Guardar venta registrada</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
+
+
+
+
+  <!-- Modal View Image Fullscreen -->
+  <div class="modal-overlay" id="image-viewer-modal" style="display: none; z-index: 9999;">
+    <div style="position: relative; width: 100%; max-width: 800px; padding: 1rem; text-align: center;">
+      <div id="image-viewer-container" style="position: relative;">
+        <img id="image-viewer-img" src=""
+          style="max-width: 100%; max-height: 80vh; object-fit: contain; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);" />
+
+        <!-- Navigation Buttons -->
+        <button id="btn-viewer-prev"
+          style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; color: white; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 1.5rem; backdrop-filter: blur(4px); display: none;">&lt;</button>
+        <button id="btn-viewer-next"
+          style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; color: white; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 1.5rem; backdrop-filter: blur(4px); display: none;">&gt;</button>
+      </div>
+
+      <!-- Thumbnail bar -->
+      <div id="viewer-thumbnails"
+        style="display: flex; justify-content: center; gap: 10px; margin-top: 20px; overflow-x: auto; padding: 10px;">
+      </div>
+
+      <button onclick="closeImageModal()"
+        style="position: absolute; top: -10px; right: 10px; background: white; color: black; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-weight: bold; display: flex; align-items: center; justify-content: center;">&times;</button>
+    </div>
+  </div>
+
+  <!-- Firebase Modular SDK -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="js/colombia.js"></script>
+  <script type="module" src="js/app.js?v=5"></script>
+
+
+  <a href="#" id="global-wa-btn" class="floating-wa-btn" target="_blank" title="Chatea con nosotros">
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766 0-3.187-2.59-5.771-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793 0-.852.449-1.271.608-1.445.159-.175.348-.218.463-.218.116 0 .232.001.334.005.109.004.256-.041.401.308.145.348.493 1.203.536 1.29.044.087.073.188.014.305-.058.116-.087.188-.174.291-.087.102-.183.227-.261.306-.087.087-.179.181-.077.357.102.176.454.748.975 1.211.673.599 1.24.785 1.416.872.176.087.278.073.382-.047.104-.12.443-.518.562-.695.119-.178.238-.149.401-.089.163.06.1.472 1.242.536 1.45.626 1.74.053.22.091.43.14.793z"/>
+    </svg>
+  </a>
+
+</body>
+</html>
