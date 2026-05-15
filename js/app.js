@@ -1513,63 +1513,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const waText = encodeURIComponent(waMessage);
 
-        // Al hacer clic: descargar ticket como imagen Y abrir WhatsApp
-        waBtn.onclick = async (e) => {
-          e.preventDefault();
-          const ticketCard = document.getElementById('ticket-card');
-          if (ticketCard && typeof html2canvas !== 'undefined') {
-            try {
-              const actions = document.querySelector('.ticket-actions');
-              if (actions) actions.style.visibility = 'hidden';
-              const canvas = await html2canvas(ticketCard, {
-                scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false
-              });
-              if (actions) actions.style.visibility = '';
-              const link = document.createElement('a');
-              link.download = `pedido-${ticketNum}.png`;
-              link.href = canvas.toDataURL('image/png');
-              link.click();
-              showToast('Ticket guardado 📥 Abriendo WhatsApp...');
-              setTimeout(() => {
-                window.open(`https://wa.me/${settings.whatsapp}?text=${waText}`, '_blank');
-              }, 800);
-            } catch (err) {
-              window.open(`https://wa.me/${settings.whatsapp}?text=${waText}`, '_blank');
-            }
-          } else {
-            window.open(`https://wa.me/${settings.whatsapp}?text=${waText}`, '_blank');
-          }
-        };
-        waBtn.style.display = 'flex';
-      } else if (waBtn) {
-        waBtn.style.display = 'none';
-      }
+     // Al hacer clic: descargar ticket como imagen Y abrir WhatsApp
+waBtn.onclick = async (e) => {
+  e.preventDefault();
 
-      const shareBtn = document.getElementById('btn-share-ticket');
-      if (shareBtn && navigator.share) {
-        shareBtn.style.display = 'flex';
-        shareBtn.onclick = async () => {
-          try {
-            await navigator.share({
-              title: 'Pedido ' + ticketNum,
-              text: 'Aquí está mi pedido de ' + settings.storeName + ':\n\n' + decodeURIComponent(waText),
-              url: window.location.href
-            });
-            showToast('Compartido exitosamente');
-          } catch (err) {
-            console.log('Error compartiendo:', err);
-          }
-        };
-      } else if (shareBtn) {
-        shareBtn.style.display = 'none';
-      }
-
-      switchView('ticket');
-      cart = {};
-      updateCartUI();
-    });
+  // 🔥 EVENTO GOOGLE ANALYTICS (AQUÍ VA)
+  gtag('event', 'click_whatsapp', {
+    event_category: 'conversion',
+    event_label: 'Pedido enviado por WhatsApp',
+    value: 1
   });
 
+  const ticketCard = document.getElementById('ticket-card');
+  if (ticketCard && typeof html2canvas !== 'undefined') {
+    try {
+      const actions = document.querySelector('.ticket-actions');
+      if (actions) actions.style.visibility = 'hidden';
+
+      const canvas = await html2canvas(ticketCard, {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false
+      });
+
+      if (actions) actions.style.visibility = '';
+
+      const link = document.createElement('a');
+      link.download = `pedido-${ticketNum}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+
+      showToast('Ticket guardado 📥 Abriendo WhatsApp...');
+
+      setTimeout(() => {
+        window.open(`https://wa.me/${settings.whatsapp}?text=${waText}`, '_blank');
+      }, 800);
+
+    } catch (err) {
+      window.open(`https://wa.me/${settings.whatsapp}?text=${waText}`, '_blank');
+    }
+  } else {
+    window.open(`https://wa.me/${settings.whatsapp}?text=${waText}`, '_blank');
+  }
+};
   // Búsqueda
   on('price', 'oninput', formatInputCurrency);
   on('product-price', 'oninput', formatInputCurrency);
