@@ -4,7 +4,7 @@ import {
   getDatabase, ref, onValue, set, push, update, remove
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 
-// ====== SECURITY - Password hashing ======
+
 const hashPassword = async (password) => {
   const msgBuffer = new TextEncoder().encode(password);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -12,7 +12,7 @@ const hashPassword = async (password) => {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
-// ====== CONFIGURATION ======
+
 const firebaseConfig = {
   apiKey: "AIzaSyBRmLWFyczGQzPNe8iv9dbkJa_v6sylmxw",
   authDomain: "todo-en-uno-cf51e.firebaseapp.com",
