@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/sincronizar-catalogo",
+      "schedule": "0 2 * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" }
   ],
