@@ -105,11 +105,11 @@ async function cotizarFleteDropi(productos, ciudad, departamento) {
 
   const token = process.env.DROPI_TOKEN || "TU_TOKEN_AQUÍ";
 
-  const respuesta = await fetch("https://dropi.co/api/orders/cotizaEnvioTransportadoraV2", { 
+  const respuesta = await fetch("https://api.dropi.co/api/orders/cotizaEnvioTransportadoraV2", { 
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
+      "dropi-integracion-key": token
     },
     body: JSON.stringify(payload)
   });

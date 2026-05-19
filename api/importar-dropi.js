@@ -17,27 +17,25 @@ module.exports = async function handler(req, res) {
         const token = process.env.DROPI_TOKEN || "TU_TOKEN_AQUÍ";
         const FIREBASE_URL = "https://todo-en-uno-cf51e-default-rtdb.firebaseio.com";
 
-        // 1. Obtener la configuración global de tu base de datos para el cálculo híbrido
+        // 1. Obtener la configuración global (adaptado a tu nodo configuracion_tienda/global)
         let MARGEN = 0.30;
         let COSTOS_FIJOS = 16000;
         try {
-            const settingsRes = await fetch(`${FIREBASE_URL}/settings.json`);
+            const settingsRes = await fetch(`${FIREBASE_URL}/configuracion_tienda/global.json`);
             if (settingsRes.ok) {
                 const settings = await settingsRes.json() || {};
-                if (settings.margenGlobal) MARGEN = settings.margenGlobal;
-                if (settings.costosFijos) COSTOS_FIJOS = settings.costosFijos;
+                if (settings.margen_deseado) MARGEN = settings.margen_deseado;
+                if (settings.costos_fijos) COSTOS_FIJOS = settings.costos_fijos;
             }
-        } catch(e) { console.warn("Usando margen por defecto, no se pudo conectar a Firebase."); }
+        } catch(e) { console.warn("Usando margen por defecto."); }
 
-        // 2. Llamada a la API de Dropi mediante POST según la nueva directiva
-        // Usamos api.dropi.co porque dropi.co es el WordPress
-        const dropiResponse = await fetch(`https://api.dropi.co/api/products/buscarProductosV2`, {
-            method: 'POST',
+        // 2. Llamada a la API de Dropi
+        const dropiResponse = await fetch(`https://api.dropi.co/api/products/${encodeURIComponent(id)}`, {
+            method: 'GET',
             headers: {
-                'Authorization': `Bearer ${token}`,
+                'dropi-integracion-key': token,
                 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ id_producto: parseInt(id) })
+            }
         });
 
         if (!dropiResponse.ok) {
@@ -59,9 +57,9 @@ module.exports = async function handler(req, res) {
         }
 
         if (!product) {
-            return res.status(404).json({
+            return res.status(200).json({
                 status: 'error',
-                message: 'Producto no encontrado en Dropi (Array vacío).'
+                message: 'Producto no encontrado en Dropi.'
             });
         }
 
@@ -91,9 +89,13 @@ module.exports = async function handler(req, res) {
 
     } catch (error) {
         console.error("Detalle técnico del error:", error.message);
-        return res.status(500).json({
+        
+        // Retornamos status HTTP 200 pero con status JSON 'error'
+        // Esto evita el molesto mensaje rojo de error 500 en la consola del navegador
+        // y permite que tu interfaz muestre el error de Dropi visualmente en un Toast.
+        return res.status(200).json({
             status: 'error',
-            message: 'No se pudo importar el producto de Dropi',
+            message: error.message.includes('HTTP: 401') ? 'Tu Dropi Token es inválido o IP no autorizada.' : 'Fallo en Dropi: ' + error.message,
             details: error.message
         });
     }

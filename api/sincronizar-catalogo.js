@@ -34,8 +34,8 @@ module.exports = async function handler(req, res) {
             if (prod.origen === 'dropi' && dropiId) {
                 try {
                     // Consultar el estado real actual en Dropi Colombia
-                    const responseDropi = await fetch(`https://dropi.co/api/products/${dropiId}`, {
-                        headers: { 'Authorization': `Bearer ${DROPI_TOKEN}` }
+                    const responseDropi = await fetch(`https://api.dropi.co/api/products/${dropiId}`, {
+                        headers: { 'dropi-integracion-key': DROPI_TOKEN }
                     });
 
                     if (responseDropi.ok) {

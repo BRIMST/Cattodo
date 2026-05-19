@@ -42,10 +42,10 @@ module.exports = async function handler(req, res) {
             const token = process.env.DROPI_TOKEN || "TU_TOKEN_AQUÍ";
 
             // Usamos fetch nativo en vez de axios para no requerir dependencias extra en Vercel
-            const responseDropi = await fetch('https://dropi.co/api/orders/crearOrdenV2', { 
+            const responseDropi = await fetch('https://api.dropi.co/api/orders/crearOrdenV2', { 
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
+                    'dropi-integracion-key': token,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(payloadDropi)
