@@ -38,28 +38,43 @@ module.exports = async function handler(req, res) {
     const tienePropios = productosPropios.length > 0;
     const tieneDropi = productosDropi.length > 0;
 
-    let flete = 0;
+    let respuesta = {};
 
-    if (!esBogota) {
-      // Nacional
-      flete = await cotizarFleteDropi(carrito.items, carrito.ciudad_destino, carrito.departamento_destino);
+    if (esBogota) {
+        if (tienePropios && !tieneDropi) {
+            // CASO 1: Solo tus productos en Bogotá
+            respuesta = {
+                status: 'success',
+                costo_envio: 0,
+                es_gratis: true,
+                metodo_entrega: "Envío Local",
+                mensaje: "¡Envío Gratis!"
+            };
+        } else {
+            // CASO 2: Carrito mixto en Bogotá (Tuyo + Dropi) o Solo Dropi
+            const fleteDropi = await cotizarFleteDropi(productosDropi, carrito.ciudad_destino, carrito.departamento_destino);
+            
+            respuesta = {
+                status: 'success',
+                costo_envio: fleteDropi,
+                es_gratis: false,
+                metodo_entrega: "Contra entrega",
+                mensaje: "Pagas en efectivo al recibir"
+            };
+        }
     } else {
-      // Bogotá
-      if (tienePropios && !tieneDropi) {
-        flete = TARIFA_FIJA_BOGOTA;
-      } else if (!tienePropios && tieneDropi) {
-        flete = await cotizarFleteDropi(productosDropi, carrito.ciudad_destino, carrito.departamento_destino);
-      } else if (tienePropios && tieneDropi) {
-        const costoDropi = await cotizarFleteDropi(productosDropi, carrito.ciudad_destino, carrito.departamento_destino);
-        flete = TARIFA_FIJA_BOGOTA + costoDropi;
-      }
+        // CASO 3: Envíos Nacionales (Todos los items)
+        const fleteNacional = await cotizarFleteDropi(carrito.items, carrito.ciudad_destino, carrito.departamento_destino);
+        respuesta = {
+            status: 'success',
+            costo_envio: fleteNacional,
+            es_gratis: false,
+            metodo_entrega: "Contra entrega",
+            mensaje: "Pagas en efectivo al recibir"
+        };
     }
 
-    return res.status(200).json({
-      status: "success",
-      costo_envio: flete,
-      mensaje: "Envío calculado exitosamente"
-    });
+    return res.status(200).json(respuesta);
 
   } catch (error) {
     console.error("Error al calcular envío:", error.message);
