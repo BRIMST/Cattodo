@@ -29,13 +29,14 @@ const hashPassword = async (password) => {
 
 // ====== CONFIGURATION ======
 const firebaseConfig = {
-  apiKey: "AIzaSyBRmLWFyczGQzPNe8iv9dbkJa_v6sylmxw",
-  authDomain: "todo-en-uno-cf51e.firebaseapp.com",
-  databaseURL: "https://todo-en-uno-cf51e-default-rtdb.firebaseio.com",
-  projectId: "todo-en-uno-cf51e",
-  storageBucket: "todo-en-uno-cf51e.firebasestorage.app",
-  messagingSenderId: "974474634176",
-  appId: "1:974474634176:web:8651006d4cf7df1cff9e25"
+  apiKey: "AIzaSyBG0ygruEcBUnXKotCRRG2FEKejcLxKLQQ",
+  authDomain: "pandaventa-cdc06.firebaseapp.com",
+  databaseURL: "https://pandaventa-cdc06-default-rtdb.firebaseio.com",
+  projectId: "pandaventa-cdc06",
+  storageBucket: "pandaventa-cdc06.firebasestorage.app",
+  messagingSenderId: "29437252231",
+  appId: "1:29437252231:web:802a5ce85b495e961b9e22",
+  measurementId: "G-WKD6VTSP03"
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
