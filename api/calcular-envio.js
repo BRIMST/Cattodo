@@ -41,37 +41,37 @@ module.exports = async function handler(req, res) {
     let respuesta = {};
 
     if (esBogota) {
-        if (tienePropios && !tieneDropi) {
-            // CASO 1: Solo tus productos en Bogotá
-            respuesta = {
-                status: 'success',
-                costo_envio: 0,
-                es_gratis: true,
-                metodo_entrega: "Envío Local",
-                mensaje: "¡Envío Gratis!"
-            };
-        } else {
-            // CASO 2: Carrito mixto en Bogotá (Tuyo + Dropi) o Solo Dropi
-            const fleteDropi = await cotizarFleteDropi(productosDropi, carrito.ciudad_destino, carrito.departamento_destino);
-            
-            respuesta = {
-                status: 'success',
-                costo_envio: fleteDropi,
-                es_gratis: false,
-                metodo_entrega: "Contra entrega",
-                mensaje: "Pagas en efectivo al recibir"
-            };
-        }
-    } else {
-        // CASO 3: Envíos Nacionales (Todos los items)
-        const fleteNacional = await cotizarFleteDropi(carrito.items, carrito.ciudad_destino, carrito.departamento_destino);
+      if (tienePropios && !tieneDropi) {
+        // CASO 1: Solo tus productos en Bogotá
         respuesta = {
-            status: 'success',
-            costo_envio: fleteNacional,
-            es_gratis: false,
-            metodo_entrega: "Contra entrega",
-            mensaje: "Pagas en efectivo al recibir"
+          status: 'success',
+          costo_envio: 0,
+          es_gratis: true,
+          metodo_entrega: "Envío Local",
+          mensaje: "¡Envío Gratis!"
         };
+      } else {
+        // CASO 2: Carrito mixto en Bogotá (Tuyo + Dropi) o Solo Dropi
+        const fleteDropi = await cotizarFleteDropi(productosDropi, carrito.ciudad_destino, carrito.departamento_destino);
+
+        respuesta = {
+          status: 'success',
+          costo_envio: fleteDropi,
+          es_gratis: false,
+          metodo_entrega: "Contra entrega",
+          mensaje: "Pagas en efectivo al recibir"
+        };
+      }
+    } else {
+      // CASO 3: Envíos Nacionales (Todos los items)
+      const fleteNacional = await cotizarFleteDropi(carrito.items, carrito.ciudad_destino, carrito.departamento_destino);
+      respuesta = {
+        status: 'success',
+        costo_envio: fleteNacional,
+        es_gratis: false,
+        metodo_entrega: "Contra entrega",
+        mensaje: "Pagas en efectivo al recibir"
+      };
     }
 
     return res.status(200).json(respuesta);
@@ -103,9 +103,9 @@ async function cotizarFleteDropi(productos, ciudad, departamento) {
     productos: productosApi
   };
 
-  const token = process.env.DROPI_TOKEN || "TU_TOKEN_AQUÍ";
+  const token = process.env.DROPI_TOKEN || "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcHAuZHJvcGkuY286ODAiLCJpYXQiOjE3NzkyMTI3MTAsImV4cCI6NDkzNDg4NjMxMCwibmJmIjoxNzc5MjEyNzEwLCJqdGkiOiIyUlQ5YVY4T0V5ZkxlYjhKIiwic3ViIjo5MDM5NDAsInBydiI6Ijg3ZTBhZjFlZjlmZDE1ODEyZmRlYzk3MTUzYTE0ZTBiMDQ3NTQ2YWEiLCJhdWQiOiJXT09DT01FUkNFIiwidG9rZW5fdHlwZSI6IklOVEVHUkFUSU9OUyIsIndiX2lkIjoxLCJpbnRlZ3JhdGlvbl90eXBlIjoiV09PQ09NRVJDRSIsImludGVncmF0aW9uX3R5cGVfaWQiOjEsImlwX3VybCI6W10sImludGVncmF0aW9uX3VybCI6InBhbmRhdmVudGEuY29tIn0.I1_daYB1l5quV4xzuSlwca-_7AmSvpz7Vu8_DHa8Cjg";
 
-  const respuesta = await fetch("https://api.dropi.co/api/orders/cotizaEnvioTransportadoraV2", { 
+  const respuesta = await fetch("https://api.dropi.co/api/orders/cotizaEnvioTransportadoraV2", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

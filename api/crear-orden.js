@@ -39,7 +39,7 @@ module.exports = async function handler(req, res) {
                 }))
             };
 
-            const token = process.env.DROPI_TOKEN || "TU_TOKEN_AQUÍ";
+            const token = process.env.DROPI_TOKEN || "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcHAuZHJvcGkuY286ODAiLCJpYXQiOjE3NzkyMTI3MTAsImV4cCI6NDkzNDg4NjMxMCwibmJmIjoxNzc5MjEyNzEwLCJqdGkiOiIyUlQ5YVY4T0V5ZkxlYjhKIiwic3ViIjo5MDM5NDAsInBydiI6Ijg3ZTBhZjFlZjlmZDE1ODEyZmRlYzk3MTUzYTE0ZTBiMDQ3NTQ2YWEiLCJhdWQiOiJXT09DT01FUkNFIiwidG9rZW5fdHlwZSI6IklOVEVHUkFUSU9OUyIsIndiX2lkIjoxLCJpbnRlZ3JhdGlvbl90eXBlIjoiV09PQ09NRVJDRSIsImludGVncmF0aW9uX3R5cGVfaWQiOjEsImlwX3VybCI6W10sImludGVncmF0aW9uX3VybCI6InBhbmRhdmVudGEuY29tIn0.I1_daYB1l5quV4xzuSlwca-_7AmSvpz7Vu8_DHa8Cjg";
 
             // Usamos fetch nativo en vez de axios para no requerir dependencias extra en Vercel
             const responseDropi = await fetch('https://api.dropi.co/api/orders/crearOrdenV2', { 
