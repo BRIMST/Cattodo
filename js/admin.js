@@ -525,11 +525,13 @@ async function saveProduct() {
   }
   appUtils.safeStyle('modal-product', 'display', 'none');
   appUtils.showToast('Guardado ✅');
-  renderAdminProducts();
+  if (window.loadCatalog) window.loadCatalog();
 }
 
-function deleteProduct(id) {
-  remove(ref(appState.db, `products/${id}`));
+async function deleteProduct(id) {
+  if (!confirm('¿Seguro que deseas eliminar este producto?')) return;
+  await remove(ref(appState.db, `products/${id}`));
+  if (window.loadCatalog) window.loadCatalog();
 }
 
 async function confirmOrder(id) {

@@ -129,20 +129,32 @@ const safeValue = (id, val) => safeSet(id, 'value', val);
 const safeStyle = (id, prop, val) => { const el = document.getElementById(id); if (el) el.style[prop] = val; };
 
 // ====== INIT ======
-function init() {
-  onValue(ref(db, 'settings'), snap => {
-    if (snap.exists()) { settings = snap.val(); applySettings(); }
-  });
-
-  onValue(ref(db, 'products'), snap => {
-    const val = snap.val();
-    if (!val) {
-      products = [];
-    } else if (Array.isArray(val)) {
-      products = val.filter(p => p !== null);
-    } else {
-      products = Object.keys(val).map(key => ({ ...val[key], id: key }));
+window.loadCatalog = async function() {
+  try {
+    // Si el panel de admin está abierto o explícitamente pide admin=true, evadimos el caché
+    const url = document.getElementById('panel-admin')?.style.display === 'flex' 
+      ? '/api/catalogo?admin=true' 
+      : '/api/catalogo';
+    
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    if (data.settings) {
+      settings = data.settings;
+      applySettings();
     }
+    
+    if (data.products) {
+      const val = data.products;
+      if (Array.isArray(val)) {
+        products = val.filter(p => p !== null);
+      } else {
+        products = Object.keys(val).map(key => ({ ...val[key], id: key }));
+      }
+    } else {
+      products = [];
+    }
+    
     isProductsLoaded = true;
     renderFilters();
     renderProducts();
@@ -152,7 +164,13 @@ function init() {
     if (panel && panel.style.display === 'flex') {
       import('./admin.js').then(m => m.renderAdminProducts());
     }
-  });
+  } catch (error) {
+    console.error("Error cargando catálogo", error);
+  }
+};
+
+function init() {
+  window.loadCatalog();
 
   document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.onclick = () => {
