@@ -11,7 +11,7 @@ module.exports = async function handler(req, res) {
     }
     
     try {
-        const FIREBASE_URL = "https://todo-en-uno-cf51e-default-rtdb.firebaseio.com";
+        const FIREBASE_URL = "https://pandaventa-cdc06-default-rtdb.firebaseio.com";
         
         // Leemos configuración y productos en un solo viaje desde el servidor, no desde el cliente.
         const [settingsRes, productsRes] = await Promise.all([

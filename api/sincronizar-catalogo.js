@@ -5,7 +5,7 @@ module.exports = async function handler(req, res) {
 
     try {
         // En tu app.js usas esta base de datos Realtime Database (no Firestore)
-        const FIREBASE_URL = "https://todo-en-uno-cf51e-default-rtdb.firebaseio.com";
+        const FIREBASE_URL = "https://pandaventa-cdc06-default-rtdb.firebaseio.com";
         const DROPI_TOKEN = process.env.DROPI_TOKEN || "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcHAuZHJvcGkuY286ODAiLCJpYXQiOjE3NzkyMTI3MTAsImV4cCI6NDkzNDg4NjMxMCwibmJmIjoxNzc5MjEyNzEwLCJqdGkiOiIyUlQ5YVY4T0V5ZkxlYjhKIiwic3ViIjo5MDM5NDAsInBydiI6Ijg3ZTBhZjFlZjlmZDE1ODEyZmRlYzk3MTUzYTE0ZTBiMDQ3NTQ2YWEiLCJhdWQiOiJXT09DT01FUkNFIiwidG9rZW5fdHlwZSI6IklOVEVHUkFUSU9OUyIsIndiX2lkIjoxLCJpbnRlZ3JhdGlvbl90eXBlIjoiV09PQ09NRVJDRSIsImludGVncmF0aW9uX3R5cGVfaWQiOjEsImlwX3VybCI6W10sImludGVncmF0aW9uX3VybCI6InBhbmRhdmVudGEuY29tIn0.I1_daYB1l5quV4xzuSlwca-_7AmSvpz7Vu8_DHa8Cjg";
 
         // 1. Obtener la configuración global de tu base de datos
