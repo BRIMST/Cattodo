@@ -20,7 +20,7 @@ module.exports = async function handler(req, res) {
 
         const FIREBASE_URL    = "https://pandaventa-cdc06-default-rtdb.firebaseio.com";
         const MASTERSHOP_TOKEN = process.env.MASTERSHOP_API_KEY || "laApX4jllnqGPuZ9bya748P-9o68vMDMQM5qRZSAtaKl9Q4dMM";
-        const MASTERSHOP_URL   = process.env.MASTERSHOP_BASE_URL || "https://mastershop.com";
+        const MASTERSHOP_URL   = process.env.MASTERSHOP_BASE_URL || "https://app.mastershop.com";
 
         const itemsDropi      = items.filter(item => item.origen === 'dropi');
         const itemsMastershop = items.filter(item => item.origen === 'mastershop');
@@ -95,7 +95,7 @@ module.exports = async function handler(req, res) {
             const msRes = await fetch(`${MASTERSHOP_URL}/api/v1/orders`, {
                 method:  'POST',
                 headers: {
-                    'Authorization': `Bearer ${MASTERSHOP_TOKEN}`,
+                    'ms-api-key':    MASTERSHOP_TOKEN,
                     'Content-Type':  'application/json',
                     'Accept':        'application/json'
                 },

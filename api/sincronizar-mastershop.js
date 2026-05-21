@@ -10,7 +10,7 @@ module.exports = async function handler(req, res) {
 
     try {
         const MASTERSHOP_TOKEN = process.env.MASTERSHOP_API_KEY || "laApX4jllnqGPuZ9bya748P-9o68vMDMQM5qRZSAtaKl9Q4dMM";
-        const MASTERSHOP_URL   = process.env.MASTERSHOP_BASE_URL || "https://mastershop.com";
+        const MASTERSHOP_URL   = process.env.MASTERSHOP_BASE_URL || "https://app.mastershop.com";
         const FIREBASE_URL     = "https://pandaventa-cdc06-default-rtdb.firebaseio.com";
 
         // 1. Leer configuración global de margen
@@ -47,7 +47,7 @@ module.exports = async function handler(req, res) {
                 try {
                     const msRes = await fetch(`${MASTERSHOP_URL}/api/v1/variants/${variantId}`, {
                         headers: {
-                            'Authorization': `Bearer ${MASTERSHOP_TOKEN}`,
+                            'ms-api-key': MASTERSHOP_TOKEN,
                             'Accept': 'application/json'
                         }
                     });
