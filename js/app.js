@@ -787,10 +787,21 @@ window.openProductPage = function(productId) {
   safeHTML('detail-stars', getStarsHTML(stats.rating));
   
   // Image gallery
+  const clipUrl = p.videoUrl || p.clipUrl || p.video || p.clip;
   const pImages = p.images || (p.image ? [p.image] : []);
+  const galleryItems = pImages.map(src => ({ type: 'image', src }));
+  if (clipUrl) {
+    galleryItems.push({
+      type: 'video',
+      src: p.videoThumbnail || p.image || pImages[0] || '',
+      clipUrl
+    });
+  }
+
   const mainImgEl = document.getElementById('detail-main-img');
-  if (mainImgEl && pImages.length > 0) {
-    mainImgEl.src = pImages[0];
+  const firstImageItem = galleryItems.find(item => item.type === 'image');
+  if (mainImgEl && firstImageItem) {
+    mainImgEl.src = firstImageItem.src;
     mainImgEl.alt = p.name;
     
     // Zoom-on-hover effect
@@ -808,18 +819,41 @@ window.openProductPage = function(productId) {
   }
   
   const thumbsContainer = document.getElementById('detail-thumbnails');
+  const clipButton = document.getElementById('btn-detail-watch-clip');
+  const setClipButtonActive = (isActive) => {
+    if (!clipButton) return;
+    clipButton.classList.toggle('active', isActive);
+  };
+
   if (thumbsContainer) {
     thumbsContainer.innerHTML = '';
-    if (pImages.length > 1) {
-      pImages.forEach((img, idx) => {
+    if (galleryItems.length > 1) {
+      galleryItems.forEach((item, idx) => {
         const thumb = document.createElement('div');
-        thumb.className = `thumb-item ${idx === 0 ? 'active' : ''}`;
-        thumb.innerHTML = `<img src="${img}" alt="Miniatura ${idx + 1}" />`;
-        thumb.onclick = () => {
-          document.querySelectorAll('.thumb-item').forEach(t => t.classList.remove('active'));
-          thumb.classList.add('active');
-          if (mainImgEl) mainImgEl.src = img;
-        };
+        thumb.className = `thumbnail-img ${item.type === 'video' ? 'thumb-video' : ''} ${idx === 0 ? 'active' : ''}`.trim();
+        if (item.type === 'image') {
+          thumb.innerHTML = `<img src="${item.src}" alt="Miniatura ${idx + 1}" />`;
+          thumb.onclick = () => {
+            document.querySelectorAll('.thumbnail-img').forEach(t => t.classList.remove('active'));
+            thumb.classList.add('active');
+            if (mainImgEl) mainImgEl.src = item.src;
+            setClipButtonActive(false);
+          };
+        } else {
+          thumb.innerHTML = `
+            <div class="video-thumb-frame">
+              <img src="${item.src}" alt="Clip del producto" />
+              <span class="video-thumb-icon" aria-hidden="true">▶</span>
+              <span class="video-thumb-label">CLIP</span>
+            </div>
+          `;
+          thumb.onclick = () => {
+            document.querySelectorAll('.thumbnail-img').forEach(t => t.classList.remove('active'));
+            thumb.classList.add('active');
+            setClipButtonActive(true);
+            openDetailVideo(item.clipUrl);
+          };
+        }
         thumbsContainer.appendChild(thumb);
       });
       thumbsContainer.style.display = 'flex';
@@ -885,7 +919,22 @@ window.openProductPage = function(productId) {
     currentDetailColor = null;
     variantsWrapper.style.display = 'none';
   }
-  
+
+  const clipUrl = p.videoUrl || p.clipUrl || p.video || p.clip;
+  if (clipButton) {
+    if (clipUrl) {
+      clipButton.style.display = 'flex';
+      clipButton.onclick = () => {
+        clipButton.classList.add('active');
+        openDetailVideo(clipUrl);
+      };
+    } else {
+      clipButton.style.display = 'none';
+      clipButton.onclick = null;
+      setClipButtonActive(false);
+    }
+  }
+
   // Quantity Reset
   updateDetailQtyUI();
   
@@ -898,6 +947,35 @@ window.openProductPage = function(productId) {
   // Track Event
   trackEvent('ver_producto', p.name, { item_id: p.id });
 };
+
+function openDetailVideo(url) {
+  const modal = document.getElementById('detail-video-modal');
+  const wrapper = document.getElementById('detail-video-wrapper');
+  if (!modal || !wrapper) return;
+
+  wrapper.innerHTML = getDetailVideoEmbed(url);
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeDetailVideo() {
+  const modal = document.getElementById('detail-video-modal');
+  const wrapper = document.getElementById('detail-video-wrapper');
+  if (!modal || !wrapper) return;
+
+  modal.style.display = 'none';
+  modal.setAttribute('aria-hidden', 'true');
+  wrapper.innerHTML = '';
+}
+
+function getDetailVideoEmbed(url) {
+  if (!url) return '';
+  const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]+)/);
+  if (ytMatch) {
+    return `<iframe loading="lazy" src="https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+  }
+  return `<video controls playsinline preload="metadata" src="${url}"></video>`;
+}
 
 window.selectDetailColor = function(color) {
   const p = currentDetailProduct;
