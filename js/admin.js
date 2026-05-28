@@ -23,6 +23,7 @@ export function initAdmin(state, utils) {
   window.renderAdminOrders = renderAdminOrders;
   window.renderAdminProducts = renderAdminProducts;
   window.importDropiProduct = importDropiProduct;
+  window.removeProductImage = removeProductImage;
   
   // Listeners for admin panel
   const on = (id, event, fn) => {
@@ -443,8 +444,16 @@ function openProductModal(id = null) {
   appUtils.safeStyle('modal-product', 'display', 'flex');
   appUtils.safeText('modal-product-title', p ? 'Editar Producto' : 'Nuevo Producto');
   appUtils.safeValue('product-name', p ? p.name : '');
+  appUtils.safeValue('product-ref', p ? (p.ref || '') : '');
+  appUtils.safeValue('product-category', p ? (p.category || '') : '');
+  appUtils.safeValue('product-tags', p ? (p.tags || '') : '');
   appUtils.safeValue('product-price', p ? parseInt(p.price).toLocaleString('es-CO') : '');
+  appUtils.safeValue('product-original-price', p && p.originalPrice ? parseInt(p.originalPrice).toLocaleString('es-CO') : '');
+  appUtils.safeValue('product-cost', p && p.cost ? parseInt(p.cost).toLocaleString('es-CO') : '');
   appUtils.safeValue('product-stock', p ? (p.stock || '') : '');
+  appUtils.safeValue('product-unit', p ? (p.unit || 'und') : 'und');
+  appUtils.safeValue('product-description', p ? (p.description || '') : '');
+  appUtils.safeSet('product-active', 'checked', p ? (p.active ?? true) : true);
   
   const hasVariants = p && p.variants && p.variants.length > 0;
   const typeRadios = document.getElementsByName('product-type');
@@ -501,14 +510,42 @@ async function saveProduct() {
   const price = parseFloat(document.getElementById('product-price')?.value.replace(/\./g, ''));
   if (!name || isNaN(price)) return appUtils.showToast('Nombre y precio requeridos');
   
+  const originalPriceInput = document.getElementById('product-original-price')?.value;
+  const originalPrice = originalPriceInput ? parseFloat(originalPriceInput.replace(/\./g, '')) : null;
+  
+  const costInput = document.getElementById('product-cost')?.value;
+  const cost = costInput ? parseFloat(costInput.replace(/\./g, '')) : null;
+
   const pData = {
     name, price,
     ref: document.getElementById('product-ref')?.value || '',
     category: document.getElementById('product-category')?.value || '',
+    tags: document.getElementById('product-tags')?.value || '',
+    originalPrice: originalPrice,
+    cost: cost,
     stock: parseInt(document.getElementById('product-stock')?.value) || 0,
+    unit: document.getElementById('product-unit')?.value || 'und',
+    description: document.getElementById('product-description')?.value || '',
     active: document.getElementById('product-active')?.checked ?? true,
     images: [...appState.currentProductImages]
   };
+
+  const type = document.querySelector('input[name="product-type"]:checked')?.value;
+  if (type === 'variants') {
+    const variantRows = document.querySelectorAll('.variant-row');
+    const variants = [];
+    variantRows.forEach(row => {
+      const color = row.querySelector('.var-color')?.value.trim();
+      const stock = parseInt(row.querySelector('.var-stock')?.value) || 0;
+      if (color) {
+        variants.push({ color, stock });
+      }
+    });
+    pData.variants = variants;
+    pData.stock = variants.reduce((sum, v) => sum + v.stock, 0);
+  } else {
+    pData.variants = null;
+  }
 
   // Guardar origen y Dropi ID
   if (window.currentDropiOrigen === 'dropi') {
@@ -526,6 +563,11 @@ async function saveProduct() {
   appUtils.safeStyle('modal-product', 'display', 'none');
   appUtils.showToast('Guardado ✅');
   if (window.loadCatalog) window.loadCatalog();
+}
+
+function removeProductImage(idx) {
+  appState.currentProductImages.splice(idx, 1);
+  renderProductImagePreview();
 }
 
 async function deleteProduct(id) {
