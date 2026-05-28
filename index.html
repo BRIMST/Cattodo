@@ -241,6 +241,210 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  VISTA: DETALLE DE PRODUCTO                            -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="view-product" class="view" data-noindex="false">
+    <div class="page-wrapper">
+      <header class="page-header product-page-header">
+        <button class="btn-back" id="btn-back-catalog-product">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Volver
+        </button>
+        <span class="product-page-store-name" id="product-store-name-header">Panda Venta</span>
+        <div style="width: 24px;"></div>
+      </header>
+
+      <div class="product-detail-layout">
+        <!-- Columna Izquierda: Galería de Imágenes -->
+        <div class="product-gallery-col">
+          <div class="main-image-wrapper">
+            <img id="detail-main-img" src="" alt="Imagen del producto" />
+            <div id="detail-discount-badge" class="badge-discount-overlay" style="display:none"></div>
+          </div>
+          <div class="thumbnails-strip" id="detail-thumbnails">
+            <!-- Thumbnails se renderizan por JS -->
+          </div>
+        </div>
+
+        <!-- Columna Derecha: Información y Compra -->
+        <div class="product-info-col">
+          <div class="product-meta-category" id="detail-category">CATEGORÍA</div>
+          <h2 class="product-detail-title" id="detail-title">Nombre del Producto</h2>
+          <div class="product-detail-ref" id="detail-ref">REF: 000</div>
+
+          <!-- Social Proof -->
+          <div class="product-detail-social-proof">
+            <div class="social-stars" id="detail-stars"></div>
+            <span class="social-sold" id="detail-sold-count">+50 vendidos</span>
+            <span class="social-verified">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+              Satisfechos
+            </span>
+          </div>
+
+          <!-- Precios -->
+          <div class="product-detail-price-box">
+            <span class="detail-price-original" id="detail-price-original" style="display:none"></span>
+            <div class="detail-price-current">
+              <span class="detail-price-currency" id="detail-price-currency">COP</span>
+              <span class="detail-price-amount" id="detail-price-amount">0</span>
+            </div>
+          </div>
+
+          <!-- Promo envíos / Geolocalizado -->
+          <div class="detail-shipping-promo-card" id="detail-shipping-promo">
+            <!-- Dinámico por JS -->
+          </div>
+
+          <!-- Selector Variantes -->
+          <div class="detail-variants-section" id="detail-variants-wrapper" style="display:none">
+            <label class="detail-section-label">Seleccionar Color:</label>
+            <div class="color-selector" id="detail-color-selector">
+              <!-- Colores dinámicos -->
+            </div>
+          </div>
+
+          <!-- Cantidad y Compra -->
+          <div class="detail-actions-section">
+            <div class="detail-qty-wrapper">
+              <label class="detail-section-label">Cantidad:</label>
+              <div class="qty-controls" style="max-width: 140px;">
+                <button class="btn-qty" id="btn-detail-qty-minus">-</button>
+                <span class="qty-display" id="detail-qty-display">1</span>
+                <button class="btn-qty" id="btn-detail-qty-plus">+</button>
+              </div>
+            </div>
+
+            <!-- CTAs Shopify Style -->
+            <div class="detail-cta-buttons">
+              <button class="btn-whatsapp-buy" id="btn-detail-wa-buy">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z" />
+                </svg>
+                PIDE POR WHATSAPP (LLEVA HOY)
+              </button>
+              <button class="btn-add-to-cart-detail" id="btn-detail-add-cart">
+                AGREGAR AL CARRITO
+              </button>
+            </div>
+          </div>
+
+          <!-- Acordeones -->
+          <div class="product-accordions">
+            <details class="detail-accordion" open>
+              <summary>
+                <span>📦 Descripción del Producto</span>
+                <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </summary>
+              <div class="accordion-content" id="detail-description">
+                Cargando descripción...
+              </div>
+            </details>
+
+            <details class="detail-accordion">
+              <summary>
+                <span>🚛 Envíos y Tiempos de Entrega</span>
+                <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </summary>
+              <div class="accordion-content">
+                <p>Enviamos de forma rápida y segura a nivel nacional:</p>
+                <ul>
+                  <li><b>Bogotá:</b> ¡Envío GRATIS hoy! Si pides antes del mediodía, te lo entregamos hoy mismo.</li>
+                  <li><b>Otras ciudades:</b> Envío a tarifa plana. Recibe en 2 a 3 días hábiles en las principales ciudades de Colombia.</li>
+                </ul>
+              </div>
+            </details>
+
+            <details class="detail-accordion">
+              <summary>
+                <span>🛡️ Compra Protegida y Garantía</span>
+                <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </summary>
+              <div class="accordion-content">
+                <p>Compra con total tranquilidad:</p>
+                <ul>
+                  <li><b>Pago Seguro:</b> Paga en línea vía Nequi, Daviplata, transferencia o PSE. También ofrecemos soporte de pago asistido.</li>
+                  <li><b>Garantía Directa:</b> Todos nuestros artículos cuentan con garantía de fábrica por desperfectos. Cambios ágiles por WhatsApp.</li>
+                </ul>
+              </div>
+            </details>
+          </div>
+
+          <!-- Badges de confianza -->
+          <div class="detail-trust-badges">
+            <div class="trust-badge-item">
+              <span>🛡️</span>
+              <p>Compra 100% Segura</p>
+            </div>
+            <div class="trust-badge-item">
+              <span>🚛</span>
+              <p>Envíos a todo el país</p>
+            </div>
+            <div class="trust-badge-item">
+              <span>✅</span>
+              <p>Garantía de Calidad</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Productos Recomendados -->
+      <section class="related-products-section">
+        <h3 class="related-products-title">También te puede interesar</h3>
+        <div class="products-grid" id="related-products-grid">
+          <!-- Rendered dynamically -->
+        </div>
+      </section>
+
+      <!-- Reseñas -->
+      <section class="product-reviews-section">
+        <h3 class="reviews-section-title">Opiniones del producto</h3>
+        
+        <div class="reviews-summary-card">
+          <div class="reviews-summary-score">
+            <div class="score-num">4.8</div>
+            <div class="social-stars">★★★★★</div>
+            <div class="reviews-count-text">Basado en valoraciones reales</div>
+          </div>
+          <div class="reviews-rating-bars">
+            <div class="rating-bar-row">
+              <span>5 ★</span>
+              <div class="bar-track"><div class="bar-fill" style="width: 85%;"></div></div>
+              <span>85%</span>
+            </div>
+            <div class="rating-bar-row">
+              <span>4 ★</span>
+              <div class="bar-track"><div class="bar-fill" style="width: 10%;"></div></div>
+              <span>10%</span>
+            </div>
+            <div class="rating-bar-row">
+              <span>3 ★</span>
+              <div class="bar-track"><div class="bar-fill" style="width: 3%;"></div></div>
+              <span>3%</span>
+            </div>
+            <div class="rating-bar-row">
+              <span>2 ★</span>
+              <div class="bar-track"><div class="bar-fill" style="width: 1%;"></div></div>
+              <span>1%</span>
+            </div>
+            <div class="rating-bar-row">
+              <span>1 ★</span>
+              <div class="bar-track"><div class="bar-fill" style="width: 1%;"></div></div>
+              <span>1%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="reviews-list-container" id="detail-reviews-list">
+          <!-- Dinámico por JS -->
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
   <!--  VISTA: PEDIDO (resumen + nombre del cliente)          -->
   <!-- ═══════════════════════════════════════════════════════ -->
   <div id="view-order" class="view" data-noindex="true">

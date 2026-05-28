@@ -1,0 +1,13 @@
+{
+    "name": "catalogo-personalizado",
+    "description": "Plugin de WordPress para mostrar catálogo desde Firebase",
+    "type": "project",
+    "require": {
+        "kreait/firebase-php": "^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "CatalogoPersonalizado\\": "src/"
+        }
+    }
+}
