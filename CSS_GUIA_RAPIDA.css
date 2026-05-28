@@ -1,0 +1,314 @@
+/* ════════════════════════════════════════════════════════════════════════════════
+   GUÍA RÁPIDA: CAMBIOS DE ESTILO COMUNES
+   Para modificaciones rápidas sin editar todo el archivo styles.css
+   ════════════════════════════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   CAMBIAR LA PALETA DE COLORES COMPLETA
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* Opción 1: Editar las variables CSS (RECOMENDADO)
+   Localización: styles.css líneas 20-40
+   
+   :root {
+     --primary:           #0047AB;    ← CAMBIAR AQUÍ (Azul Rey actual)
+     --secondary:         #E5E7EB;    ← CAMBIAR AQUÍ (Gris Metálico actual)
+     --text-main:         #111827;    ← CAMBIAR AQUÍ (Negro Suave actual)
+     ...
+   }
+*/
+
+/* Opción 2: Crear una hoja CSS adicional (si usas temas)
+   
+   <link rel="stylesheet" href="css/styles.css">
+   <link rel="stylesheet" href="css/theme-dark.css">  ← SOBRESCRIBE COLORES
+*/
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   EJEMPLOS: CAMBIOS ESPECÍFICOS
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* 1. CAMBIAR COLOR DEL BOTÓN "AGREGAR AL CARRITO" */
+.btn-add {
+  background: #0047AB;  /* Azul Rey actual */
+  /* Para cambiar a verde: background: #059669; */
+  /* Para cambiar a púrpura: background: #7C3AED; */
+}
+
+/* 2. HACER EL BOTÓN MÁS REDONDEADO */
+.btn-add {
+  border-radius: 8px;  /* Cambiar de 4px a 8px o más */
+}
+
+/* 3. AUMENTAR ESPACIADO ENTRE PRODUCTOS */
+.products-grid {
+  gap: 1.5rem;  /* Cambiar de 1rem a 1.5rem o más */
+}
+
+/* 4. CAMBIAR EL COLOR DE FONDO GENERAL */
+body {
+  background: #F8F9FA;  /* Cambiar de blanco puro a gris claro */
+}
+
+/* 5. HACER HERO BANNER MÁS ALTO */
+.hero-banner {
+  padding: 5rem 1.5rem;  /* Aumentar altura */
+  min-height: 300px;     /* O añadir min-height */
+}
+
+/* 6. HACER TRANSICIONES MÁS LENTAS */
+:root {
+  --transition-base: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);  /* 0.25s → 0.5s */
+}
+
+/* 7. CAMBIAR TIPOGRAFÍA (si cambiaste a otra fuente) */
+:root {
+  --font-main: 'Roboto', '-apple-system', sans-serif;  /* Cambiar de Inter a Roboto */
+}
+
+/* 8. HACER PRODUCTOS MÁS GRANDES */
+.products-grid {
+  grid-template-columns: 1fr 1fr;  /* Cambiar a 1fr para 1 columna, o crear 3 columnas en desktop */
+}
+
+@media (min-width: 1024px) {
+  .products-grid {
+    grid-template-columns: repeat(3, 1fr);  /* 3 columnas en desktop */
+  }
+}
+
+/* 9. CAMBIAR SOMBRAS (hacerlas más/menos prominentes) */
+.product-card {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);  /* Aumentar de 0.08 a 0.1 para más sombra */
+}
+
+/* 10. CAMBIAR BORDE DE CARDS */
+.product-card {
+  border: 2px solid #E5E7EB;  /* Cambiar de 1px a 2px para más prominente */
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   TRUCOS AVANZADOS
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* 1. EFECTO "GLASSMORPHISM" EN CARDS */
+.product-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* 2. HACER BOTONES MÁS "PLANOS" (sin sombra) */
+.btn-add {
+  box-shadow: none;  /* Remover sombra */
+  border: 2px solid #0047AB;  /* Añadir borde grueso */
+}
+
+/* 3. DARK MODE SIMPLE */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-pure: #1A1A1A;
+    --bg-section: #2D2D2D;
+    --text-main: #F0F0F0;
+    --primary: #4A8FFF;  /* Azul más claro para dark mode */
+  }
+  
+  body { background: #1A1A1A; }
+}
+
+/* 4. AUMENTAR PADDING EN CARDS DE PRODUCTO */
+.product-info {
+  padding: 1.5rem;  /* Cambiar de 1rem a 1.5rem */
+}
+
+/* 5. HACER FOOTER STICKY */
+footer {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-section);
+  border-top: 1px solid var(--secondary);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   PERSONALIZACIÓN PARA DIFERENTES SECTORES
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* TECH STORE (Tu caso: Tecnología) */
+:root {
+  --primary: #0047AB;  /* Azul Rey ✓ */
+  --primary-dark: #003580;
+  --bg-section: #F8F9FA;
+  --text-main: #111827;
+}
+
+/* FASHION STORE */
+:root {
+  --primary: #1A1A1A;  /* Negro elegante */
+  --secondary: #C0C0C0;  /* Plateado */
+  --accent: #FFD700;  /* Dorado */
+}
+
+/* BEAUTY STORE */
+:root {
+  --primary: #E91E63;  /* Rosa */
+  --secondary: #F3E5F5;  /* Rosa muy claro */
+  --accent: #FF4081;  /* Rosa oscuro */
+}
+
+/* NATURAL PRODUCTS (Tu caso: Velas/Jabones) */
+:root {
+  --primary: #16A34A;  /* Verde natural */
+  --secondary: #F0FDF4;  /* Verde muy claro */
+  --accent: #EAB308;  /* Oro/Ámbar */
+  --text-main: #1F2937;
+}
+
+/* LUXURY GOODS */
+:root {
+  --primary: #B8860B;  /* Dorado */
+  --secondary: #F5F5DC;  /* Beige */
+  --text-main: #2C2C2C;  /* Negro profundo */
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   ANIMACIONES PERSONALIZADAS
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* Entrada suave de productos */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.product-card {
+  animation: slideIn 0.4s ease-out;
+}
+
+/* Efecto "bounce" en botones */
+@keyframes buttonBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.btn-add:active {
+  animation: buttonBounce 0.2s;
+}
+
+/* Efecto "glow" en hover */
+.product-card:hover {
+  box-shadow: 0 0 20px rgba(0, 71, 171, 0.15);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   VARIABLES ÚTILES PARA PERSONALIZACIÓN RÁPIDA
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/*
+  Copiar esto al inicio de styles.css para sobrescribir variables:
+
+  :root {
+    /* PALETA PERSONALIZADA */
+    --primary: #0047AB;
+    --secondary: #E5E7EB;
+    --success: #059669;
+    --danger: #DC2626;
+    
+    /* ESPACIADO */
+    --px: 1.5rem;
+    --px-mobile: 1.25rem;
+    
+    /* BORDES */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    
+    /* SOMBRAS */
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+    
+    /* TRANSICIONES */
+    --transition-base: all 0.25s ease;
+  }
+*/
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   RESPONSIVE BREAKPOINTS CLAVE
+   ────────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  /* Tablet grande */
+  .products-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Tablet */
+  .products-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Móvil pequeño */
+  .products-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   DEBUGGING: VISUALIZAR GRILLAS
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/*
+  Para ver los bordes de todos los elementos (para debugging):
+  
+  * {
+    border: 1px solid red !important;
+  }
+  
+  O para elementos específicos:
+  
+  .product-card {
+    border: 2px solid lime !important;
+  }
+*/
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   PRINT STYLES (Para imprimir órdenes/tickets)
+   ────────────────────────────────────────────────────────────────────────────── */
+
+@media print {
+  .floating-wa-btn,
+  .cart-bar,
+  .catalog-toolbar {
+    display: none !important;
+  }
+  
+  .ticket {
+    box-shadow: none;
+    border: 1px solid #000;
+    page-break-inside: avoid;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   FIN DE GUÍA RÁPIDA
+   Más información: Ver DISEÑO_RENOVACION_PREMIUM.md
+   ════════════════════════════════════════════════════════════════════════════════ */
