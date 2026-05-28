@@ -920,7 +920,6 @@ window.openProductPage = function(productId) {
     variantsWrapper.style.display = 'none';
   }
 
-  const clipUrl = p.videoUrl || p.clipUrl || p.video || p.clip;
   if (clipButton) {
     if (clipUrl) {
       clipButton.style.display = 'flex';
