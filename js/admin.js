@@ -153,7 +153,9 @@ export function initAdmin(state, utils) {
 
 function openAdminActual() {
   const panel = document.getElementById('panel-admin');
+  const overlay = document.getElementById('admin-overlay');
   if (panel) panel.style.display = 'flex';
+  if (overlay) overlay.style.display = 'block';
   if (!window.ordersListenerAttached) {
     window.ordersListenerAttached = true;
     onValue(ref(appState.db, 'orders'), snap => {
@@ -195,6 +197,7 @@ function openAdminActual() {
 
 function closeAdmin() {
   appUtils.safeStyle('panel-admin', 'display', 'none');
+  appUtils.safeStyle('admin-overlay', 'display', 'none');
 }
 
 export function renderAdminProducts() {
@@ -484,6 +487,7 @@ async function saveSettings() {
 }
 
 function openProductModal(id = null) {
+  closeAdmin();
   window.currentEditId = id;
   window.currentDropiOrigen = null; // Reset Dropi origin flag
   appState.currentProductImages = [];
