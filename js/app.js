@@ -900,6 +900,32 @@ window.openProductPage = function(productId) {
     }
     promoEl.innerHTML = promoHTML;
   }
+
+  const infoStockEl = document.getElementById('info-stock');
+  const infoShippingEl = document.getElementById('info-shipping-label');
+  const infoCategoryEl = document.getElementById('info-category');
+  const infoTagsEl = document.getElementById('info-tags');
+  const infoShortDescEl = document.getElementById('info-short-description');
+
+  if (infoStockEl) {
+    infoStockEl.textContent = (p.stock !== undefined && p.stock !== null)
+      ? (p.stock > 0 ? `${p.stock} disponibles` : 'Agotado')
+      : 'Disponible';
+  }
+  if (infoShippingEl) {
+    infoShippingEl.textContent = userLocation === 'bogota' ? 'Envío exprés Bogotá' : 'Envío nacional 2-3 días';
+  }
+  if (infoCategoryEl) {
+    infoCategoryEl.textContent = p.category || 'General';
+  }
+  if (infoTagsEl) {
+    infoTagsEl.textContent = p.tags ? p.tags.split(',').map(t => t.trim()).filter(Boolean).join(', ') : 'Sin etiquetas';
+  }
+  if (infoShortDescEl) {
+    infoShortDescEl.textContent = p.description
+      ? p.description.split('. ').slice(0, 2).join('. ') + (p.description.includes('.') ? '.' : '')
+      : 'Esta sección resume lo más importante del producto para que los usuarios conozcan sus beneficios sin bajar demasiado.';
+  }
   
   // Variants (Colors)
   const hasVariants = p.variants && p.variants.length > 0;
