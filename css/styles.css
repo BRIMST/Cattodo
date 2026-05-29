@@ -2060,18 +2060,58 @@ input, button, textarea, select {
   font-size: 1.55rem;
   font-weight: 900;
   color: var(--text-main);
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
 }
 
-.reviews-summary-card {
+.product-info-summary-card {
   display: grid;
-  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
   gap: 1rem;
   padding: 1.5rem;
   background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(247,249,250,0.95) 100%);
   border: 1px solid rgba(226, 232, 240, 0.95);
   border-radius: var(--radius-2xl);
   box-shadow: 0 22px 70px rgba(15, 23, 42, 0.08);
+  margin-bottom: 1.5rem;
+}
+
+.product-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.product-info-block {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: var(--radius-xl);
+  padding: 1rem 1.1rem;
+}
+
+.info-title {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.45rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.product-info-block strong {
+  display: block;
+  font-size: 1rem;
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.product-info-description {
+  padding: 1rem 1rem 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.reviews-summary-card {
+  display: none;
 }
 
 .reviews-summary-score {
