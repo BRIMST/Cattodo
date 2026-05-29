@@ -201,29 +201,41 @@ export function renderAdminProducts() {
   const list = document.getElementById('admin-products-list');
   if (!list) return;
   const search = (document.getElementById('admin-search-input')?.value || '').toLowerCase();
-  let filtered = search
+  const filtered = search
     ? appState.products.filter(p => (p.name && p.name.toLowerCase().includes(search)) || (p.ref && p.ref.toLowerCase().includes(search)))
-    : appState.products;
+    : appState.products || [];
+
   if (filtered.length === 0) {
     list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);">No hay productos.</div>';
     return;
   }
-  list.innerHTML = filtered.map(p => `
-    <div class="admin-product-row" onclick="openProductModal('${p.id}')">
-      <div class="admin-product-img">
-        ${(p.images && p.images[0]) || p.image
-      ? `<img src="${(p.images && p.images[0]) || p.image}" loading="lazy" />`
-      : '📦'}
-      </div>
-      <div class="admin-product-info">
-        <div class="admin-product-title">
-          ${p.name || 'Sin nombre'}
-          ${!p.active ? '<span class="badge-inactive">Oculto</span>' : ''}
+
+  const escapeHTML = text => String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+
+  list.innerHTML = filtered.map(p => {
+    const imageUrl = (p.images && p.images[0]) || p.image;
+    return `
+      <div class="admin-product-row" data-product-id="${escapeHTML(p.id)}">
+        <div class="admin-product-img">
+          ${imageUrl ? `<img src="${escapeHTML(imageUrl)}" loading="lazy" />` : '📦'}
         </div>
-        <div class="admin-product-price">${appUtils.formatMoney(p.price || 0)}</div>
+        <div class="admin-product-info">
+          <div class="admin-product-title">
+            ${escapeHTML(p.name || 'Sin nombre')}
+            ${!p.active ? '<span class="badge-inactive">Oculto</span>' : ''}
+          </div>
+          <div class="admin-product-price">${appUtils.formatMoney(p.price || 0)}</div>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
+
+  list.querySelectorAll('.admin-product-row').forEach(row => {
+    row.onclick = () => {
+      const id = row.dataset.productId;
+      if (id) openProductModal(id);
+    };
+  });
 }
 
 export function renderAdminOrders() {
