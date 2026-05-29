@@ -2402,9 +2402,10 @@ input, button, textarea, select {
   position: fixed;
   inset: 0;
   display: none;
-  z-index: 12000;
+  z-index: 13000;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
   padding: 1.25rem;
   background: rgba(15, 23, 42, 0.55);
   backdrop-filter: blur(4px);
@@ -2414,14 +2415,17 @@ input, button, textarea, select {
 .modal-card {
   width: min(92vw, 540px);
   max-width: 540px;
+  max-height: calc(100vh - 2.5rem);
   border-radius: var(--radius-xl);
   background: #fff;
   box-shadow: var(--shadow-xl);
-  overflow: hidden;
+  overflow: auto;
 }
 
 .modal-card-sm {
   width: min(90vw, 420px);
+  max-height: calc(100vh - 2.5rem);
+  overflow: auto;
 }
 
 .modal-header {
