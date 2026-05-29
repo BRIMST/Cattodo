@@ -507,6 +507,8 @@ function openProductModal(id = null) {
   appUtils.safeValue('product-stock', p ? (p.stock || '') : '');
   appUtils.safeValue('product-unit', p ? (p.unit || 'und') : 'und');
   appUtils.safeValue('product-description', p ? (p.description || '') : '');
+  appUtils.safeValue('product-clip-url', p ? (p.clipUrl || p.videoUrl || p.video || p.clip || '') : '');
+  appUtils.safeValue('product-video-thumbnail', p ? (p.videoThumbnail || '') : '');
   appUtils.safeSet('product-active', 'checked', p ? (p.active ?? true) : true);
   
   const hasVariants = p && p.variants && p.variants.length > 0;
@@ -580,6 +582,8 @@ async function saveProduct() {
     stock: parseInt(document.getElementById('product-stock')?.value) || 0,
     unit: document.getElementById('product-unit')?.value || 'und',
     description: document.getElementById('product-description')?.value || '',
+    clipUrl: document.getElementById('product-clip-url')?.value.trim() || null,
+    videoThumbnail: document.getElementById('product-video-thumbnail')?.value.trim() || null,
     active: document.getElementById('product-active')?.checked ?? true,
     images: [...appState.currentProductImages]
   };
