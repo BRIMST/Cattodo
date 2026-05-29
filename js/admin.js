@@ -158,7 +158,33 @@ function openAdminActual() {
     window.ordersListenerAttached = true;
     onValue(ref(appState.db, 'orders'), snap => {
       const val = snap.val();
-      appState.orders = val ? Object.keys(val).map(key => ({ ...val[key], id: key })).reverse() : [];
+      const now = Date.now();
+      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+      const rawOrders = val ? Object.entries(val).map(([key, order]) => ({ id: key, ...order })) : [];
+
+      const validOrders = rawOrders.filter(order => {
+        if (order.status !== 'cancelled') return true;
+        const cancelledAt = order.cancelledAt || order.timestamp || 0;
+        if (now - cancelledAt > THIRTY_DAYS) {
+          remove(ref(appState.db, `orders/${order.id}`));
+          return false;
+        }
+        return true;
+      });
+
+      appState.orders = validOrders.sort((a, b) => {
+        const priority = status => {
+          if (!status || status === 'pending') return 1;
+          if (status === 'completed') return 2;
+          if (status === 'cancelled') return 3;
+          return 1;
+        };
+        const rankA = priority(a.status);
+        const rankB = priority(b.status);
+        if (rankA !== rankB) return rankA - rankB;
+        return (b.timestamp || 0) - (a.timestamp || 0);
+      });
+
       renderAdminOrders();
       renderReports();
     });
@@ -208,7 +234,19 @@ export function renderAdminOrders() {
     return;
   }
   const channelLabel = { web: '🌐 Web', whatsapp: '💬 WhatsApp', mercado_libre: '🛒 ML' };
-  list.innerHTML = appState.orders.map(o => {
+  const sortedOrders = [...appState.orders].sort((a, b) => {
+    const priority = status => {
+      if (!status || status === 'pending') return 1;
+      if (status === 'completed') return 2;
+      if (status === 'cancelled') return 3;
+      return 1;
+    };
+    const rankA = priority(a.status);
+    const rankB = priority(b.status);
+    if (rankA !== rankB) return rankA - rankB;
+    return (b.timestamp || 0) - (a.timestamp || 0);
+  });
+  list.innerHTML = sortedOrders.map(o => {
     const ch = o.channel || 'web';
     const profit = (o.total || 0) - (o.totalCost || 0);
     const hasShipping = o.shippingValue && o.shippingValue > 0;
@@ -583,7 +621,7 @@ async function confirmOrder(id) {
 
 function cancelOrder(id) {
   if (confirm('¿Anular pedido?')) {
-    update(ref(appState.db, `orders/${id}`), { status: 'cancelled' });
+    update(ref(appState.db, `orders/${id}`), { status: 'cancelled', cancelledAt: Date.now() });
   }
 }
 
