@@ -339,6 +339,12 @@
               <button class="btn-add-to-cart-detail" id="btn-detail-add-cart">
                 AGREGAR AL CARRITO
               </button>
+              <button class="btn-watch-clip" id="btn-detail-watch-clip" style="display:none;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M10 8.5v7l6-3.5-6-3.5z" />
+                </svg>
+                VER CLIP
+              </button>
             </div>
           </div>
 
@@ -386,18 +392,18 @@
           <!-- Badges de confianza -->
           <div class="detail-trust-badges">
             <div class="trust-badge-item">
-              <span>🛡️</span>
-              <p>Compra 100% Segura</p>
-            </div>
-            <div class="trust-badge-item">
-              <span>🚛</span>
-              <p>Envíos a todo el país</p>
-            </div>
-            <div class="trust-badge-item">
-              <span>✅</span>
-              <p>Garantía de Calidad</p>
+              <span>⭐</span>
+              <p>Las opiniones del producto</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div class="video-modal" id="detail-video-modal" aria-hidden="true">
+        <div class="video-modal-backdrop" id="detail-video-backdrop" onclick="closeDetailVideo()"></div>
+        <div class="video-modal-card" role="dialog" aria-modal="true" aria-label="Reproductor de video del producto">
+          <button class="video-modal-close" id="detail-video-close" aria-label="Cerrar video" onclick="closeDetailVideo()">×</button>
+          <div class="video-modal-wrapper" id="detail-video-wrapper"></div>
         </div>
       </div>
 
