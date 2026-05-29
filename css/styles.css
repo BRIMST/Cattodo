@@ -2248,6 +2248,19 @@ input, button, textarea, select {
   .trust-bar-inner {
     gap: 1rem;
     font-size: 0.65rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: 0.4rem;
+  }
+
+  .trust-bar-inner::-webkit-scrollbar {
+    display: none;
+  }
+
+  .trust-bar-inner span {
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
   
   .hero-title {
@@ -2386,7 +2399,95 @@ input, button, textarea, select {
 
 /* Fadeout para modales */
 .modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 12000;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
   animation: fadeIn 0.25s ease;
+}
+
+.modal-card {
+  width: min(92vw, 540px);
+  max-width: 540px;
+  border-radius: var(--radius-xl);
+  background: #fff;
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+}
+
+.modal-card-sm {
+  width: min(90vw, 420px);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: var(--border-width) solid var(--secondary);
+}
+
+.modal-body {
+  padding: 1.25rem;
+}
+
+.btn-close-modal {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.btn-close-modal:hover {
+  background: rgba(15, 23, 42, 0.16);
+}
+
+.admin-panel {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 12500;
+  align-items: stretch;
+  justify-content: flex-end;
+}
+
+.admin-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.admin-drawer {
+  position: relative;
+  z-index: 2;
+  width: min(100%, 620px);
+  max-width: 100%;
+  max-height: 100vh;
+  overflow-y: auto;
+  background: #fff;
+  box-shadow: var(--shadow-2xl);
+  border-radius: var(--radius-xl) 0 0 var(--radius-xl);
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: var(--border-width) solid var(--secondary);
 }
 
 @keyframes fadeIn {
