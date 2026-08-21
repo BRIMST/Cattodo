@@ -133,6 +133,18 @@ export function initAdmin(state, utils) {
     }
   });
 
+  // Excel Bulk Upload
+  on('btn-bulk-excel', 'onclick', () => document.getElementById('bulk-upload-excel')?.click());
+  on('bulk-upload-excel', 'onchange', handleBulkExcelUpload);
+
+  // Auto-format currency on input fields in the product modal
+  ['product-price', 'product-original-price', 'product-cost', 'product-wholesale-price'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', window.formatInputCurrency);
+    }
+  });
+
   // Bind extra window helpers
   window._extItemChange = (idx, field, val) => {
     if (!extItems[idx]) return;
@@ -434,6 +446,7 @@ function loadSettingsForm() {
   appUtils.safeValue('settings-currency', appState.settings.currency || 'COP');
   appUtils.safeValue('settings-payment-info', appState.settings.paymentInfo || '');
   appUtils.safeValue('settings-shipping-cost', appState.settings.shippingCost || 0);
+  appUtils.safeValue('settings-wholesale-discount', appState.settings.wholesaleDiscount !== undefined ? appState.settings.wholesaleDiscount : 20);
   
   // Ubicación Dinámica
   const loc = appState.settings.locContent || {};
@@ -466,6 +479,7 @@ async function saveSettings() {
     currency: document.getElementById('settings-currency')?.value || 'COP',
     paymentInfo: document.getElementById('settings-payment-info')?.value || '',
     shippingCost: parseFloat(document.getElementById('settings-shipping-cost')?.value) || 0,
+    wholesaleDiscount: parseInt(document.getElementById('settings-wholesale-discount')?.value) >= 0 ? parseInt(document.getElementById('settings-wholesale-discount')?.value) : 20,
     locContent: {
       bgtTitle: document.getElementById('settings-loc-bgt-title')?.value || '',
       bgtSub: document.getElementById('settings-loc-bgt-sub')?.value || '',
@@ -488,6 +502,7 @@ async function saveSettings() {
 
 function openProductModal(id = null) {
   closeAdmin();
+  if (id === 'undefined') id = null;
   window.currentEditId = id;
   window.currentDropiOrigen = null; // Reset Dropi origin flag
   appState.currentProductImages = [];
@@ -504,6 +519,7 @@ function openProductModal(id = null) {
   appUtils.safeValue('product-price', p ? parseInt(p.price).toLocaleString('es-CO') : '');
   appUtils.safeValue('product-original-price', p && p.originalPrice ? parseInt(p.originalPrice).toLocaleString('es-CO') : '');
   appUtils.safeValue('product-cost', p && p.cost ? parseInt(p.cost).toLocaleString('es-CO') : '');
+  appUtils.safeValue('product-wholesale-price', p && p.wholesalePrice ? parseInt(p.wholesalePrice).toLocaleString('es-CO') : '');
   appUtils.safeValue('product-stock', p ? (p.stock || '') : '');
   appUtils.safeValue('product-unit', p ? (p.unit || 'und') : 'und');
   appUtils.safeValue('product-description', p ? (p.description || '') : '');
@@ -572,6 +588,9 @@ async function saveProduct() {
   const costInput = document.getElementById('product-cost')?.value;
   const cost = costInput ? parseFloat(costInput.replace(/\./g, '')) : null;
 
+  const wholesalePriceInput = document.getElementById('product-wholesale-price')?.value;
+  const wholesalePrice = wholesalePriceInput ? parseFloat(wholesalePriceInput.replace(/\./g, '')) : null;
+
   const pData = {
     name, price,
     ref: document.getElementById('product-ref')?.value || '',
@@ -579,6 +598,7 @@ async function saveProduct() {
     tags: document.getElementById('product-tags')?.value || '',
     originalPrice: originalPrice,
     cost: cost,
+    wholesalePrice: wholesalePrice,
     stock: parseInt(document.getElementById('product-stock')?.value) || 0,
     unit: document.getElementById('product-unit')?.value || 'und',
     description: document.getElementById('product-description')?.value || '',
@@ -613,14 +633,19 @@ async function saveProduct() {
     pData.origen = 'propio';
   }
 
-  if (window.currentEditId) {
-    await update(ref(appState.db, `products/${window.currentEditId}`), pData);
-  } else {
-    await push(ref(appState.db, 'products'), pData);
+  try {
+    if (window.currentEditId && window.currentEditId !== "undefined") {
+      await update(ref(appState.db, `products/${window.currentEditId}`), pData);
+    } else {
+      await push(ref(appState.db, 'products'), pData);
+    }
+    appUtils.safeStyle('modal-product', 'display', 'none');
+    appUtils.showToast('Guardado ✅');
+    if (window.loadCatalog) window.loadCatalog();
+  } catch (error) {
+    console.error("Error saving product:", error);
+    appUtils.showToast('Error al guardar: ' + error.message);
   }
-  appUtils.safeStyle('modal-product', 'display', 'none');
-  appUtils.showToast('Guardado ✅');
-  if (window.loadCatalog) window.loadCatalog();
 }
 
 function removeProductImage(idx) {
@@ -820,4 +845,97 @@ async function importDropiProduct() {
     btn.innerText = oldText;
     btn.disabled = false;
   }
+}
+
+async function handleBulkExcelUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  appUtils.showToast("Leyendo Excel...");
+  
+  const reader = new FileReader();
+  reader.onload = async (evt) => {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      
+      if (jsonData.length === 0) {
+        appUtils.showToast("El archivo de Excel está vacío.");
+        return;
+      }
+      
+      const findKey = (row, possibleNames) => {
+        const rowKeys = Object.keys(row);
+        for (const name of possibleNames) {
+          const matched = rowKeys.find(k => k.trim().toLowerCase() === name.toLowerCase());
+          if (matched !== undefined) return matched;
+        }
+        return null;
+      };
+      
+      let importedCount = 0;
+      let updatedCount = 0;
+      
+      for (const row of jsonData) {
+        const fotoKey = findKey(row, ["foto", "imagen", "image", "url"]);
+        const nombreKey = findKey(row, ["nombre", "name"]);
+        const refKey = findKey(row, ["referencia", "ref", "reference"]);
+        const stockKey = findKey(row, ["cantidad de stock", "stock", "cantidad", "existencias"]);
+        const costoKey = findKey(row, ["precio de compra", "costo", "cost", "compra"]);
+        const precioKey = findKey(row, ["precio de venta", "precio", "price", "venta"]);
+        
+        const name = nombreKey ? String(row[nombreKey] || '').trim() : '';
+        const price = precioKey ? parseFloat(String(row[precioKey]).replace(/[^\d]/g, '')) : NaN;
+        
+        if (!name || isNaN(price)) {
+          continue;
+        }
+        
+        const refValue = refKey ? String(row[refKey] || '').trim() : '';
+        const stock = stockKey ? parseInt(String(row[stockKey]).replace(/[^\d]/g, '')) || 0 : 0;
+        const cost = costoKey ? parseFloat(String(row[costoKey]).replace(/[^\d]/g, '')) || null : null;
+        const foto = fotoKey ? String(row[fotoKey] || '').trim() : '';
+        
+        const pData = {
+          name,
+          price,
+          ref: refValue,
+          stock,
+          cost,
+          active: true,
+          unit: 'und',
+          images: foto ? [foto] : [],
+          origen: 'propio'
+        };
+        
+        let existingId = null;
+        if (refValue) {
+          const existing = appState.products.find(p => p.ref && String(p.ref).trim() === refValue);
+          if (existing) {
+            existingId = existing.id;
+          }
+        }
+        
+        if (existingId) {
+          await update(ref(appState.db, `products/${existingId}`), pData);
+          updatedCount++;
+        } else {
+          await push(ref(appState.db, 'products'), pData);
+          importedCount++;
+        }
+      }
+      
+      appUtils.showToast(`Excel procesado: ${importedCount} creados, ${updatedCount} actualizados ✅`);
+      if (window.loadCatalog) window.loadCatalog();
+    } catch (err) {
+      console.error(err);
+      appUtils.showToast("Error al procesar Excel: " + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }

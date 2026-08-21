@@ -58,6 +58,21 @@ let settings = {
 let orders = [];
 let cart = {};
 let currentFilter = 'all';
+let isWholesaleMode = false;
+
+function getProductPrice(p) {
+  if (!p) return 0;
+  if (isWholesaleMode) {
+    if (p.wholesalePrice !== undefined && p.wholesalePrice !== null && p.wholesalePrice !== '' && p.wholesalePrice !== 0) {
+      return parseFloat(p.wholesalePrice);
+    }
+    const discount = settings.wholesaleDiscount !== undefined ? parseFloat(settings.wholesaleDiscount) : 20;
+    const factor = (100 - discount) / 100;
+    const price = parseFloat(p.price) || 0;
+    return Math.round((price * factor) / 100) * 100;
+  }
+  return parseFloat(p.price) || 0;
+}
 let currentProductImages = [];
 let viewerImages = [];
 let viewerIndex = 0;
@@ -144,19 +159,23 @@ window.loadCatalog = async function() {
     const data = await res.json();
     
     if (data.settings) {
-      settings = data.settings;
+      Object.keys(settings).forEach(key => delete settings[key]);
+      Object.assign(settings, data.settings);
       applySettings();
     }
     
     if (data.products) {
       const val = data.products;
+      let newProductsList = [];
       if (Array.isArray(val)) {
-        products = val.filter(p => p !== null);
+        newProductsList = val.map((p, idx) => p ? { ...p, id: String(idx) } : null).filter(p => p !== null);
       } else {
-        products = Object.keys(val).map(key => ({ ...val[key], id: key }));
+        newProductsList = Object.keys(val).map(key => ({ ...val[key], id: key }));
       }
+      products.length = 0;
+      products.push(...newProductsList);
     } else {
-      products = [];
+      products.length = 0;
     }
     
     isProductsLoaded = true;
@@ -176,6 +195,53 @@ window.loadCatalog = async function() {
 
 function init() {
   window.loadCatalog();
+
+  const updateWholesaleToggleUI = () => {
+    const btnRetail = document.getElementById('btn-retail-mode');
+    const btnWholesale = document.getElementById('btn-wholesale-mode');
+    const banner = document.getElementById('wholesale-info-banner');
+    if (!btnRetail || !btnWholesale) return;
+    
+    if (isWholesaleMode) {
+      btnRetail.classList.remove('active');
+      btnRetail.style.background = 'transparent';
+      btnRetail.style.color = 'var(--text-muted)';
+      btnWholesale.classList.add('active');
+      btnWholesale.style.background = 'var(--primary)';
+      btnWholesale.style.color = '#fff';
+      if (banner) banner.style.display = 'block';
+    } else {
+      btnRetail.classList.add('active');
+      btnRetail.style.background = 'var(--primary)';
+      btnRetail.style.color = '#fff';
+      btnWholesale.classList.remove('active');
+      btnWholesale.style.background = 'transparent';
+      btnWholesale.style.color = 'var(--text-muted)';
+      if (banner) banner.style.display = 'none';
+    }
+  };
+
+  const switchWholesaleMode = (wholesale) => {
+    if (isWholesaleMode === wholesale) return;
+    
+    if (Object.keys(cart).length > 0) {
+      const confirmClear = confirm("Cambiar de canal de venta (Detal / Mayorista) vaciará tu carrito actual. ¿Deseas continuar?");
+      if (!confirmClear) return;
+      cart = {};
+      updateCartUI();
+    }
+    
+    isWholesaleMode = wholesale;
+    updateWholesaleToggleUI();
+    renderProducts();
+    renderDiscountSection();
+    updateCartUI();
+  };
+
+  document.getElementById('btn-retail-mode')?.addEventListener('click', () => switchWholesaleMode(false));
+  document.getElementById('btn-wholesale-mode')?.addEventListener('click', () => switchWholesaleMode(true));
+  
+  updateWholesaleToggleUI();
 
   document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.onclick = () => {
@@ -522,8 +588,9 @@ window.selectColor = (productId, color) => {
 function getProductHTML(p, badgeText = null, isCritical = false) {
   const pImages = p.images || (p.image ? [p.image] : []);
   const mainImg = pImages[0];
-  const hasDiscount = p.originalPrice && parseFloat(p.originalPrice) > parseFloat(p.price);
-  const discountPct = hasDiscount ? Math.round((1 - p.price / p.originalPrice) * 100) : 0;
+  const price = getProductPrice(p);
+  const hasDiscount = p.originalPrice && parseFloat(p.originalPrice) > parseFloat(price);
+  const discountPct = hasDiscount ? Math.round((1 - price / p.originalPrice) * 100) : 0;
   const stats = getProductStats(p.id);
 
   const hasVariants = p.variants && p.variants.length > 0;
@@ -556,7 +623,7 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
     <div class="product-info" onclick="location.hash = '#/product/${p.id}'" style="cursor:pointer;">
       ${p.category ? `<div class="product-category-label">${p.category}</div>` : ''}
       <div class="product-title">${p.name} ${p.ref ? `<span style="font-size:0.7em;color:var(--text-muted)">[${p.ref}]</span>` : ''}</div>
-      ${getShippingBadgesHTML(p.price)}
+      ${getShippingBadgesHTML(price)}
       
       <div class="product-social-proof">
         ${getStarsHTML(stats.rating)}
@@ -571,7 +638,8 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
           ${hasDiscount ? `<span class="price-original">${settings.currency} ${parseFloat(p.originalPrice).toLocaleString('es-CO')}</span>` : ''}
           <div style="display:flex; align-items: baseline; gap: 2px;">
             <span class="price-currency">${settings.currency}</span>
-            <span class="price-amount ${hasDiscount ? 'price-sale' : ''}">${parseFloat(p.price).toLocaleString('es-CO')}</span>
+            <span class="price-amount ${hasDiscount ? 'price-sale' : ''}">${parseFloat(price).toLocaleString('es-CO')}</span>
+            ${isWholesaleMode ? '<span style="font-size:0.6rem; color:var(--success); font-weight:700; margin-left:4px;">(Por mayor)</span>' : ''}
           </div>
         </div>
         <div class="qty-controls">
@@ -587,7 +655,7 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
 }
 
 function renderDiscountSection() {
-  const discounted = products.filter(p => p.active && p.originalPrice && parseFloat(p.originalPrice) > parseFloat(p.price));
+  const discounted = products.filter(p => p.active && p.originalPrice && parseFloat(p.originalPrice) > parseFloat(getProductPrice(p)));
   const section = document.getElementById('discount-section');
   const grid = document.getElementById('discount-grid');
   if (!section || !grid) return;
@@ -596,7 +664,8 @@ function renderDiscountSection() {
   grid.innerHTML = discounted.map(p => {
     const pImages = p.images || (p.image ? [p.image] : []);
     const mainImg = pImages[0];
-    const discountPct = Math.round((1 - p.price / p.originalPrice) * 100);
+    const price = getProductPrice(p);
+    const discountPct = Math.round((1 - price / p.originalPrice) * 100);
     return `
       <div class="discount-card">
         <div class="discount-card-img">
@@ -607,7 +676,8 @@ function renderDiscountSection() {
           <div class="discount-card-name">${p.name}</div>
           <div class="discount-card-prices">
             <span class="discount-original">${settings.currency} ${parseFloat(p.originalPrice).toLocaleString('es-CO')}</span>
-            <span class="discount-new">${settings.currency} ${parseFloat(p.price).toLocaleString('es-CO')}</span>
+            <span class="discount-new">${settings.currency} ${parseFloat(price).toLocaleString('es-CO')}</span>
+            ${isWholesaleMode ? '<span style="font-size:0.6rem; color:var(--success); font-weight:700; margin-left:4px;">(Por mayor)</span>' : ''}
           </div>
           <button class="discount-card-btn ${cart[p.id] ? 'in-cart' : ''}" onclick="updateCart('${p.id}',${cart[p.id] ? -cart[p.id] : 1})">
             ${cart[p.id] ? '✓ En carrito (' + cart[p.id] + ')' : '🛒 Lo quiero'}
@@ -627,7 +697,13 @@ function updateCart(cartId, change) {
   
   const p = products.find(prod => prod.id === productId);
   const current = cart[cartId] || 0;
-  const next = current + change;
+  let next = current + change;
+  if (isWholesaleMode && change > 0 && current === 0) {
+    next = Math.max(6, change);
+  }
+  if (isWholesaleMode && next < 6) {
+    next = 0;
+  }
   
   // Validar stock
   if (change > 0) {
@@ -656,7 +732,7 @@ function updateCartUI() {
   const total = Object.entries(cart).reduce((t, [cartId, q]) => {
     const productId = cartId.split(':')[0];
     const p = products.find(x => x.id === productId);
-    return t + (p ? p.price * q : 0);
+    return t + (p ? getProductPrice(p) * q : 0);
   }, 0);
   if (count > 0) {
     els.cartBar.style.display = 'block';
@@ -672,7 +748,7 @@ function renderOrderList() {
   const total = Object.entries(cart).reduce((t, [cartId, q]) => {
     const productId = cartId.split(':')[0];
     const p = products.find(x => x.id === productId);
-    return t + (p ? p.price * q : 0);
+    return t + (p ? getProductPrice(p) * q : 0);
   }, 0);
   els.orderList.innerHTML = Object.entries(cart).map(([cartId, q]) => {
     const parts = cartId.split(':');
@@ -682,11 +758,12 @@ function renderOrderList() {
     const p = products.find(x => x.id === productId);
     if (!p) return '';
     const itemName = color ? `${p.name} (${color})` : p.name;
+    const itemPrice = getProductPrice(p);
     return `
       <div class="order-item-row">
         <div class="order-item-info">
           <div class="order-item-name">${itemName}</div>
-          <div class="order-item-price-unit">${formatMoney(p.price)} x ${q}</div>
+          <div class="order-item-price-unit">${formatMoney(itemPrice)} x ${q}</div>
         </div>
         <div class="order-item-actions">
           <div class="qty-controls small">
@@ -694,7 +771,7 @@ function renderOrderList() {
             <span class="qty-display">${q}</span>
             <button class="btn-qty" onclick="updateCart('${cartId}', 1)">+</button>
           </div>
-          <div class="order-item-subtotal">${formatMoney(p.price * q)}</div>
+          <div class="order-item-subtotal">${formatMoney(itemPrice * q)}</div>
         </div>
       </div>
     `;
@@ -737,7 +814,7 @@ window.openProductPage = function(productId) {
   }
   
   currentDetailProduct = p;
-  currentDetailQty = 1;
+  currentDetailQty = isWholesaleMode ? 6 : 1;
   
   // Set view product active
   switchView('product');
@@ -755,8 +832,9 @@ window.openProductPage = function(productId) {
   }
   
   // Pricing
-  const hasDiscount = p.originalPrice && parseFloat(p.originalPrice) > parseFloat(p.price);
-  const discountPct = hasDiscount ? Math.round((1 - p.price / p.originalPrice) * 100) : 0;
+  const price = getProductPrice(p);
+  const hasDiscount = p.originalPrice && parseFloat(p.originalPrice) > parseFloat(price);
+  const discountPct = hasDiscount ? Math.round((1 - price / p.originalPrice) * 100) : 0;
   
   const originalPriceEl = document.getElementById('detail-price-original');
   if (originalPriceEl) {
@@ -778,7 +856,7 @@ window.openProductPage = function(productId) {
     }
   }
   
-  safeText('detail-price-amount', parseFloat(p.price).toLocaleString('es-CO'));
+  safeText('detail-price-amount', parseFloat(price).toLocaleString('es-CO'));
   safeText('detail-price-currency', settings.currency + ' ');
   
   // Social Proof stats
@@ -1305,11 +1383,12 @@ function initCriticalApp() {
     }
     const itemText = currentDetailColor ? `${p.name} (Color: ${currentDetailColor})` : p.name;
     const qtyText = currentDetailQty > 1 ? `x${currentDetailQty}` : '';
-    const totalVal = p.price * currentDetailQty;
+    const price = getProductPrice(p);
+    const totalVal = price * currentDetailQty;
     
-    let waMessage = `Hola, quiero comprar este producto 👀:\n`;
+    let waMessage = isWholesaleMode ? `Hola, quiero hacer este pedido AL POR MAYOR 📦:\n` : `Hola, quiero comprar este producto 👀:\n`;
     waMessage += `• *${itemText}* ${qtyText}\n`;
-    waMessage += `💰 *Precio:* ${formatMoney(p.price)}\n`;
+    waMessage += `💰 *Precio:* ${formatMoney(price)}\n`;
     if (currentDetailQty > 1) {
       waMessage += `💵 *Total:* ${formatMoney(totalVal)}\n`;
     }
@@ -1390,7 +1469,7 @@ function initSecondaryApp() {
       return {
         id: parts[0],
         name: p.name,
-        price: p.price,
+        price: getProductPrice(p),
         qty: q,
         variantColor: parts[1] || null,
         origen: p.origen || 'propio' // Clave para la integración con Dropi
@@ -1485,7 +1564,7 @@ function initSecondaryApp() {
       const waBtn = document.getElementById('btn-whatsapp');
       if (waBtn && settings.whatsapp) {
         // 1. Mensaje detallado para WhatsApp
-        let waMessage = `*NUEVO PEDIDO: ${ticketNum}*\n`;
+        let waMessage = isWholesaleMode ? `*NUEVO PEDIDO AL POR MAYOR: ${ticketNum}* 📦\n` : `*NUEVO PEDIDO: ${ticketNum}*\n`;
         waMessage += `----------------------------\n`;
         waMessage += `👤 *Cliente:* ${customer.name}\n`;
         waMessage += `📞 *Celular:* ${customer.phone}\n`;
