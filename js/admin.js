@@ -22,7 +22,6 @@ export function initAdmin(state, utils) {
   window.renderReports = renderReports;
   window.renderAdminOrders = renderAdminOrders;
   window.renderAdminProducts = renderAdminProducts;
-  window.importDropiProduct = importDropiProduct;
   window.removeProductImage = removeProductImage;
   
   // Listeners for admin panel
@@ -510,10 +509,10 @@ function openProductModal(id = null) {
   closeAdmin();
   if (id === 'undefined') id = null;
   window.currentEditId = id;
-  window.currentDropiOrigen = null; // Reset Dropi origin flag
+  window.currentProductOrigen = null; // Reset flag de origen del producto
   appState.currentProductImages = [];
   const p = id ? appState.products.find(x => x.id === id) : null;
-  if (p) window.currentDropiOrigen = p.origen; // Restore if it exists
+  if (p) window.currentProductOrigen = p.origen; // Conserva el origen (p.ej. 'mastershop') si ya existía
   if (p) appState.currentProductImages = p.images ? [...p.images] : (p.image ? [p.image] : []);
   
   appUtils.safeStyle('modal-product', 'display', 'flex');
@@ -631,13 +630,8 @@ async function saveProduct() {
     pData.variants = null;
   }
 
-  // Guardar origen y Dropi ID
-  if (window.currentDropiOrigen === 'dropi') {
-    pData.origen = 'dropi';
-    pData.dropiId = document.getElementById('product-ref')?.value || '';
-  } else {
-    pData.origen = 'propio';
-  }
+  // Conserva el origen original del producto (p.ej. 'mastershop'); por defecto 'propio'.
+  pData.origen = (window.currentProductOrigen === 'mastershop') ? 'mastershop' : 'propio';
 
   try {
     if (window.currentEditId && window.currentEditId !== "undefined") {
@@ -802,56 +796,6 @@ window._extRemoveItem = (idx) => {
 };
 
 const parseCOP = (str) => parseFloat((str || '0').replace(/\./g, '').replace(/,/g, '')) || 0;
-
-async function importDropiProduct() {
-  const idInput = document.getElementById('admin-dropi-id');
-  const btn = document.getElementById('btn-import-dropi');
-  if (!idInput || !idInput.value.trim()) {
-    return appUtils.showToast('Ingresa un ID de Dropi válido');
-  }
-
-  const dropiId = idInput.value.trim();
-  const oldText = btn.innerText;
-  btn.innerText = 'Importando...';
-  btn.disabled = true;
-
-  try {
-    const res = await fetch(`/api/importar-dropi?id=${encodeURIComponent(dropiId)}`);
-    const data = await res.json();
-
-    if (data.status === 'success' && data.producto) {
-      const p = data.producto;
-      
-      appUtils.safeValue('product-name', p.nombre || '');
-      appUtils.safeValue('product-ref', p.id || '');
-      appUtils.safeValue('product-price', parseInt(p.precio).toLocaleString('es-CO'));
-      if (p.precio_original) {
-         appUtils.safeValue('product-original-price', parseInt(p.precio_original).toLocaleString('es-CO'));
-      }
-      appUtils.safeValue('product-cost', parseInt(p.costo).toLocaleString('es-CO'));
-      appUtils.safeValue('product-stock', p.stock || '');
-      appUtils.safeValue('product-description', p.descripcion || '');
-      
-      // Aseguramos que guarde el "origen" cuando guarden el form
-      window.currentDropiOrigen = 'dropi';
-
-      if (p.imagen) {
-        appState.currentProductImages = [p.imagen];
-        renderProductImagePreview();
-      }
-
-      appUtils.showToast('¡Producto importado! Revisa y guarda.');
-    } else {
-      appUtils.showToast('Error: ' + (data.message || 'No se pudo importar'));
-    }
-  } catch (err) {
-    console.error(err);
-    appUtils.showToast('Fallo en la conexión');
-  } finally {
-    btn.innerText = oldText;
-    btn.disabled = false;
-  }
-}
 
 async function handleBulkExcelUpload(e) {
   const file = e.target.files[0];

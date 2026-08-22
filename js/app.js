@@ -1472,7 +1472,7 @@ function initSecondaryApp() {
         price: getProductPrice(p),
         qty: q,
         variantColor: parts[1] || null,
-        origen: p.origen || 'propio' // Clave para la integración con Dropi
+        origen: p.origen || 'propio' // Clave para la integración con Mastershop
       };
     }).filter(i => i !== null);
 
@@ -1490,7 +1490,7 @@ function initSecondaryApp() {
       const newRef = await push(ref(db, 'orders'), orderData);
       const ticketNum = 'PV-' + newRef.key.slice(-6).toUpperCase();
       
-      // Enviar orden a Dropi automáticamente
+      // Enviar orden a la transportadora integrada (Mastershop) si aplica
       try {
         await fetch('/api/crear-orden', {
           method: 'POST',
@@ -1503,7 +1503,7 @@ function initSecondaryApp() {
             items: items
           })
         });
-      } catch(e) { console.error('Error reportando a Dropi:', e); }
+      } catch(e) { console.error('Error reportando la orden:', e); }
 
       safeText('ticket-store-name', settings.storeName || 'Panda Venta');
       safeText('ticket-number', ticketNum);
@@ -1534,7 +1534,7 @@ function initSecondaryApp() {
           </div>`).join('');
       }
 
-      // Calcular total final con envío dinámico de Dropi/Propio
+      // Calcular total final con el envío calculado
       const shippingNum = currentCalculatedShipping;
       const grandTotal = subtotal + shippingNum;
       safeText('ticket-total', formatMoney(grandTotal));
