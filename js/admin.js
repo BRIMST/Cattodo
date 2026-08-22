@@ -495,9 +495,15 @@ async function saveSettings() {
   };
   const newPass = document.getElementById('settings-admin-password')?.value || '';
   if (newPass) newSettings.adminPasswordHash = await appUtils.hashPassword(newPass);
-  
-  await set(ref(appState.db, 'settings'), newSettings);
-  appUtils.showToast('Configuración guardada');
+
+  try {
+    await set(ref(appState.db, 'settings'), newSettings);
+    appUtils.showToast('Configuración guardada ✅');
+    if (window.loadCatalog) window.loadCatalog();
+  } catch (error) {
+    console.error("Error saving settings:", error);
+    appUtils.showToast('Error al guardar configuración: ' + error.message);
+  }
 }
 
 function openProductModal(id = null) {
@@ -876,8 +882,27 @@ async function handleBulkExcelUpload(e) {
         return null;
       };
       
+      // Normaliza/valida la URL de la foto. Detecta celdas vacías (imagen pegada/insertada
+      // en vez de un link, que Excel no expone como texto) y corrige links de Google Drive
+      // que no sirven como <img src> directo.
+      const resolvePhotoUrl = (rawValue) => {
+        let url = String(rawValue || '').trim();
+        if (!url) return { url: '', valid: false };
+
+        // Convierte enlaces de "compartir" de Google Drive a un link de imagen directa
+        const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+        if (driveMatch) {
+          url = `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+        }
+
+        const looksLikeUrl = /^https?:\/\//i.test(url);
+        return { url, valid: looksLikeUrl };
+      };
+
       let importedCount = 0;
       let updatedCount = 0;
+      let missingPhotoCount = 0;
+      const missingPhotoNames = [];
       
       for (const row of jsonData) {
         const fotoKey = findKey(row, ["foto", "imagen", "image", "url"]);
@@ -897,7 +922,13 @@ async function handleBulkExcelUpload(e) {
         const refValue = refKey ? String(row[refKey] || '').trim() : '';
         const stock = stockKey ? parseInt(String(row[stockKey]).replace(/[^\d]/g, '')) || 0 : 0;
         const cost = costoKey ? parseFloat(String(row[costoKey]).replace(/[^\d]/g, '')) || null : null;
-        const foto = fotoKey ? String(row[fotoKey] || '').trim() : '';
+
+        const rawFoto = fotoKey ? row[fotoKey] : '';
+        const { url: foto, valid: fotoValid } = resolvePhotoUrl(rawFoto);
+        if (!fotoValid) {
+          missingPhotoCount++;
+          missingPhotoNames.push(name);
+        }
         
         const pData = {
           name,
@@ -907,7 +938,7 @@ async function handleBulkExcelUpload(e) {
           cost,
           active: true,
           unit: 'und',
-          images: foto ? [foto] : [],
+          images: fotoValid ? [foto] : [],
           origen: 'propio'
         };
         
@@ -928,7 +959,12 @@ async function handleBulkExcelUpload(e) {
         }
       }
       
-      appUtils.showToast(`Excel procesado: ${importedCount} creados, ${updatedCount} actualizados ✅`);
+      let summary = `Excel procesado: ${importedCount} creados, ${updatedCount} actualizados ✅`;
+      if (missingPhotoCount > 0) {
+        summary += ` — ⚠️ ${missingPhotoCount} sin foto válida (revisa que la columna "foto" tenga un link http(s), no una imagen pegada)`;
+        console.warn('Productos importados sin foto válida:', missingPhotoNames);
+      }
+      appUtils.showToast(summary);
       if (window.loadCatalog) window.loadCatalog();
     } catch (err) {
       console.error(err);
