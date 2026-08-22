@@ -24,57 +24,49 @@ module.exports = async function handler(req, res) {
     return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
   };
 
-  const TARIFA_FIJA_BOGOTA = 8000;
+  const FIREBASE_URL = "https://pandaventa-cdc06-default-rtdb.firebaseio.com";
   const TARIFA_CONTINGENCIA = 15000;
 
   try {
     const ciudadNormalizada = normalizarTexto(carrito.ciudad_destino);
     const esBogota = ciudadNormalizada === "BOGOTA" || ciudadNormalizada === "BOGOTA D.C." || ciudadNormalizada === "BOGOTA DC";
 
-    // Clasificar productos (por defecto 'propio' si no existe)
-    const productosPropios = carrito.items.filter(p => !p.origen || p.origen === "propio");
-    const productosDropi = carrito.items.filter(p => p.origen === "dropi");
-
-    const tienePropios = productosPropios.length > 0;
-    const tieneDropi = productosDropi.length > 0;
-
-    let respuesta = {};
-
     if (esBogota) {
-      if (tienePropios && !tieneDropi) {
-        // CASO 1: Solo tus productos en Bogotá
-        respuesta = {
-          status: 'success',
-          costo_envio: 0,
-          es_gratis: true,
-          metodo_entrega: "Envío Local",
-          mensaje: "¡Envío Gratis!"
-        };
-      } else {
-        // CASO 2: Carrito mixto en Bogotá (Tuyo + Dropi) o Solo Dropi
-        const fleteDropi = await cotizarFleteDropi(productosDropi, carrito.ciudad_destino, carrito.departamento_destino);
-
-        respuesta = {
-          status: 'success',
-          costo_envio: fleteDropi,
-          es_gratis: false,
-          metodo_entrega: "Contra entrega",
-          mensaje: "Pagas en efectivo al recibir"
-        };
-      }
-    } else {
-      // CASO 3: Envíos Nacionales (Todos los items)
-      const fleteNacional = await cotizarFleteDropi(carrito.items, carrito.ciudad_destino, carrito.departamento_destino);
-      respuesta = {
+      // Envío local gratis en Bogotá
+      return res.status(200).json({
         status: 'success',
-        costo_envio: fleteNacional,
-        es_gratis: false,
-        metodo_entrega: "Contra entrega",
-        mensaje: "Pagas en efectivo al recibir"
-      };
+        costo_envio: 0,
+        es_gratis: true,
+        metodo_entrega: "Envío Local",
+        mensaje: "¡Envío Gratis!"
+      });
     }
 
-    return res.status(200).json(respuesta);
+    // Envíos nacionales: tarifa fija configurada en el panel de administración
+    // (Configuración → "Costo de envío (otras ciudades)"). Antes esto se cotizaba
+    // dinámicamente con la API de Dropi; al retirar esa integración, usamos la
+    // tarifa que tú defines, con la tarifa de contingencia como respaldo.
+    let costoNacional = TARIFA_CONTINGENCIA;
+    try {
+      const settingsRes = await fetch(`${FIREBASE_URL}/settings.json`);
+      if (settingsRes.ok) {
+        const settings = await settingsRes.json() || {};
+        const configurado = parseFloat(settings.shippingCost);
+        if (!isNaN(configurado) && configurado >= 0) {
+          costoNacional = configurado;
+        }
+      }
+    } catch (e) {
+      console.warn("No se pudo leer el costo de envío configurado, usando tarifa de contingencia.");
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      costo_envio: costoNacional,
+      es_gratis: costoNacional === 0,
+      metodo_entrega: "Contra entrega",
+      mensaje: "Pagas en efectivo al recibir"
+    });
 
   } catch (error) {
     console.error("Error al calcular envío:", error.message);
@@ -85,48 +77,3 @@ module.exports = async function handler(req, res) {
     });
   }
 };
-
-async function cotizarFleteDropi(productos, ciudad, departamento) {
-  if (productos.length === 0) return 0;
-
-  const precioTotal = productos.reduce((suma, prod) => suma + (prod.price * prod.qty), 0);
-
-  const productosApi = productos.map(prod => ({
-    id: prod.id,
-    cantidad: prod.qty
-  }));
-
-  const payload = {
-    ciudad_destino: ciudad,
-    departamento_destino: departamento,
-    precio_total: precioTotal,
-    productos: productosApi
-  };
-
-  const token = process.env.DROPI_TOKEN || "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcHAuZHJvcGkuY286ODAiLCJpYXQiOjE3NzkyMTI3MTAsImV4cCI6NDkzNDg4NjMxMCwibmJmIjoxNzc5MjEyNzEwLCJqdGkiOiIyUlQ5YVY4T0V5ZkxlYjhKIiwic3ViIjo5MDM5NDAsInBydiI6Ijg3ZTBhZjFlZjlmZDE1ODEyZmRlYzk3MTUzYTE0ZTBiMDQ3NTQ2YWEiLCJhdWQiOiJXT09DT01FUkNFIiwidG9rZW5fdHlwZSI6IklOVEVHUkFUSU9OUyIsIndiX2lkIjoxLCJpbnRlZ3JhdGlvbl90eXBlIjoiV09PQ09NRVJDRSIsImludGVncmF0aW9uX3R5cGVfaWQiOjEsImlwX3VybCI6W10sImludGVncmF0aW9uX3VybCI6InBhbmRhdmVudGEuY29tIn0.I1_daYB1l5quV4xzuSlwca-_7AmSvpz7Vu8_DHa8Cjg";
-
-  const respuesta = await fetch("https://api.dropi.co/api/orders/cotizaEnvioTransportadoraV2", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "dropi-integracion-key": token
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!respuesta.ok) {
-    throw new Error(`Fallo en API Dropi: ${respuesta.status}`);
-  }
-
-  const transportadoras = await respuesta.json();
-
-  if (!Array.isArray(transportadoras) || transportadoras.length === 0) {
-    throw new Error("La API de Dropi no retornó transportadoras válidas.");
-  }
-
-  const transportadoraMasBarata = transportadoras.reduce((min, actual) => {
-    return (actual.costo_transportadora < min.costo_transportadora) ? actual : min;
-  });
-
-  return transportadoraMasBarata.costo_transportadora;
-}

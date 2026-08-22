@@ -22,52 +22,7 @@ module.exports = async function handler(req, res) {
         const MASTERSHOP_TOKEN = process.env.MASTERSHOP_API_KEY || "laApX4jllnqGPuZ9bya748P-9o68vMDMQM5qRZSAtaKl9Q4dMM";
         const MASTERSHOP_URL   = process.env.MASTERSHOP_BASE_URL || "https://app.mastershop.com";
 
-        const itemsDropi      = items.filter(item => item.origen === 'dropi');
         const itemsMastershop = items.filter(item => item.origen === 'mastershop');
-        
-        if (itemsDropi.length > 0) {
-            const precioTotalDropi = itemsDropi.reduce((acc, item) => acc + (item.price * item.qty), 0);
-
-            // Ajuste robusto del ID a número entero en caso de que lo necesite Dropi
-            const payloadDropi = {
-                id_transportadora: 1, // 1: Coordinadora (Por defecto)
-                nombre_destinatario: cliente.nombre,
-                telefono_destinatario: cliente.telefono,
-                direccion_destinatario: direccion_destino,
-                ciudad_destino: ciudad_destino.trim().toUpperCase(),
-                departamento_destino: departamento_destino.trim().toUpperCase(),
-                precio_total: precioTotalDropi, 
-                observaciones: "Entregar en jornada diurna. Pedido automático desde PandaVenta.",
-                productos: itemsDropi.map(item => ({
-                    id: parseInt(item.id.replace(/\D/g, '')) || item.id,
-                    cantidad: item.qty
-                }))
-            };
-
-            const token = process.env.DROPI_TOKEN || "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9hcHAuZHJvcGkuY286ODAiLCJpYXQiOjE3NzkyMTI3MTAsImV4cCI6NDkzNDg4NjMxMCwibmJmIjoxNzc5MjEyNzEwLCJqdGkiOiIyUlQ5YVY4T0V5ZkxlYjhKIiwic3ViIjo5MDM5NDAsInBydiI6Ijg3ZTBhZjFlZjlmZDE1ODEyZmRlYzk3MTUzYTE0ZTBiMDQ3NTQ2YWEiLCJhdWQiOiJXT09DT01FUkNFIiwidG9rZW5fdHlwZSI6IklOVEVHUkFUSU9OUyIsIndiX2lkIjoxLCJpbnRlZ3JhdGlvbl90eXBlIjoiV09PQ09NRVJDRSIsImludGVncmF0aW9uX3R5cGVfaWQiOjEsImlwX3VybCI6W10sImludGVncmF0aW9uX3VybCI6InBhbmRhdmVudGEuY29tIn0.I1_daYB1l5quV4xzuSlwca-_7AmSvpz7Vu8_DHa8Cjg";
-
-            // Usamos fetch nativo en vez de axios para no requerir dependencias extra en Vercel
-            const responseDropi = await fetch('https://api.dropi.co/api/orders/crearOrdenV2', { 
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payloadDropi)
-            });
-
-            if (responseDropi.ok) {
-                const data = await responseDropi.json();
-                return res.status(200).json({
-                    status: 'success',
-                    message: 'Orden procesada con éxito',
-                    dropi_info: data.data || data
-                });
-            } else {
-                const errText = await responseDropi.text();
-                throw new Error(errText || 'Error desconocido en Dropi');
-            }
-        }
 
         // ====== BLOQUE MASTERSHOP ======
         if (itemsMastershop.length > 0) {
@@ -133,7 +88,7 @@ module.exports = async function handler(req, res) {
             }
         }
 
-        // Si es producto propio (sin Dropi ni Mastershop)
+        // Si es producto propio (sin Mastershop)
         return res.status(200).json({
             status: 'success',
             message: 'Orden local registrada. Recuerda despachar desde tu bodega.'
