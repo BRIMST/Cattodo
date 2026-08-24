@@ -344,7 +344,7 @@
 
           <!-- Selector Variantes -->
           <div class="detail-variants-section" id="detail-variants-wrapper" style="display:none">
-            <label class="detail-section-label">Color:</label>
+            <label class="detail-section-label" id="detail-variant-label">Color:</label>
             <div class="color-selector detail-color-pills" id="detail-color-selector">
               <!-- Colores dinámicos -->
             </div>
@@ -1137,7 +1137,7 @@
               </label>
               <label class="type-option">
                 <input type="radio" name="product-type" value="variants" onchange="toggleProductTypeFields()">
-                <span>Con variantes de color</span>
+                <span>Con variantes</span>
               </label>
             </div>
           </div>
@@ -1148,11 +1148,21 @@
             <input type="number" id="product-stock" class="field-input" placeholder="Ej: 10" min="0" step="1" />
           </div>
 
+          <!-- Variant type selector (shown only for Variants) -->
+          <div class="field-group" id="group-variant-type" style="display:none">
+            <label class="field-label">Tipo de variante</label>
+            <select id="product-variant-type" class="field-input" onchange="window.updateVariantTypeUI()">
+              <option value="color">Color</option>
+              <option value="aroma">Aroma</option>
+              <option value="tamaño">Tamaño</option>
+            </select>
+          </div>
+
           <!-- Variants field (shown only for Variants) -->
           <div class="field-group" id="group-product-variants" style="display:none">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-              <label class="field-label" style="margin:0">Variantes de Color</label>
-              <button type="button" class="btn-add-variant" onclick="addVariantRow()">+ Agregar color</button>
+              <label class="field-label" style="margin:0" id="variants-list-label">Variantes</label>
+              <button type="button" class="btn-add-variant" id="btn-add-variant" onclick="addVariantRow()">+ Agregar opción</button>
             </div>
             <div id="variants-list" class="variants-list">
               <!-- Rendered by JS -->
