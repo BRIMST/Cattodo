@@ -3172,5 +3172,260 @@ textarea:focus {
 }
 
 /* ════════════════════════════════════════════════════════════════════════════════
+   VISTA "TU PEDIDO" — antes sin estilos propios; sección agregada para mejorar
+   la experiencia visual y reducir la fricción de compra.
+   ════════════════════════════════════════════════════════════════════════════════ */
+
+#view-order .page-wrapper {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1.5rem var(--px-mobile) 2rem;
+}
+
+.order-intro {
+  max-width: 640px;
+  margin: -1.2rem auto 1.5rem;
+  padding: 0 var(--px-mobile);
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.order-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  /* Espacio para que la barra fija inferior no tape el último campo */
+  padding-bottom: 9.5rem;
+}
+
+.order-items-card,
+.customer-card {
+  background: #fff;
+  border: var(--border-width) solid var(--secondary);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+}
+
+.customer-card h4 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.customer-card .field-label,
+.customer-card > label.field-label {
+  margin-top: 0.9rem;
+  margin-bottom: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.customer-card .field-label:first-child,
+.customer-card .field-row:first-child .field-label {
+  margin-top: 0;
+}
+
+.optional-label span {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.82rem;
+}
+
+.optional-fields-row {
+  opacity: 0.9;
+}
+
+.order-items-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  margin-bottom: 0.9rem;
+}
+
+.order-items-count {
+  background: var(--primary-light);
+  color: var(--primary);
+  font-weight: 800;
+  font-size: 0.78rem;
+  border-radius: var(--radius-full);
+  padding: 0.15rem 0.6rem;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.order-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.order-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.order-item-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  border: var(--border-width) solid var(--secondary);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg-light);
+}
+
+.order-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.order-item-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-item-price-unit {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.order-item-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+
+.order-item-subtotal {
+  font-weight: 800;
+  font-size: 0.88rem;
+  color: var(--text-main);
+}
+
+.qty-controls.small {
+  transform: scale(0.85);
+  transform-origin: right center;
+}
+
+.order-divider {
+  height: var(--border-width);
+  background: var(--secondary);
+  margin: 1.1rem 0;
+}
+
+.order-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.order-total-amount {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--primary);
+}
+
+.btn-generate-ticket {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border: none;
+  transition: var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: var(--bg-pure);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-generate-ticket:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-generate-ticket:active {
+  transform: translateY(0);
+}
+
+/* Barra fija inferior: costo de envío + total + botón siempre visibles,
+   para que el cliente nunca tenga que buscar cómo confirmar su compra. */
+.order-sticky-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  background: #fff;
+  border-top: var(--border-width) solid var(--secondary);
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+  padding: 0.9rem var(--px-mobile) calc(0.9rem + env(safe-area-inset-bottom, 0px));
+}
+
+.order-sticky-footer-inner {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.order-sticky-shipping {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.order-sticky-shipping span:last-child {
+  color: var(--primary);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+#shipping-free-msg {
+  color: var(--success);
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-top: 0.2rem;
+}
+
+.order-trust-microcopy {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  margin: 0.55rem 0 0;
+}
+
+@media (max-width: 640px) {
+  #view-order .page-wrapper,
+  .order-intro,
+  .order-sticky-footer-inner {
+    max-width: 100%;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════
    FIN DEL ARCHIVO — PREMIUM LIFESTYLE DEPARTMENT STORE DESIGN
    ════════════════════════════════════════════════════════════════════════════════ */
