@@ -715,6 +715,11 @@ function updateCart(cartId, change) {
   const variantColor = parts.length > 1 ? (parts[1] || null) : null;
   
   const p = products.find(prod => prod.id === productId);
+  if (!p) {
+    console.error('updateCart: no se encontró el producto', productId);
+    showToast('No se pudo agregar el producto. Intenta de nuevo.');
+    return;
+  }
   const current = cart[cartId] || 0;
   let next = current + change;
   if (isWholesaleMode && change > 0 && current === 0) {
@@ -724,20 +729,21 @@ function updateCart(cartId, change) {
     next = 0;
   }
   
-  // Validar stock
+  // Validar stock (tratamos '', null y undefined como "sin límite definido")
+  const hasStockLimit = (val) => val !== undefined && val !== null && val !== '';
   if (change > 0) {
     if (variantColor) {
-      const v = p.variants.find(v => v.color === variantColor);
-      if (v && v.stock !== undefined && v.stock !== '' && next > v.stock) {
+      const v = p.variants && p.variants.find(v => v.color === variantColor);
+      if (v && hasStockLimit(v.stock) && next > v.stock) {
         showToast(`Solo quedan ${v.stock} unidades (${getVariantLabel(p)}: ${variantColor})`); return;
       }
     } else {
-      if (p.stock !== undefined && p.stock !== '' && next > p.stock) {
+      if (hasStockLimit(p.stock) && next > p.stock) {
         showToast(`Solo quedan ${p.stock} unidades`); return;
       }
     }
     // GA: producto agregado al carrito
-    trackEvent('agregar_carrito', p ? p.name : cartId, { item_id: productId });
+    trackEvent('agregar_carrito', p.name, { item_id: productId });
   }
   
   if (next <= 0) delete cart[cartId]; else cart[cartId] = next;
@@ -769,6 +775,8 @@ function renderOrderList() {
     const p = products.find(x => x.id === productId);
     return t + (p ? getProductPrice(p) * q : 0);
   }, 0);
+  const totalItems = Object.values(cart).reduce((sum, q) => sum + q, 0);
+  safeText('order-items-count', totalItems);
   els.orderList.innerHTML = Object.entries(cart).map(([cartId, q]) => {
     const parts = cartId.split(':');
     const productId = parts[0];
@@ -778,8 +786,10 @@ function renderOrderList() {
     if (!p) return '';
     const itemName = color ? `${p.name} (${color})` : p.name;
     const itemPrice = getProductPrice(p);
+    const thumb = (p.images && p.images[0]) || p.image || '';
     return `
       <div class="order-item-row">
+        ${thumb ? `<img class="order-item-thumb" src="${thumb}" alt="${p.name}" loading="lazy">` : ''}
         <div class="order-item-info">
           <div class="order-item-name">${itemName}</div>
           <div class="order-item-price-unit">${formatMoney(itemPrice)} x ${q}</div>
@@ -821,7 +831,7 @@ function renderViewer() {
   const img = document.getElementById('image-viewer-img');
   if (img) img.src = viewerImages[viewerIndex];
   safeStyle('btn-viewer-prev', 'display', viewerImages.length > 1 ? 'block' : 'none');
-  safeStyle('btn-viewer-next', viewerImages.length > 1 ? 'block' : 'none');
+  safeStyle('btn-viewer-next', 'display', viewerImages.length > 1 ? 'block' : 'none');
 }
 
 // ====== PRODUCT DETAIL PAGE & ROUTING ======
@@ -1398,14 +1408,15 @@ function initCriticalApp() {
   on('btn-detail-qty-plus', 'onclick', () => {
     const p = currentDetailProduct;
     if (!p) return;
+    const hasStockLimit = (val) => val !== undefined && val !== null && val !== '';
     if (currentDetailColor) {
-      const v = p.variants.find(x => x.color === currentDetailColor);
-      if (v && v.stock !== undefined && v.stock !== '' && currentDetailQty >= v.stock) {
+      const v = p.variants && p.variants.find(x => x.color === currentDetailColor);
+      if (v && hasStockLimit(v.stock) && currentDetailQty >= v.stock) {
         showToast(`Solo quedan ${v.stock} unidades (${getVariantLabel(p)}: ${currentDetailColor})`);
         return;
       }
     } else {
-      if (p.stock !== undefined && p.stock !== '' && currentDetailQty >= p.stock) {
+      if (hasStockLimit(p.stock) && currentDetailQty >= p.stock) {
         showToast(`Solo quedan ${p.stock} unidades`);
         return;
       }
