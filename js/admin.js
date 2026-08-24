@@ -538,6 +538,9 @@ function openProductModal(id = null) {
     typeRadios[1].checked = hasVariants;
   }
   
+  appUtils.safeValue('product-variant-type', (p && p.variantType) ? p.variantType : 'color');
+  window.updateVariantTypeUI();
+
   const list = document.getElementById('variants-list');
   if (list) {
     list.innerHTML = '';
@@ -550,16 +553,38 @@ function openProductModal(id = null) {
 function toggleProductTypeFields() {
   const type = document.querySelector('input[name="product-type"]:checked')?.value;
   appUtils.safeStyle('group-stock-simple', 'display', type === 'variants' ? 'none' : 'block');
+  appUtils.safeStyle('group-variant-type', 'display', type === 'variants' ? 'block' : 'none');
   appUtils.safeStyle('group-product-variants', 'display', type === 'variants' ? 'block' : 'none');
 }
 
-function addVariantRow(color = '', stock = '') {
+const VARIANT_TYPE_META = {
+  color:  { label: 'Variantes de Color',  addBtn: '+ Agregar color',  placeholder: 'Ej: Rojo' },
+  aroma:  { label: 'Variantes de Aroma',  addBtn: '+ Agregar aroma',  placeholder: 'Ej: Vainilla' },
+  'tamaño': { label: 'Variantes de Tamaño', addBtn: '+ Agregar tamaño', placeholder: 'Ej: M' }
+};
+
+// Actualiza los textos (label, botón, placeholders de filas existentes) según el
+// tipo de variante elegido. Se expone en window porque el <select> la llama por
+// onchange inline en el HTML.
+window.updateVariantTypeUI = function() {
+  const type = document.getElementById('product-variant-type')?.value || 'color';
+  const meta = VARIANT_TYPE_META[type] || VARIANT_TYPE_META.color;
+  appUtils.safeText('variants-list-label', meta.label);
+  appUtils.safeText('btn-add-variant', meta.addBtn);
+  document.querySelectorAll('#variants-list .var-name').forEach(input => {
+    input.placeholder = meta.placeholder;
+  });
+};
+
+function addVariantRow(name = '', stock = '') {
   const list = document.getElementById('variants-list');
   if (!list) return;
+  const type = document.getElementById('product-variant-type')?.value || 'color';
+  const meta = VARIANT_TYPE_META[type] || VARIANT_TYPE_META.color;
   const row = document.createElement('div');
   row.className = 'variant-row';
   row.innerHTML = `
-    <input type="text" class="field-input var-color" placeholder="Color" value="${color}" style="flex:2">
+    <input type="text" class="field-input var-name" placeholder="${meta.placeholder}" value="${name}" style="flex:2">
     <input type="number" class="field-input var-stock" placeholder="Stock" value="${stock}" style="flex:1">
     <button type="button" onclick="this.parentElement.remove()">×</button>
   `;
@@ -617,13 +642,17 @@ async function saveProduct() {
     const variantRows = document.querySelectorAll('.variant-row');
     const variants = [];
     variantRows.forEach(row => {
-      const color = row.querySelector('.var-color')?.value.trim();
+      const name = row.querySelector('.var-name')?.value.trim();
       const stock = parseInt(row.querySelector('.var-stock')?.value) || 0;
-      if (color) {
-        variants.push({ color, stock });
+      if (name) {
+        // Se guarda como "color" internamente (compatibilidad con productos ya
+        // existentes en Firebase); el campo "variantType" abajo indica si en
+        // realidad es color, aroma o tamaño.
+        variants.push({ color: name, stock });
       }
     });
     pData.variants = variants;
+    pData.variantType = document.getElementById('product-variant-type')?.value || 'color';
     pData.stock = variants.reduce((sum, v) => sum + v.stock, 0);
   } else {
     pData.variants = null;

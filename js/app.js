@@ -84,6 +84,13 @@ let currentDetailProduct = null;
 let currentDetailQty = 1;
 let currentDetailColor = null;
 
+// Etiqueta a mostrar según el tipo de variante del producto (color/aroma/tamaño).
+// 'color' es el valor por defecto para productos antiguos sin variantType guardado.
+const VARIANT_TYPE_LABELS = { color: 'Color', aroma: 'Aroma', 'tamaño': 'Tamaño' };
+function getVariantLabel(p) {
+  return VARIANT_TYPE_LABELS[p?.variantType] || 'Color';
+}
+
 // ====== UTILS ======
 const compressImage = (base64Str, maxWidth = 800, quality = 0.6) => {
   return new Promise((resolve) => {
@@ -710,7 +717,7 @@ function updateCart(cartId, change) {
     if (variantColor) {
       const v = p.variants.find(v => v.color === variantColor);
       if (v && v.stock !== undefined && v.stock !== '' && next > v.stock) {
-        showToast(`Solo quedan ${v.stock} de color ${variantColor}`); return;
+        showToast(`Solo quedan ${v.stock} unidades (${getVariantLabel(p)}: ${variantColor})`); return;
       }
     } else {
       if (p.stock !== undefined && p.stock !== '' && next > p.stock) {
@@ -1005,7 +1012,7 @@ window.openProductPage = function(productId) {
       : 'Esta sección resume lo más importante del producto para que los usuarios conozcan sus beneficios sin bajar demasiado.';
   }
   
-  // Variants (Colors)
+  // Variants (Color / Aroma / Tamaño)
   const hasVariants = p.variants && p.variants.length > 0;
   const variantsWrapper = document.getElementById('detail-variants-wrapper');
   const selectorContainer = document.getElementById('detail-color-selector');
@@ -1013,6 +1020,7 @@ window.openProductPage = function(productId) {
   if (hasVariants && variantsWrapper && selectorContainer) {
     currentDetailColor = p.variants[0].color;
     variantsWrapper.style.display = 'block';
+    safeText('detail-variant-label', `${getVariantLabel(p)}:`);
     selectorContainer.innerHTML = p.variants.map(v => `
       <div class="color-option ${currentDetailColor === v.color ? 'active' : ''} ${v.stock <= 0 ? 'out-of-stock' : ''}"
            onclick="window.selectDetailColor('${v.color}')">
@@ -1381,7 +1389,7 @@ function initCriticalApp() {
     if (currentDetailColor) {
       const v = p.variants.find(x => x.color === currentDetailColor);
       if (v && v.stock !== undefined && v.stock !== '' && currentDetailQty >= v.stock) {
-        showToast(`Solo quedan ${v.stock} de color ${currentDetailColor}`);
+        showToast(`Solo quedan ${v.stock} unidades (${getVariantLabel(p)}: ${currentDetailColor})`);
         return;
       }
     } else {
@@ -1408,7 +1416,7 @@ function initCriticalApp() {
       showToast('WhatsApp no configurado');
       return;
     }
-    const itemText = currentDetailColor ? `${p.name} (Color: ${currentDetailColor})` : p.name;
+    const itemText = currentDetailColor ? `${p.name} (${getVariantLabel(p)}: ${currentDetailColor})` : p.name;
     const qtyText = currentDetailQty > 1 ? `x${currentDetailQty}` : '';
     const price = getProductPrice(p);
     const totalVal = price * currentDetailQty;
@@ -1554,11 +1562,15 @@ function initSecondaryApp() {
       
       const listEl = document.getElementById('ticket-items');
       if (listEl) {
-        listEl.innerHTML = items.map(i => `
+        listEl.innerHTML = items.map(i => {
+          const prod = products.find(x => x.id === i.id);
+          const variantSuffix = i.variantColor ? ` (${getVariantLabel(prod)}: ${i.variantColor})` : '';
+          return `
           <div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px dashed #eee;font-size:0.85rem;">
-            <span>${i.name} x${i.qty}</span>
+            <span>${i.name}${variantSuffix} x${i.qty}</span>
             <span>${formatMoney(i.price * i.qty)}</span>
-          </div>`).join('');
+          </div>`;
+        }).join('');
       }
 
       // Calcular total final con el envío calculado
@@ -1603,7 +1615,9 @@ function initSecondaryApp() {
         
         waMessage += `🛒 *PRODUCTOS:*\n`;
         items.forEach(i => {
-          waMessage += `• ${i.name} x${i.qty} — ${formatMoney(i.price * i.qty)}\n`;
+          const prod = products.find(x => x.id === i.id);
+          const variantSuffix = i.variantColor ? ` (${getVariantLabel(prod)}: ${i.variantColor})` : '';
+          waMessage += `• ${i.name}${variantSuffix} x${i.qty} — ${formatMoney(i.price * i.qty)}\n`;
         });
         
         waMessage += `\n🚛 *Envío:* ${shippingVal}\n`;
