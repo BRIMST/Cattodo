@@ -1077,6 +1077,23 @@ function getDetailVideoEmbed(url) {
   if (ytMatch) {
     return `<iframe loading="lazy" src="https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
   }
+
+  // TikTok: convertimos el link del video a su iframe de embed oficial (embed/v2/{id}).
+  const ttMatch = url.match(/tiktok\.com\/(?:@[\w.-]+\/video|embed(?:\/v2)?)\/(\d+)/);
+  if (ttMatch) {
+    return `<iframe loading="lazy" src="https://www.tiktok.com/embed/v2/${ttMatch[1]}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen style="width:100%;height:100%;"></iframe>`;
+  }
+
+  // Enlaces cortos de TikTok (vm.tiktok.com/... o tiktok.com/t/...) no traen el ID
+  // del video en la URL — TikTok solo lo revela tras seguir la redirección, algo
+  // que no podemos hacer desde el navegador. En ese caso, mostramos un enlace directo.
+  if (url.includes('tiktok.com')) {
+    return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:2rem;text-align:center;color:#fff;">
+      <p>Este video no se puede reproducir aquí porque el enlace es un link corto de TikTok.</p>
+      <a href="${url}" target="_blank" rel="noopener" style="color:#fff;text-decoration:underline;font-weight:600;">Ver en TikTok ↗</a>
+    </div>`;
+  }
+
   return `<video controls playsinline preload="metadata" src="${url}"></video>`;
 }
 
