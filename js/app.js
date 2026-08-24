@@ -608,13 +608,25 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
 
   let colorSelectorHTML = '';
   if (hasVariants) {
+    // En la tarjeta del catálogo mostramos máximo 4 variantes para no romper
+    // el diseño de la grilla cuando el producto tiene muchas opciones (ej. aromas).
+    // El resto se ve completo al entrar al detalle del producto.
+    const MAX_CHIPS_CARD = 4;
+    const visibleVariants = p.variants.slice(0, MAX_CHIPS_CARD);
+    const extraCount = p.variants.length - visibleVariants.length;
+
     colorSelectorHTML = `<div class="color-selector" onclick="event.stopPropagation()">
-      ${p.variants.map(v => `
+      ${visibleVariants.map(v => `
         <div class="color-option ${selectedColor === v.color ? 'active' : ''} ${v.stock <= 0 ? 'out-of-stock' : ''}" 
              onclick="window.selectColor('${p.id}', '${v.color}')">
           ${v.color}
         </div>
       `).join('')}
+      ${extraCount > 0 ? `
+        <div class="color-option more-indicator" onclick="location.hash = '#/product/${p.id}'">
+          +${extraCount}
+        </div>
+      ` : ''}
     </div>`;
   }
 
