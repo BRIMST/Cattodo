@@ -1842,6 +1842,15 @@ input, button, textarea, select {
   display: grid;
 }
 
+/* Videos verticales (TikTok, Reels, Shorts): caja angosta y alta en vez de
+   la caja horizontal 16:9 pensada para YouTube. Sin esto, el reproductor de
+   TikTok queda comprimido dentro de una caja horizontal y sus botones
+   internos (play, etc.) quedan desalineados con lo que se ve en pantalla. */
+.video-modal-card.video-vertical {
+  width: min(92vw, 380px);
+  max-height: min(90vh, 720px);
+}
+
 .video-modal-close {
   position: absolute;
   top: 0.9rem;
@@ -1863,6 +1872,10 @@ input, button, textarea, select {
   overflow: hidden;
   border-radius: var(--radius-xl);
   background: var(--bg-light);
+}
+
+.video-modal-wrapper.video-vertical {
+  padding-top: 177.78%; /* proporción 9:16 */
 }
 
 .video-modal-wrapper video,
