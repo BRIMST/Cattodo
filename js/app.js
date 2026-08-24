@@ -1054,7 +1054,14 @@ window.openProductPage = function(productId) {
 function openDetailVideo(url) {
   const modal = document.getElementById('detail-video-modal');
   const wrapper = document.getElementById('detail-video-wrapper');
+  const card = modal ? modal.querySelector('.video-modal-card') : null;
   if (!modal || !wrapper) return;
+
+  // TikTok (y en general videos verticales) necesitan una caja 9:16 en vez
+  // de la caja horizontal 16:9 pensada para YouTube.
+  const isVertical = /tiktok\.com/.test(url || '');
+  wrapper.classList.toggle('video-vertical', isVertical);
+  if (card) card.classList.toggle('video-vertical', isVertical);
 
   wrapper.innerHTML = getDetailVideoEmbed(url);
   modal.style.display = 'flex';
@@ -1064,11 +1071,14 @@ function openDetailVideo(url) {
 function closeDetailVideo() {
   const modal = document.getElementById('detail-video-modal');
   const wrapper = document.getElementById('detail-video-wrapper');
+  const card = modal ? modal.querySelector('.video-modal-card') : null;
   if (!modal || !wrapper) return;
 
   modal.style.display = 'none';
   modal.setAttribute('aria-hidden', 'true');
   wrapper.innerHTML = '';
+  wrapper.classList.remove('video-vertical');
+  if (card) card.classList.remove('video-vertical');
 }
 
 function getDetailVideoEmbed(url) {
