@@ -506,7 +506,6 @@ async function saveSettings() {
 }
 
 function openProductModal(id = null) {
-  closeAdmin();
   if (id === 'undefined') id = null;
   window.currentEditId = id;
   window.currentProductOrigen = null; // Reset flag de origen del producto
