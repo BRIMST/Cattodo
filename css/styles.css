@@ -1708,27 +1708,49 @@ input, button, textarea, select {
 
 .color-selector {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
 .color-option {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  min-width: 36px;
+  height: 32px;
+  padding: 0 0.65rem;
+  border-radius: 16px;
   border: var(--border-width-bold) solid var(--secondary);
   cursor: pointer;
   transition: var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-transform: capitalize;
+  background: #fff;
 }
 
 .color-option:hover {
   border-color: var(--primary);
-  transform: scale(1.08);
+  transform: scale(1.04);
 }
 
-.color-option.selected {
+.color-option.active {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-light);
+  font-weight: 700;
+}
+
+.color-option.out-of-stock {
+  opacity: 0.4;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+.color-option.more-indicator {
+  background: var(--bg-light, #f2f2f2);
+  border-style: dashed;
+  font-weight: 700;
 }
 
 .detail-actions-section {
