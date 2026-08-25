@@ -446,6 +446,15 @@ function loadSettingsForm() {
   appUtils.safeValue('settings-payment-info', appState.settings.paymentInfo || '');
   appUtils.safeValue('settings-shipping-cost', appState.settings.shippingCost || 0);
   appUtils.safeValue('settings-wholesale-discount', appState.settings.wholesaleDiscount !== undefined ? appState.settings.wholesaleDiscount : 20);
+
+  // Dirección de origen (para cotizar envíos reales con transportadoras)
+  const origin = appState.settings.originAddress || {};
+  appUtils.safeValue('settings-origin-name', origin.name || '');
+  appUtils.safeValue('settings-origin-phone', origin.phone || '');
+  appUtils.safeValue('settings-origin-street', origin.street || '');
+  appUtils.safeValue('settings-origin-city', origin.city || '');
+  appUtils.safeValue('settings-origin-state', origin.state || '');
+  appUtils.safeValue('settings-origin-zip', origin.zip || '');
   
   // Ubicación Dinámica
   const loc = appState.settings.locContent || {};
@@ -479,6 +488,14 @@ async function saveSettings() {
     paymentInfo: document.getElementById('settings-payment-info')?.value || '',
     shippingCost: parseFloat(document.getElementById('settings-shipping-cost')?.value) || 0,
     wholesaleDiscount: parseInt(document.getElementById('settings-wholesale-discount')?.value) >= 0 ? parseInt(document.getElementById('settings-wholesale-discount')?.value) : 20,
+    originAddress: {
+      name: document.getElementById('settings-origin-name')?.value || '',
+      phone: document.getElementById('settings-origin-phone')?.value || '',
+      street: document.getElementById('settings-origin-street')?.value || '',
+      city: document.getElementById('settings-origin-city')?.value || '',
+      state: document.getElementById('settings-origin-state')?.value || '',
+      zip: document.getElementById('settings-origin-zip')?.value || ''
+    },
     locContent: {
       bgtTitle: document.getElementById('settings-loc-bgt-title')?.value || '',
       bgtSub: document.getElementById('settings-loc-bgt-sub')?.value || '',
@@ -524,6 +541,7 @@ function openProductModal(id = null) {
   appUtils.safeValue('product-original-price', p && p.originalPrice ? parseInt(p.originalPrice).toLocaleString('es-CO') : '');
   appUtils.safeValue('product-cost', p && p.cost ? parseInt(p.cost).toLocaleString('es-CO') : '');
   appUtils.safeValue('product-wholesale-price', p && p.wholesalePrice ? parseInt(p.wholesalePrice).toLocaleString('es-CO') : '');
+  appUtils.safeValue('product-weight', p && p.weight ? p.weight : '');
   appUtils.safeValue('product-stock', p ? (p.stock || '') : '');
   appUtils.safeValue('product-unit', p ? (p.unit || 'und') : 'und');
   appUtils.safeValue('product-description', p ? (p.description || '') : '');
@@ -620,6 +638,8 @@ async function saveProduct() {
   const wholesalePriceInput = document.getElementById('product-wholesale-price')?.value;
   const wholesalePrice = wholesalePriceInput ? parseFloat(wholesalePriceInput.replace(/\./g, '')) : null;
 
+  const weight = parseFloat(document.getElementById('product-weight')?.value) || 0.3; // kg, respaldo si no se especifica
+
   const pData = {
     name, price,
     ref: document.getElementById('product-ref')?.value || '',
@@ -628,6 +648,7 @@ async function saveProduct() {
     originalPrice: originalPrice,
     cost: cost,
     wholesalePrice: wholesalePrice,
+    weight: weight,
     stock: parseInt(document.getElementById('product-stock')?.value) || 0,
     unit: document.getElementById('product-unit')?.value || 'und',
     description: document.getElementById('product-description')?.value || '',

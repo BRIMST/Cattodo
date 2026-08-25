@@ -808,11 +808,19 @@ function renderOrderList() {
   els.orderTotalAmount.textContent = formatMoney(total);
   if (Object.keys(cart).length === 0) switchView('catalog');
   
-  // Recalcular envío si el carrito cambió y ya hay ciudad seleccionada
-  const dept = document.getElementById('customer-dept')?.value;
-  const city = document.getElementById('customer-city')?.value;
-  if (dept && city && typeof updateShippingDisplay === 'function') {
-    updateShippingDisplay(dept, city);
+  // Si el pedido cambió DESPUÉS de haber cotizado un envío pagado (no Bogotá),
+  // el peso pudo cambiar y la cotización ya no es válida: se lo advertimos al
+  // cliente en vez de borrar su selección en silencio.
+  if (selectedShippingOption && selectedShippingOption.carrier !== 'local') {
+    selectedShippingOption = null;
+    const display = document.getElementById('shipping-cost-display');
+    const quoteBtn = document.getElementById('btn-quote-shipping');
+    const ticketBtn = document.getElementById('btn-generate-ticket');
+    const optionsPanel = document.getElementById('shipping-options-panel');
+    if (display) { display.textContent = 'Tu pedido cambió, vuelve a cotizar'; display.style.color = '#f59e0b'; }
+    if (quoteBtn) { quoteBtn.style.display = 'block'; quoteBtn.textContent = 'Cotizar envío'; quoteBtn.disabled = false; }
+    if (ticketBtn) ticketBtn.style.display = 'none';
+    if (optionsPanel) { optionsPanel.style.display = 'none'; optionsPanel.innerHTML = ''; }
   }
 }
 
@@ -1286,6 +1294,8 @@ window.copyPaymentInfo = () => {
 
 // ====== SHIPPING ======
 let currentCalculatedShipping = 0;
+let selectedShippingOption = null; // { carrier, service, price, days } | { price:0, carrier:'local' } para Bogotá
+let lastShippingOptions = [];
 
 function isBogota(dept) {
   return dept === 'Bogotá D.C.';
@@ -1295,25 +1305,71 @@ function getShippingCost(dept) {
   return currentCalculatedShipping;
 }
 
-async function updateShippingDisplay(dept, city) {
+// Se llama cuando el cliente cambia de ciudad/departamento: solo resetea el
+// estado de cotización anterior (ya no se cotiza automáticamente en cada
+// cambio, porque cada cotización real cuesta una llamada a la API de Envia).
+// Excepción: Bogotá siempre es envío gratis y no necesita cotización real.
+function resetShippingState(dept, city) {
+  selectedShippingOption = null;
+  lastShippingOptions = [];
+  currentCalculatedShipping = 0;
+
   const display = document.getElementById('shipping-cost-display');
   const freeMsg = document.getElementById('shipping-free-msg');
-  if (!display) return;
+  const quoteBtn = document.getElementById('btn-quote-shipping');
+  const ticketBtn = document.getElementById('btn-generate-ticket');
+  const optionsPanel = document.getElementById('shipping-options-panel');
+  if (optionsPanel) { optionsPanel.style.display = 'none'; optionsPanel.innerHTML = ''; }
+  if (freeMsg) freeMsg.style.display = 'none';
+  if (ticketBtn) ticketBtn.style.display = 'none';
+
+  const normalizada = (city || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+  const esBogota = normalizada === 'BOGOTA' || normalizada === 'BOGOTA D.C.' || normalizada === 'BOGOTA DC';
 
   if (!dept || !city) {
-    display.textContent = '—';
-    display.style.color = 'var(--primary)';
-    if (freeMsg) freeMsg.style.display = 'none';
-    currentCalculatedShipping = 0;
+    if (display) { display.textContent = 'Sin cotizar'; display.style.color = 'var(--text-muted)'; }
+    if (quoteBtn) { quoteBtn.style.display = 'none'; }
     return;
   }
 
-  // Estado de carga visual
-  display.textContent = 'Calculando...';
-  display.style.color = '#f59e0b';
-  if (freeMsg) freeMsg.style.display = 'none';
+  if (esBogota) {
+    selectedShippingOption = { price: 0, carrier: 'local', service: 'Envío Local', days: 'Hoy' };
+    currentCalculatedShipping = 0;
+    if (display) { display.textContent = 'GRATIS'; display.style.color = 'var(--success)'; }
+    if (freeMsg) freeMsg.style.display = 'block';
+    if (quoteBtn) quoteBtn.style.display = 'none';
+    if (ticketBtn) ticketBtn.style.display = 'flex';
+    return;
+  }
 
-  // Preparar items del carrito asegurando inyectar "origen" default
+  if (display) { display.textContent = 'Sin cotizar'; display.style.color = 'var(--text-muted)'; }
+  if (quoteBtn) quoteBtn.style.display = 'block';
+}
+
+// Dispara la cotización real con las transportadoras (Interrapidísimo,
+// Servientrega, etc. vía Envia.com) y muestra las opciones para que el
+// cliente elija. Se llama al hacer clic en "Cotizar envío".
+async function quoteShipping() {
+  const dept = document.getElementById('customer-dept')?.value;
+  const city = document.getElementById('customer-city')?.value;
+  const address = document.getElementById('customer-address')?.value.trim();
+  const zip = document.getElementById('customer-zip')?.value.trim();
+  const quoteBtn = document.getElementById('btn-quote-shipping');
+  const display = document.getElementById('shipping-cost-display');
+  const optionsPanel = document.getElementById('shipping-options-panel');
+  const optionsList = document.getElementById('shipping-options-list');
+
+  if (!dept || !city || !address) {
+    return showToast('Completa ciudad, departamento y dirección antes de cotizar');
+  }
+  if (!zip) {
+    return showToast('Ingresa tu código postal para poder cotizar el envío');
+  }
+  if (Object.keys(cart).length === 0) return;
+
+  if (quoteBtn) { quoteBtn.disabled = true; quoteBtn.textContent = 'Cotizando...'; }
+  if (display) { display.textContent = 'Cotizando...'; display.style.color = '#f59e0b'; }
+
   const itemsArray = Object.entries(cart).map(([cartId, q]) => {
     const parts = cartId.split(':');
     const p = products.find(x => x.id === parts[0]);
@@ -1321,10 +1377,11 @@ async function updateShippingDisplay(dept, city) {
     return {
       id: parts[0],
       name: p.name,
-      price: p.price,
+      price: getProductPrice(p),
       qty: q,
+      weight: p.weight || 0.3, // kg por defecto si el producto no tiene peso definido
       variantColor: parts[1] || null,
-      origen: p.origen || 'propio' // Asegura "propio" si no fue definido
+      origen: p.origen || 'propio'
     };
   }).filter(i => i !== null);
 
@@ -1335,26 +1392,72 @@ async function updateShippingDisplay(dept, city) {
       body: JSON.stringify({
         ciudad_destino: city,
         departamento_destino: dept,
+        direccion_destino: address,
+        codigo_postal_destino: zip,
         items: itemsArray
       })
     });
-    
     const data = await response.json();
-    currentCalculatedShipping = data.costo_envio || 0;
 
-    display.textContent = formatMoney(currentCalculatedShipping);
-    display.style.color = currentCalculatedShipping === 0 ? '#25D366' : 'var(--text-main)';
-    
-    if (freeMsg) {
-      freeMsg.style.display = currentCalculatedShipping === 0 ? 'block' : 'none';
+    if (data.es_gratis) {
+      selectedShippingOption = { price: 0, carrier: 'local', service: data.metodo_entrega || 'Envío Local', days: 'Hoy' };
+      currentCalculatedShipping = 0;
+      if (display) { display.textContent = 'GRATIS'; display.style.color = 'var(--success)'; }
+      if (quoteBtn) quoteBtn.style.display = 'none';
+      document.getElementById('btn-generate-ticket').style.display = 'flex';
+      return;
     }
+
+    if (data.opciones && data.opciones.length > 0) {
+      lastShippingOptions = data.opciones;
+      if (optionsPanel && optionsList) {
+        optionsList.innerHTML = data.opciones.map((op, idx) => `
+          <div class="shipping-option-card" onclick="window.selectShippingOption(${idx})">
+            <div class="shipping-option-info">
+              <div class="shipping-option-carrier">${op.carrier_label || op.carrier}</div>
+              <div class="shipping-option-days">📦 Entrega estimada: ${op.days || '2-5'} días hábiles</div>
+            </div>
+            <div class="shipping-option-price">${formatMoney(op.price)}</div>
+          </div>
+        `).join('');
+        optionsPanel.style.display = 'block';
+      }
+      if (display) { display.textContent = 'Elige una opción ↓'; display.style.color = 'var(--text-main)'; }
+      if (quoteBtn) { quoteBtn.style.display = 'block'; quoteBtn.textContent = 'Volver a cotizar'; quoteBtn.disabled = false; }
+      // Auto-selecciona la más barata para no bloquear al cliente que no quiera comparar
+      window.selectShippingOption(0);
+      return;
+    }
+
+    // Ni gratis ni opciones: usamos el respaldo que vino del backend
+    selectedShippingOption = { price: data.costo_envio || 0, carrier: 'respaldo', service: data.mensaje || 'Tarifa de respaldo', days: '3-7' };
+    currentCalculatedShipping = selectedShippingOption.price;
+    if (display) { display.textContent = formatMoney(selectedShippingOption.price) + ' (estimado)'; display.style.color = 'var(--text-main)'; }
+    if (quoteBtn) quoteBtn.style.display = 'none';
+    document.getElementById('btn-generate-ticket').style.display = 'flex';
+
   } catch (err) {
-    console.error("Error calculando flete:", err);
-    currentCalculatedShipping = 15000; // Tarifa contingencia
-    display.textContent = formatMoney(currentCalculatedShipping);
-    display.style.color = 'var(--text-main)';
+    console.error('Error cotizando envío:', err);
+    showToast('No se pudo cotizar el envío. Intenta de nuevo.');
+    if (display) { display.textContent = 'Error al cotizar'; display.style.color = '#e74c3c'; }
+    if (quoteBtn) { quoteBtn.disabled = false; quoteBtn.textContent = 'Reintentar cotización'; }
   }
 }
+
+window.selectShippingOption = function(idx) {
+  const op = lastShippingOptions[idx];
+  if (!op) return;
+  selectedShippingOption = { price: op.price, carrier: op.carrier, service: op.carrier_label || op.carrier, days: op.days };
+  currentCalculatedShipping = op.price;
+
+  document.querySelectorAll('.shipping-option-card').forEach((card, i) => {
+    card.classList.toggle('selected', i === idx);
+  });
+
+  const display = document.getElementById('shipping-cost-display');
+  if (display) { display.textContent = formatMoney(op.price); display.style.color = 'var(--primary)'; }
+  document.getElementById('btn-generate-ticket').style.display = 'flex';
+};
 
 // ====== DOM READY ======
 document.addEventListener('DOMContentLoaded', () => {
@@ -1512,11 +1615,15 @@ function initSecondaryApp() {
     if (!name || !phone || !dept || !city || !address) {
       return showToast('Por favor completa los datos de envío');
     }
+    if (!selectedShippingOption) {
+      return showToast('Primero cotiza y elige tu opción de envío');
+    }
 
     const customer = {
       name, phone, dept, city, address,
       barrio: document.getElementById('customer-barrio')?.value.trim() || '',
       address2: document.getElementById('customer-address2')?.value.trim() || '',
+      zip: document.getElementById('customer-zip')?.value.trim() || '',
       notes: document.getElementById('customer-notes')?.value.trim() || ''
     };
 
@@ -1535,10 +1642,17 @@ function initSecondaryApp() {
     }).filter(i => i !== null);
 
     const subtotal = items.reduce((t, i) => t + i.price * i.qty, 0);
-    const total = subtotal;
+    const shippingCost = selectedShippingOption.price;
+    const total = subtotal + shippingCost;
 
     const orderData = {
       customer, items, subtotal, total,
+      shipping: {
+        cost: shippingCost,
+        carrier: selectedShippingOption.carrier,
+        service: selectedShippingOption.service,
+        days: selectedShippingOption.days
+      },
       timestamp: Date.now(),
       status: 'pending',
       channel: 'web'
@@ -1752,11 +1866,11 @@ function initSecondaryApp() {
       const cities = COLOMBIA_LOCATIONS[locationDeptEl.value] || [];
       locationCityEl.innerHTML = '<option value="">Ciudad...</option>' + cities.sort().map(c => `<option value="${c}">${c}</option>`).join('');
       locationCityEl.disabled = !cities.length;
-      updateShippingDisplay(locationDeptEl.value, locationCityEl.value);
+      resetShippingState(locationDeptEl.value, locationCityEl.value);
     };
 
     locationCityEl.onchange = () => {
-      updateShippingDisplay(locationDeptEl.value, locationCityEl.value);
+      resetShippingState(locationDeptEl.value, locationCityEl.value);
     };
   }
 
