@@ -135,6 +135,8 @@ export function initAdmin(state, utils) {
   // Excel Bulk Upload
   on('btn-bulk-excel', 'onclick', () => document.getElementById('bulk-upload-excel')?.click());
   on('bulk-upload-excel', 'onchange', handleBulkExcelUpload);
+  on('btn-bulk-photos', 'onclick', () => document.getElementById('bulk-upload-photos')?.click());
+  on('bulk-upload-photos', 'onchange', handleBulkPhotoUpload);
 
   // Auto-format currency on input fields in the product modal
   ['product-price', 'product-original-price', 'product-cost', 'product-wholesale-price'].forEach(id => {
@@ -846,6 +848,55 @@ window._extRemoveItem = (idx) => {
 
 const parseCOP = (str) => parseFloat((str || '0').replace(/\./g, '').replace(/,/g, '')) || 0;
 
+// Sube varias fotos a la vez sin necesidad de un link externo: el nombre de
+// cada archivo (sin extensión) debe coincidir con la "Referencia" del producto,
+// por ejemplo "CAM-AZ-M.jpg" para el producto con Referencia "CAM-AZ-M".
+// Reutiliza la misma compresión/base64 que ya usa el editor de un solo producto.
+async function handleBulkPhotoUpload(e) {
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+
+  appUtils.showToast(`Procesando ${files.length} foto(s)...`);
+
+  let matchedCount = 0;
+  const unmatchedNames = [];
+
+  for (const file of files) {
+    const baseName = file.name.replace(/\.[^/.]+$/, '').trim();
+    const existing = appState.products.find(p => p.ref && String(p.ref).trim().toLowerCase() === baseName.toLowerCase());
+
+    if (!existing) {
+      unmatchedNames.push(file.name);
+      continue;
+    }
+
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const compressed = await appUtils.compressImage(dataUrl);
+      // Reemplaza la foto principal del producto encontrado por referencia.
+      await update(ref(appState.db, `products/${existing.id}`), { images: [compressed] });
+      matchedCount++;
+    } catch (err) {
+      console.error(`Error subiendo foto ${file.name}:`, err);
+      unmatchedNames.push(file.name + ' (error al procesar)');
+    }
+  }
+
+  let summary = `${matchedCount} foto(s) subida(s) y vinculada(s) ✅`;
+  if (unmatchedNames.length > 0) {
+    summary += ` — ⚠️ ${unmatchedNames.length} sin producto coincidente (revisa que el nombre del archivo sea igual a la Referencia)`;
+    console.warn('Fotos sin producto coincidente:', unmatchedNames);
+  }
+  appUtils.showToast(summary);
+  if (window.loadCatalog) window.loadCatalog();
+  e.target.value = '';
+}
+
 async function handleBulkExcelUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -901,9 +952,18 @@ async function handleBulkExcelUpload(e) {
         const fotoKey = findKey(row, ["foto", "imagen", "image", "url"]);
         const nombreKey = findKey(row, ["nombre", "name"]);
         const refKey = findKey(row, ["referencia", "ref", "reference"]);
+        const categoriaKey = findKey(row, ["categoria", "categoría", "category"]);
+        const tagsKey = findKey(row, ["tags", "etiquetas"]);
         const stockKey = findKey(row, ["cantidad de stock", "stock", "cantidad", "existencias"]);
         const costoKey = findKey(row, ["precio de compra", "costo", "cost", "compra"]);
         const precioKey = findKey(row, ["precio de venta", "precio", "price", "venta"]);
+        const precioOriginalKey = findKey(row, ["precio original", "precio antes de descuento", "original price"]);
+        const precioMayoristaKey = findKey(row, ["precio mayorista", "wholesale price", "precio al por mayor"]);
+        const pesoKey = findKey(row, ["peso", "peso (kg)", "weight"]);
+        const unidadKey = findKey(row, ["unidad", "unit"]);
+        const descripcionKey = findKey(row, ["descripcion", "descripción", "description"]);
+        const videoKey = findKey(row, ["video", "clip", "clip url", "video url", "tiktok"]);
+        const activoKey = findKey(row, ["activo", "active", "visible"]);
         
         const name = nombreKey ? String(row[nombreKey] || '').trim() : '';
         const price = precioKey ? parseFloat(String(row[precioKey]).replace(/[^\d]/g, '')) : NaN;
@@ -915,6 +975,16 @@ async function handleBulkExcelUpload(e) {
         const refValue = refKey ? String(row[refKey] || '').trim() : '';
         const stock = stockKey ? parseInt(String(row[stockKey]).replace(/[^\d]/g, '')) || 0 : 0;
         const cost = costoKey ? parseFloat(String(row[costoKey]).replace(/[^\d]/g, '')) || null : null;
+        const originalPrice = precioOriginalKey ? (parseFloat(String(row[precioOriginalKey]).replace(/[^\d]/g, '')) || null) : null;
+        const wholesalePrice = precioMayoristaKey ? (parseFloat(String(row[precioMayoristaKey]).replace(/[^\d]/g, '')) || null) : null;
+        const weight = pesoKey ? (parseFloat(String(row[pesoKey]).replace(',', '.')) || 0.3) : 0.3;
+        const unit = unidadKey ? (String(row[unidadKey] || '').trim() || 'und') : 'und';
+        const category = categoriaKey ? String(row[categoriaKey] || '').trim() : '';
+        const tags = tagsKey ? String(row[tagsKey] || '').trim() : '';
+        const description = descripcionKey ? String(row[descripcionKey] || '').trim() : '';
+        const clipUrl = videoKey ? (String(row[videoKey] || '').trim() || null) : null;
+        const activoRaw = activoKey ? String(row[activoKey] || '').trim().toLowerCase() : '';
+        const active = activoRaw ? !['no', 'false', '0', 'inactivo'].includes(activoRaw) : true;
 
         const rawFoto = fotoKey ? row[fotoKey] : '';
         const { url: foto, valid: fotoValid } = resolvePhotoUrl(rawFoto);
@@ -927,11 +997,17 @@ async function handleBulkExcelUpload(e) {
           name,
           price,
           ref: refValue,
+          category,
+          tags,
           stock,
           cost,
-          active: true,
-          unit: 'und',
-          images: fotoValid ? [foto] : [],
+          originalPrice,
+          wholesalePrice,
+          weight,
+          unit,
+          description,
+          clipUrl,
+          active,
           origen: 'propio'
         };
         
@@ -944,9 +1020,15 @@ async function handleBulkExcelUpload(e) {
         }
         
         if (existingId) {
+          // En una actualización, solo tocamos "images" si esta fila trae una foto
+          // válida nueva — así no se borran fotos ya subidas (por ejemplo, con la
+          // herramienta de "Subir Fotos en Lote") solo porque la fila del Excel
+          // no traía una URL en esa pasada.
+          if (fotoValid) pData.images = [foto];
           await update(ref(appState.db, `products/${existingId}`), pData);
           updatedCount++;
         } else {
+          pData.images = fotoValid ? [foto] : [];
           await push(ref(appState.db, 'products'), pData);
           importedCount++;
         }
