@@ -3339,6 +3339,101 @@ textarea:focus {
   color: var(--primary);
 }
 
+.btn-quote-shipping {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.9rem;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: var(--border-width-bold) solid var(--primary);
+  background: #fff;
+  color: var(--primary);
+  transition: var(--transition-base);
+}
+
+.btn-quote-shipping:hover {
+  background: var(--primary-light);
+}
+
+.btn-quote-shipping:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.shipping-options-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 7.5rem;
+  z-index: 39;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 var(--px-mobile);
+}
+
+.shipping-options-title {
+  background: var(--bg-pure);
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 0.6rem 1rem 0;
+}
+
+#shipping-options-list {
+  background: #fff;
+  border: var(--border-width) solid var(--secondary);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.shipping-option-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0.9rem;
+  border: var(--border-width-bold) solid var(--secondary);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.shipping-option-card:hover {
+  border-color: var(--primary);
+}
+
+.shipping-option-card.selected {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  box-shadow: 0 0 0 3px rgba(0, 71, 171, 0.08);
+}
+
+.shipping-option-carrier {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  text-transform: capitalize;
+}
+
+.shipping-option-days {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.shipping-option-price {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
 .btn-generate-ticket {
   width: 100%;
   margin-top: 0.75rem;
