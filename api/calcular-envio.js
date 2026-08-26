@@ -23,6 +23,29 @@ module.exports = async function handler(req, res) {
     return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
   };
 
+  // Envia.com espera el código corto del departamento (ISO 3166-2:CO), no el
+  // nombre completo — "Cundinamarca" causa un error "String is too long".
+  // Esta tabla convierte el nombre (como se guarda en Configuración o como
+  // llega del selector de departamento del cliente) al código de 2-3 letras.
+  const DEPARTAMENTO_A_CODIGO = {
+    'AMAZONAS': 'AMA', 'ANTIOQUIA': 'ANT', 'ARAUCA': 'ARA', 'ATLANTICO': 'ATL',
+    'BOLIVAR': 'BOL', 'BOYACA': 'BOY', 'CALDAS': 'CAL', 'CAQUETA': 'CAQ',
+    'CASANARE': 'CAS', 'CAUCA': 'CAU', 'CESAR': 'CES', 'CHOCO': 'CHO',
+    'CORDOBA': 'COR', 'CUNDINAMARCA': 'CUN', 'GUAINIA': 'GUA', 'GUAVIARE': 'GUV',
+    'HUILA': 'HUI', 'LA GUAJIRA': 'LAG', 'GUAJIRA': 'LAG', 'MAGDALENA': 'MAG',
+    'META': 'MET', 'NARINO': 'NAR', 'NORTE DE SANTANDER': 'NSA', 'PUTUMAYO': 'PUT',
+    'QUINDIO': 'QUI', 'RISARALDA': 'RIS',
+    'SAN ANDRES, PROVIDENCIA Y SANTA CATALINA': 'SAP', 'SAN ANDRES Y PROVIDENCIA': 'SAP',
+    'SANTANDER': 'SAN', 'SUCRE': 'SUC', 'TOLIMA': 'TOL', 'VALLE DEL CAUCA': 'VAC',
+    'VALLE': 'VAC', 'VAUPES': 'VAU', 'VICHADA': 'VID',
+    'BOGOTA': 'DC', 'BOGOTA D.C.': 'DC', 'BOGOTA DC': 'DC', 'DISTRITO CAPITAL': 'DC'
+  };
+
+  const getStateCode = (nombreDepto) => {
+    const normalizado = normalizarTexto(nombreDepto);
+    return DEPARTAMENTO_A_CODIGO[normalizado] || nombreDepto; // si no se reconoce, se envía tal cual
+  };
+
   const FIREBASE_URL = "https://pandaventa-cdc06-default-rtdb.firebaseio.com";
   const TARIFA_CONTINGENCIA = 15000;
 
@@ -84,7 +107,7 @@ module.exports = async function handler(req, res) {
       phone: (origin.phone || '3000000000').replace(/\D/g, ''),
       street: origin.street,
       city: origin.city,
-      state: origin.state || '',
+      state: getStateCode(origin.state) || '',
       country: 'CO',
       postalCode: origin.zip || ''
     };
@@ -94,7 +117,7 @@ module.exports = async function handler(req, res) {
       phone: (carrito.telefono_destino || '3000000000').replace(/\D/g, ''),
       street: carrito.direccion_destino || carrito.ciudad_destino,
       city: carrito.ciudad_destino,
-      state: carrito.departamento_destino,
+      state: getStateCode(carrito.departamento_destino),
       country: 'CO',
       postalCode: carrito.codigo_postal_destino || ''
     };
