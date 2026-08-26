@@ -131,6 +131,11 @@ module.exports = async function handler(req, res) {
           const json = await r.json().catch(() => null);
           if (!r.ok) {
             console.error(`Envia.com (${carrier}) respondió ${r.status}:`, JSON.stringify(json));
+          } else {
+            // Log de diagnóstico: aunque la petición sea 200, Envia puede responder
+            // sin tarifas (ej. transportadora no habilitada en la cuenta, ruta no
+            // cubierta, dirección inválida). Esto nos deja ver la razón exacta.
+            console.log(`Envia.com (${carrier}) respuesta 200:`, JSON.stringify(json));
           }
           return json;
         })
