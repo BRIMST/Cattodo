@@ -102,24 +102,64 @@ module.exports = async function handler(req, res) {
     const pesoTotal = carrito.items.reduce((sum, item) => sum + ((item.weight || 0.3) * (item.qty || 1)), 0) || 0.3;
     const valorDeclarado = carrito.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
 
+    // Para Colombia, Envia exige que "city" y "postalCode" sean el Código DANE
+    // del municipio (no el nombre ni el código postal real). Este endpoint
+    // resuelve el nombre de la ciudad a ese código automáticamente.
+    const locateColombiaCity = async (cityName, stateCode) => {
+      try {
+        const resp = await fetch(`${ENVIA_BASE_URL}/locate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ city: cityName, state: stateCode, country: 'CO' })
+        });
+        const json = await resp.json().catch(() => null);
+        console.log(`Locate city (${cityName}, ${stateCode}) ->`, resp.status, JSON.stringify(json));
+        if (resp.ok && json && json.city) {
+          return String(json.city);
+        }
+      } catch (e) {
+        console.error(`Error localizando ciudad "${cityName}":`, e.message);
+      }
+      return null;
+    };
+
+    const origenStateCode = getStateCode(origin.state);
+    const destinoStateCode = getStateCode(carrito.departamento_destino);
+
+    const [origenDane, destinoDane] = await Promise.all([
+      locateColombiaCity(origin.city, origenStateCode),
+      locateColombiaCity(carrito.ciudad_destino, destinoStateCode)
+    ]);
+
+    if (!origenDane || !destinoDane) {
+      // No se pudo resolver el Código DANE de alguna de las dos ciudades:
+      // sin esto, Servientrega/Interrapidísimo van a rechazar la cotización.
+      return res.status(200).json({
+        status: 'success',
+        es_gratis: false,
+        costo_envio: fallbackCost,
+        mensaje: `No se pudo identificar la ciudad ${!origenDane ? 'de origen' : 'de destino'} en el catálogo DANE de Colombia; se aplicó la tarifa de respaldo`
+      });
+    }
+
     const originPayload = {
       name: origin.name || 'Tienda',
       phone: (origin.phone || '3000000000').replace(/\D/g, ''),
       street: origin.street,
-      city: origin.city,
-      state: getStateCode(origin.state) || '',
+      city: origenDane,
+      state: origenStateCode || '',
       country: 'CO',
-      postalCode: origin.zip || ''
+      postalCode: origenDane
     };
 
     const destinationPayload = {
       name: carrito.nombre_destino || 'Cliente',
       phone: (carrito.telefono_destino || '3000000000').replace(/\D/g, ''),
       street: carrito.direccion_destino || carrito.ciudad_destino,
-      city: carrito.ciudad_destino,
-      state: getStateCode(carrito.departamento_destino),
+      city: destinoDane,
+      state: destinoStateCode,
       country: 'CO',
-      postalCode: carrito.codigo_postal_destino || ''
+      postalCode: destinoDane
     };
 
     const packagePayload = [{
