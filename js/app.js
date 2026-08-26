@@ -1349,7 +1349,7 @@ function resetShippingState(dept, city) {
 // Dispara la cotización real con las transportadoras (Interrapidísimo,
 // Servientrega, etc. vía Envia.com) y muestra las opciones para que el
 // cliente elija. Se llama al hacer clic en "Cotizar envío".
-async function quoteShipping() {
+window.quoteShipping = async function quoteShipping() {
   const dept = document.getElementById('customer-dept')?.value;
   const city = document.getElementById('customer-city')?.value;
   const address = document.getElementById('customer-address')?.value.trim();
