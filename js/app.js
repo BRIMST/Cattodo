@@ -129,6 +129,9 @@ const switchView = (viewName) => {
   window.scrollTo(0, 0);
   Object.values(views).forEach(v => { if (v) v.classList.remove('active'); });
   if (views[viewName]) views[viewName].classList.add('active');
+  // El botón flotante de WhatsApp debe evitar tapar la barra fija de "Tu
+  // pedido" (o el carrito), cuya presencia depende de la vista activa.
+  if (typeof updateWAButtonPosition === 'function') updateWAButtonPosition();
   // SEO: noindex en vistas privadas — envuelto en try/catch para no romper nada
   try {
     const privateViews = ['order', 'ticket', 'admin', 'login'];
@@ -522,11 +525,19 @@ window.setUserLocation = setUserLocation;
 function updateWAButtonPosition() {
   const waBtn = document.getElementById('global-wa-btn');
   const cartBar = document.getElementById('cart-bar');
+  const orderFooter = document.querySelector('.order-sticky-footer');
   if (!waBtn) return;
 
   // Evitar reflow forzado usando requestAnimationFrame para agrupar lecturas del DOM
   requestAnimationFrame(() => {
-    if (cartBar && cartBar.style.display !== 'none') {
+    const orderViewActive = document.getElementById('view-order')?.classList.contains('active');
+    if (orderViewActive && orderFooter) {
+      // En la vista de "Tu pedido" la barra de envío/total tapa el botón de
+      // WhatsApp si no se corre hacia arriba según la altura real de esa barra
+      // (que cambia: crece cuando aparece el selector de transportadora).
+      const height = orderFooter.offsetHeight || 90;
+      waBtn.style.bottom = (height + 16) + 'px';
+    } else if (cartBar && cartBar.style.display !== 'none') {
       const height = cartBar.offsetHeight || 70;
       waBtn.style.bottom = (height + 24) + 'px';
     } else {
@@ -747,12 +758,12 @@ function updateCart(cartId, change) {
   }
   
   if (next <= 0) delete cart[cartId]; else cart[cartId] = next;
-  updateCartUI();
+  updateCartUI(change > 0);
   renderProducts();
   if (views.order && views.order.classList.contains('active')) renderOrderList();
 }
 
-function updateCartUI() {
+function updateCartUI(animate = false) {
   const count = Object.values(cart).reduce((a, b) => a + b, 0);
   const total = Object.entries(cart).reduce((t, [cartId, q]) => {
     const productId = cartId.split(':')[0];
@@ -763,6 +774,12 @@ function updateCartUI() {
     els.cartBar.style.display = 'block';
     els.cartCount.textContent = count;
     els.cartTotal.textContent = formatMoney(total);
+    if (animate && els.cartCount) {
+      els.cartCount.classList.remove('pop');
+      // Forzar reflow para poder reiniciar la animación en clics seguidos
+      void els.cartCount.offsetWidth;
+      els.cartCount.classList.add('pop');
+    }
   } else {
     els.cartBar.style.display = 'none';
   }
@@ -1603,6 +1620,15 @@ function initSecondaryApp() {
     const el = document.getElementById(id);
     if (el) el[event] = fn;
   };
+
+  // El botón flotante de WhatsApp debe correrse hacia arriba cada vez que la
+  // barra fija de "Tu pedido" cambia de altura (aparece el botón de cotizar,
+  // luego el panel de opciones, luego el botón de generar ticket, etc.) sin
+  // tener que llamar updateWAButtonPosition() manualmente en cada punto.
+  const orderFooterEl = document.querySelector('.order-sticky-footer');
+  if (orderFooterEl && typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => updateWAButtonPosition()).observe(orderFooterEl);
+  }
 
   // Finalizar pedido
   on('btn-generate-ticket', 'onclick', async () => {
