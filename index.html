@@ -39,7 +39,7 @@
   </style>
   <link rel="stylesheet" href="css/styles.css" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="css/styles.css"></noscript>
-  <meta name="theme-color" content="#0047AB">
+  <meta name="theme-color" content="#2B5F8E">
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
   <link rel="apple-touch-icon" href="favicon.ico">
@@ -259,8 +259,32 @@
         <span>🍃</span>
         <p>No hay productos disponibles</p>
       </div>
+
+      <!-- Galería de clientes satisfechos -->
+      <section class="customer-photos-section" id="customer-photos-section" style="display:none">
+        <h2 class="section-title">💛 Nuestros Clientes Felices</h2>
+        <p class="customer-photos-subtitle">Fotos reales de quienes ya compraron con nosotros</p>
+        <div class="customer-photos-wall" id="customer-photos-wall"></div>
+      </section>
     </main>
+
+    <!-- Pie de página -->
+    <footer class="site-footer">
+      <div class="site-footer-inner">
+        <div class="footer-brand">
+          <span class="footer-store-name" id="footer-store-name">Panda Venta</span>
+          <p class="footer-tagline">Compra fácil y rápido por WhatsApp, con envío a toda Colombia.</p>
+        </div>
+        <div class="footer-social" id="footer-social">
+          <!-- Generado por JS según lo configurado en Configuración -->
+        </div>
+      </div>
+      <div class="footer-bottom">
+        © <span id="footer-year"></span> <span id="footer-store-name-2">Panda Venta</span>. Todos los derechos reservados.
+      </div>
+    </footer>
   </div>
+
 
   <!-- ═══════════════════════════════════════════════════════ -->
   <!--  VISTA: DETALLE DE PRODUCTO                            -->
@@ -919,6 +943,25 @@
               <span id="settings-color-preview" class="color-label">#6c63ff</span>
             </div>
           </div>
+          <div class="settings-group">
+            <label class="settings-label">📱 Redes Sociales</label>
+            <small class="settings-hint">Se muestran como íconos en el pie de página de tu tienda. Deja en blanco la que no uses.</small>
+            <label class="field-label" style="margin-top:0.6rem;">Instagram</label>
+            <input type="url" id="settings-social-instagram" class="settings-input" placeholder="https://instagram.com/tutienda">
+            <label class="field-label">Facebook</label>
+            <input type="url" id="settings-social-facebook" class="settings-input" placeholder="https://facebook.com/tutienda">
+            <label class="field-label">TikTok</label>
+            <input type="url" id="settings-social-tiktok" class="settings-input" placeholder="https://tiktok.com/@tutienda">
+          </div>
+
+          <div class="settings-group">
+            <label class="settings-label">💛 Fotos de Clientes Satisfechos</label>
+            <small class="settings-hint">Sube fotos reales de tus clientes disfrutando sus productos — se muestran en una galería en tu tienda para generar confianza. Selecciona varias a la vez.</small>
+            <div id="customer-photos-grid" class="customer-photos-admin-grid"></div>
+            <button type="button" class="btn-add-variant" id="btn-upload-customer-photos" style="margin-top:0.6rem;">+ Subir Fotos de Clientes</button>
+            <input type="file" id="customer-photos-input" accept="image/*" multiple style="display:none;" />
+          </div>
+
           <div class="settings-group">
             <label class="settings-label">Logo de la tienda (opcional)</label>
             <div class="image-upload-area" id="logo-upload-area">
