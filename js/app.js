@@ -206,52 +206,10 @@ window.loadCatalog = async function() {
 function init() {
   window.loadCatalog();
 
-  const updateWholesaleToggleUI = () => {
-    const btnRetail = document.getElementById('btn-retail-mode');
-    const btnWholesale = document.getElementById('btn-wholesale-mode');
-    const banner = document.getElementById('wholesale-info-banner');
-    if (!btnRetail || !btnWholesale) return;
-    
-    if (isWholesaleMode) {
-      btnRetail.classList.remove('active');
-      btnRetail.style.background = 'transparent';
-      btnRetail.style.color = 'var(--text-muted)';
-      btnWholesale.classList.add('active');
-      btnWholesale.style.background = 'var(--primary)';
-      btnWholesale.style.color = '#fff';
-      if (banner) banner.style.display = 'block';
-    } else {
-      btnRetail.classList.add('active');
-      btnRetail.style.background = 'var(--primary)';
-      btnRetail.style.color = '#fff';
-      btnWholesale.classList.remove('active');
-      btnWholesale.style.background = 'transparent';
-      btnWholesale.style.color = 'var(--text-muted)';
-      if (banner) banner.style.display = 'none';
-    }
-  };
-
-  const switchWholesaleMode = (wholesale) => {
-    if (isWholesaleMode === wholesale) return;
-    
-    if (Object.keys(cart).length > 0) {
-      const confirmClear = confirm("Cambiar de canal de venta (Detal / Mayorista) vaciará tu carrito actual. ¿Deseas continuar?");
-      if (!confirmClear) return;
-      cart = {};
-      updateCartUI();
-    }
-    
-    isWholesaleMode = wholesale;
-    updateWholesaleToggleUI();
-    renderProducts();
-    renderDiscountSection();
-    updateCartUI();
-  };
-
-  document.getElementById('btn-retail-mode')?.addEventListener('click', () => switchWholesaleMode(false));
-  document.getElementById('btn-wholesale-mode')?.addEventListener('click', () => switchWholesaleMode(true));
-  
-  updateWholesaleToggleUI();
+  // Nota: se quitó el selector de canal (Detal/Mayorista) — isWholesaleMode
+  // se queda permanentemente en "false" (su valor por defecto), así que toda
+  // la lógica de precios/mínimos mayoristas queda inactiva sin necesidad de
+  // tocarla en cada punto donde se usa.
 
   document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.onclick = () => {
