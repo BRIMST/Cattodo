@@ -290,6 +290,29 @@ function applySettings() {
 
   safeHTML('header-logo-area', logoHTML);
 
+  // Pie de página: nombre, año y redes sociales
+  safeText('footer-store-name', settings.storeName || 'Panda Venta');
+  safeText('footer-store-name-2', settings.storeName || 'Panda Venta');
+  safeText('footer-year', new Date().getFullYear());
+
+  const social = settings.social || {};
+  const SOCIAL_ICONS = {
+    instagram: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>`,
+    facebook: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>`,
+    tiktok: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>`
+  };
+  const footerSocial = document.getElementById('footer-social');
+  if (footerSocial) {
+    const links = ['instagram', 'facebook', 'tiktok']
+      .filter(key => social[key])
+      .map(key => `<a href="${social[key]}" target="_blank" rel="noopener" class="footer-social-link" aria-label="${key}">${SOCIAL_ICONS[key]}</a>`)
+      .join('');
+    footerSocial.innerHTML = links;
+    footerSocial.style.display = links ? 'flex' : 'none';
+  }
+
+  renderCustomerPhotos();
+
   // ✅ FIX WHATSAPP BUTTON
   const waBtn = document.getElementById('global-wa-btn');
 
@@ -309,6 +332,37 @@ function applySettings() {
     console.warn('⚠️ No se encontró el botón de WhatsApp');
   }
 }
+
+// Galería de "Clientes Felices": fotos reales subidas desde el panel de admin,
+// guardadas en settings.customerPhotos para que lleguen con la misma petición
+// que ya trae el resto de la configuración (sin tocar el backend).
+function renderCustomerPhotos() {
+  const section = document.getElementById('customer-photos-section');
+  const wall = document.getElementById('customer-photos-wall');
+  if (!section || !wall) return;
+
+  const photos = settings.customerPhotos || [];
+  if (!Array.isArray(photos) || photos.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  wall.innerHTML = photos.map((p, idx) => `
+    <div class="customer-photo-frame" onclick="window.openCustomerPhotoViewer(${idx})">
+      <img src="${p.url}" alt="Cliente feliz de ${settings.storeName || 'la tienda'}" loading="lazy">
+    </div>
+  `).join('');
+}
+
+window.openCustomerPhotoViewer = function(idx) {
+  const photos = settings.customerPhotos || [];
+  if (photos.length === 0) return;
+  viewerImages = photos.map(p => p.url);
+  viewerIndex = idx;
+  renderViewer();
+  document.getElementById('image-viewer-modal').style.display = 'flex';
+};
 
 // ====== CATALOG ======
 function renderFilters() {

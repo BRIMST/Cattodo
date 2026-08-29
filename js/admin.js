@@ -18,6 +18,7 @@ export function initAdmin(state, utils) {
   window.openExternalSaleModal = openExternalSaleModal;
   window.toggleProductTypeFields = toggleProductTypeFields;
   window.addVariantRow = addVariantRow;
+  window.deleteCustomerPhoto = deleteCustomerPhoto;
   window.closeAdmin = closeAdmin;
   window.renderReports = renderReports;
   window.renderAdminOrders = renderAdminOrders;
@@ -137,6 +138,8 @@ export function initAdmin(state, utils) {
   on('bulk-upload-excel', 'onchange', handleBulkExcelUpload);
   on('btn-bulk-photos', 'onclick', () => document.getElementById('bulk-upload-photos')?.click());
   on('bulk-upload-photos', 'onchange', handleBulkPhotoUpload);
+  on('btn-upload-customer-photos', 'onclick', () => document.getElementById('customer-photos-input')?.click());
+  on('customer-photos-input', 'onchange', handleCustomerPhotosUpload);
 
   // Auto-format currency on input fields in the product modal
   ['product-price', 'product-original-price', 'product-cost', 'product-wholesale-price'].forEach(id => {
@@ -242,6 +245,13 @@ export function renderAdminProducts() {
           </div>
           <div class="admin-product-price">${appUtils.formatMoney(p.price || 0)}</div>
         </div>
+        <button type="button" class="btn-delete-product-row" data-product-id="${escapeHTML(p.id)}" title="Eliminar producto">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            <path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+          </svg>
+        </button>
       </div>
     `;
   }).join('');
@@ -250,6 +260,18 @@ export function renderAdminProducts() {
     row.onclick = () => {
       const id = row.dataset.productId;
       if (id) openProductModal(id);
+    };
+  });
+
+  list.querySelectorAll('.btn-delete-product-row').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation(); // Evita que también se abra el modal de edición
+      const id = btn.dataset.productId;
+      const product = appState.products.find(p => p.id === id);
+      const name = product ? product.name : 'este producto';
+      if (confirm(`¿Eliminar "${name}"? Esta acción no se puede deshacer.`)) {
+        deleteProduct(id);
+      }
     };
   });
 }
@@ -449,6 +471,14 @@ function loadSettingsForm() {
   appUtils.safeValue('settings-shipping-cost', appState.settings.shippingCost || 0);
   appUtils.safeValue('settings-wholesale-discount', appState.settings.wholesaleDiscount !== undefined ? appState.settings.wholesaleDiscount : 20);
 
+  // Redes sociales
+  const social = appState.settings.social || {};
+  appUtils.safeValue('settings-social-instagram', social.instagram || '');
+  appUtils.safeValue('settings-social-facebook', social.facebook || '');
+  appUtils.safeValue('settings-social-tiktok', social.tiktok || '');
+
+  renderCustomerPhotosAdmin();
+
   // Dirección de origen (para cotizar envíos reales con transportadoras)
   const origin = appState.settings.originAddress || {};
   appUtils.safeValue('settings-origin-name', origin.name || '');
@@ -497,6 +527,11 @@ async function saveSettings() {
       city: document.getElementById('settings-origin-city')?.value || '',
       state: document.getElementById('settings-origin-state')?.value || '',
       zip: document.getElementById('settings-origin-zip')?.value || ''
+    },
+    social: {
+      instagram: document.getElementById('settings-social-instagram')?.value.trim() || '',
+      facebook: document.getElementById('settings-social-facebook')?.value.trim() || '',
+      tiktok: document.getElementById('settings-social-tiktok')?.value.trim() || ''
     },
     locContent: {
       bgtTitle: document.getElementById('settings-loc-bgt-title')?.value || '',
@@ -705,7 +740,8 @@ function removeProductImage(idx) {
 }
 
 async function deleteProduct(id) {
-  if (!confirm('¿Seguro que deseas eliminar este producto?')) return;
+  // Nota: la confirmación ya se hizo en quien llama a esta función (el botón
+  // "Eliminar" del modal, o el botón directo en cada fila de la lista).
   await remove(ref(appState.db, `products/${id}`));
   if (window.loadCatalog) window.loadCatalog();
 }
@@ -852,6 +888,71 @@ const parseCOP = (str) => parseFloat((str || '0').replace(/\./g, '').replace(/,/
 // cada archivo (sin extensión) debe coincidir con la "Referencia" del producto,
 // por ejemplo "CAM-AZ-M.jpg" para el producto con Referencia "CAM-AZ-M".
 // Reutiliza la misma compresión/base64 que ya usa el editor de un solo producto.
+// Sube una o varias fotos de "clientes felices" a la galería de confianza de
+// la tienda. Se guardan dentro de settings.customerPhotos para que lleguen
+// al frontend con la misma petición que ya trae el resto de la configuración.
+async function handleCustomerPhotosUpload(e) {
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+
+  appUtils.showToast(`Subiendo ${files.length} foto(s)...`);
+
+  const current = Array.isArray(appState.settings.customerPhotos) ? [...appState.settings.customerPhotos] : [];
+
+  for (const file of files) {
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const compressed = await appUtils.compressImage(dataUrl);
+      current.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, url: compressed });
+    } catch (err) {
+      console.error(`Error subiendo foto de cliente ${file.name}:`, err);
+    }
+  }
+
+  try {
+    await update(ref(appState.db, 'settings'), { customerPhotos: current });
+    appState.settings.customerPhotos = current;
+    appUtils.showToast('Fotos de clientes actualizadas ✅');
+    renderCustomerPhotosAdmin();
+    if (window.loadCatalog) window.loadCatalog();
+  } catch (err) {
+    console.error('Error guardando fotos de clientes:', err);
+    appUtils.showToast('Error al guardar las fotos: ' + err.message);
+  }
+  e.target.value = '';
+}
+
+async function deleteCustomerPhoto(photoId) {
+  if (!confirm('¿Eliminar esta foto de la galería de clientes?')) return;
+  const current = (appState.settings.customerPhotos || []).filter(p => p.id !== photoId);
+  try {
+    await update(ref(appState.db, 'settings'), { customerPhotos: current });
+    appState.settings.customerPhotos = current;
+    renderCustomerPhotosAdmin();
+    if (window.loadCatalog) window.loadCatalog();
+  } catch (err) {
+    console.error('Error eliminando foto de cliente:', err);
+    appUtils.showToast('Error al eliminar: ' + err.message);
+  }
+}
+
+function renderCustomerPhotosAdmin() {
+  const grid = document.getElementById('customer-photos-grid');
+  if (!grid) return;
+  const photos = appState.settings.customerPhotos || [];
+  grid.innerHTML = photos.map(p => `
+    <div class="customer-photo-admin-item">
+      <img src="${p.url}" alt="Foto de cliente" />
+      <button type="button" onclick="window.deleteCustomerPhoto('${p.id}')" title="Eliminar">×</button>
+    </div>
+  `).join('');
+}
+
 async function handleBulkPhotoUpload(e) {
   const files = Array.from(e.target.files || []);
   if (files.length === 0) return;
