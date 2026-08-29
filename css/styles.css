@@ -3936,7 +3936,14 @@ textarea:focus {
    ADMIN DASHBOARD LAYOUT (FULL SCREEN)
    ════════════════════════════════════════════════════════════════════════════════ */
 .admin-dashboard-layout {
-  display: flex !important; /* Overrides .view.active block */
+  /* Antes: "display: flex !important" — esto anulaba SIEMPRE tanto el
+     ".view{display:none}" por defecto como el "style.display='none'" que
+     pone admin.js al cerrar el panel. Por eso el dashboard se quedaba
+     visible de forma permanente, apareciendo debajo del catálogo en vez de
+     reemplazarlo. El valor por defecto ahora es "none" (igual que las demás
+     vistas); admin.js ya se encarga de ponerlo en "flex" con estilo inline
+     cuando corresponde (ver openAdminActual/closeAdmin). */
+  display: none;
   min-height: 100vh;
   background: #f4f7fe;
   color: #2b3674;
