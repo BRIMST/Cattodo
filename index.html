@@ -28,13 +28,13 @@
     .catalog-header{background:#fff;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;padding:.5rem var(--px)}
     .header-inner{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center}
     .store-brand{display:flex;align-items:center;gap:.6rem}
-    .store-logo{width:44px;height:44px;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;color:#fff}
+    .store-logo{width:44px;height:44px;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 100%);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;color:#fff}
     .hero-banner{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-dark) 65%,#001e5a 100%);padding:.75rem var(--px) 1rem;color:#fff;position:relative;overflow:hidden;min-height:160px}
     .hero-title{font-size:1.1rem;font-weight:800;line-height:1.2;margin-bottom:.2rem}
     .products-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;padding:0 var(--px)}
     .skeleton{background:#f1f5f9;background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:sk 1.5s infinite}
     @keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
-    .skeleton-card{height:240px;border-radius:var(--r-lg);margin-bottom:.6rem}
+    .skeleton-card{height:240px;border-radius:var(--radius-lg);margin-bottom:.6rem}
     .view{display:none}.view.active{display:block}
   </style>
   <link rel="stylesheet" href="css/styles.css" media="print" onload="this.media='all'" />
@@ -260,20 +260,6 @@
         <p>No hay productos disponibles</p>
       </div>
     </main>
-
-    <!-- Floating cart bar -->
-    <div class="cart-bar" id="cart-bar" style="display:none">
-      <div class="cart-bar-inner">
-        <div class="cart-summary">
-          <span class="cart-count" id="cart-count">0</span>
-          <span class="cart-label">artículos</span>
-        </div>
-        <div class="cart-total" id="cart-total-bar">COP 0</div>
-        <button class="btn-view-order" id="btn-view-order">
-          Ver pedido →
-        </button>
-      </div>
-    </div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════ -->
@@ -727,7 +713,7 @@
             Enviar por WhatsApp
           </button>
 
-          <button class="btn-share-ticket" id="btn-share-ticket" style="display:none; background: #1a73e8; color: #fff; border: none; padding: 0.9rem; border-radius: var(--r-md); font-weight: 700; font-size: 1rem; justify-content: center; align-items: center; gap: 0.5rem; cursor: pointer; width: 100%;">
+          <button class="btn-share-ticket" id="btn-share-ticket" style="display:none;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="18" cy="5" r="3"/>
               <circle cx="6" cy="12" r="3"/>
@@ -1032,7 +1018,7 @@
           <div class="settings-form" style="margin-top:2rem; border-top:1px solid var(--border); padding-top:1.5rem;">
             <h4 style="margin-bottom:1rem;color:var(--text-main)">📍 Contenido Dinámico por Ubicación</h4>
             
-            <div style="background:var(--primary-light); padding:1rem; border-radius:var(--r-md); margin-bottom:1rem;">
+            <div style="background:var(--primary-light); padding:1rem; border-radius:var(--radius-md); margin-bottom:1rem;">
               <h5 style="margin-bottom:0.5rem; font-size:0.85rem; color:var(--primary);">Bogotá (Express)</h5>
               <div class="settings-group">
                 <label class="settings-label">Título</label>
@@ -1044,7 +1030,7 @@
               </div>
             </div>
 
-            <div style="background:var(--surface2); padding:1rem; border-radius:var(--r-md); margin-bottom:1rem;">
+            <div style="background:var(--bg-section); padding:1rem; border-radius:var(--radius-md); margin-bottom:1rem;">
               <h5 style="margin-bottom:0.5rem; font-size:0.85rem; color:var(--text-main);">Nacional (Resto del país)</h5>
               <div class="settings-group">
                 <label class="settings-label">Título</label>
@@ -1419,6 +1405,22 @@
 
       <button onclick="closeImageModal()"
         style="position: absolute; top: -10px; right: 10px; background: white; color: black; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); font-weight: bold; display: flex; align-items: center; justify-content: center;">&times;</button>
+    </div>
+  </div>
+
+  <!-- Floating cart bar: hermano de todas las vistas para no quedar oculto
+       cuando cambias de vista (antes vivía dentro de #view-catalog y se
+       ocultaba junto con esa vista, sin importar lo que dijera el JS). -->
+  <div class="cart-bar" id="cart-bar" style="display:none">
+    <div class="cart-bar-inner">
+      <div class="cart-summary">
+        <span class="cart-count" id="cart-count">0</span>
+        <span class="cart-label">artículos</span>
+      </div>
+      <div class="cart-total" id="cart-total-bar">COP 0</div>
+      <button class="btn-view-order" id="btn-view-order">
+        Ver pedido →
+      </button>
     </div>
   </div>
 
