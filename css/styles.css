@@ -33,34 +33,36 @@
    1. DESIGN TOKENS — PALETA PREMIUM EXACTA
    ───────────────────────────────────────────────────────────────────────────── */
 :root {
-  /* FONDOS — Blanco puro y grises ultra claros */
-  --bg-pure:           #FFFFFF;          /* Blanco puro para fondos principales */
-  --bg-section:        #F8F9FA;          /* Gris ultra claro para delimitar bloques */
-  --bg-light:          #FAFBFC;          /* Variante aún más clara */
-  
-  /* COLOR PRINCIPAL — Azul Rey Vibrante (CTA, Botones, Enlaces) */
-  --primary:           #0047AB;          /* Azul Rey Vibrante — Captura atención */
-  --primary-light:     #E8F0FF;          /* Versión muy clara para hover backgrounds */
-  --primary-dark:      #003580;          /* Versión oscura para active states */
-  --primary-rgb:       0, 71, 171;       /* Para transparencias */
-  
-  /* COLOR SECUNDARIO — Plateado/Gris Metálico (Bordes, Detalles) */
-  --secondary:         #E5E7EB;          /* Gris metálico suave — Toque premium */
-  --secondary-light:   #F3F4F6;          /* Versión más clara */
-  --secondary-muted:   #D1D5DB;          /* Versión más oscura para contraste */
-  
-  /* TEXTOS — Negro suave para elegancia */
-  --text-main:         #111827;          /* Negro suave — Legibilidad premium */
-  --text-secondary:    #4B5563;          /* Gris oscuro para textos secundarios */
-  --text-muted:        #9CA3AF;          /* Gris claro para textos terciarios */
-  --text-light:        #D1D5DB;          /* Gris muy claro para textos suaves */
-  
+  /* FONDOS — Blancos y cremas cálidos, tomados del pelaje del panda y la
+     madera del logo (antes eran blanco/gris fríos tipo SaaS corporativo) */
+  --bg-pure:           #FFFDF9;          /* Blanco cálido — pelaje del panda */
+  --bg-section:        #F7F1E7;          /* Crema cálido — madera del fondo del logo */
+  --bg-light:          #FBF8F2;          /* Variante intermedia */
+
+  /* COLOR PRINCIPAL — Azul de la chaqueta del panda (antes: azul corporativo genérico) */
+  --primary:           #2B5F8E;          /* Azul chaqueta del panda */
+  --primary-light:     #E8F0F7;          /* Versión muy clara para hover backgrounds */
+  --primary-dark:      #1E4568;          /* Versión oscura para active states */
+  --primary-rgb:       43, 95, 142;      /* Para transparencias */
+
+  /* COLOR SECUNDARIO — Beige/tostado cálido (antes: gris metálico frío) */
+  --secondary:         #E6DCC8;          /* Beige cálido — bordes y detalles */
+  --secondary-light:   #F0E9DA;          /* Versión más clara */
+  --secondary-muted:   #D8C9AC;          /* Versión más oscura para contraste */
+
+  /* TEXTOS — Negro cálido (antes: negro azulado frío) */
+  --text-main:         #211A14;          /* Negro cálido — fondo del logo */
+  --text-secondary:    #5C4F42;          /* Marrón oscuro para textos secundarios */
+  --text-muted:        #9C8F7E;          /* Beige grisáceo para textos terciarios */
+  --text-light:        #D8C9AC;          /* Beige claro para textos suaves */
+
   /* SEMÁNTICOS — Acciones y Estados */
   --success:           #059669;          /* Verde para éxito/confirmación */
-  --danger:            #DC2626;          /* Rojo para alertas y descuentos */
-  --warn:              #D97706;          /* Ámbar para advertencias */
-  --accent:            #F59E0B;          /* Dorado para destacados */
-  
+  --danger:            #C0392B;          /* Rojo cálido para alertas y descuentos */
+  --warn:              #B8791E;          /* Ámbar cálido para advertencias */
+  --accent:            #C99552;          /* Dorado/cobre del marco y letras del logo — elemento firma */
+  --accent-dark:       #A87738;          /* Dorado oscuro para hover/active del acento */
+
   /* TIPOGRAFÍA — Poppins para títulos (personalidad, marca), fuente nativa del
      sistema para texto de cuerpo/UI (legibilidad, carga instantánea, sin
      depender de una segunda fuente externa). */
@@ -239,13 +241,16 @@ input, button, textarea, select {
   height: 48px;
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
   color: #fff;
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.6rem;
   transition: var(--transition-fast);
   box-shadow: var(--shadow-sm);
+  /* Anillo dorado circular — eco directo del marco del logo real */
+  border: 2px solid var(--accent);
+  overflow: hidden;
 }
 
 .store-logo:hover {
