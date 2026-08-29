@@ -760,96 +760,287 @@
     </div>
   </div>
 
+  
   <!-- ═══════════════════════════════════════════════════════ -->
-  <!--  PANEL: ADMINISTRACIÓN                                 -->
+  <!--  VISTA: ADMINISTRACIÓN (FULL SCREEN DASHBOARD)         -->
   <!-- ═══════════════════════════════════════════════════════ -->
-  <div id="panel-admin" class="admin-panel" style="display:none">
-    <div class="admin-overlay" id="admin-overlay"></div>
-    <div class="admin-drawer">
-
-      <div class="admin-header">
-        <h2>Administración</h2>
-        <button class="btn-close-admin" id="btn-close-admin">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
+  <div id="view-admin" class="view admin-dashboard-layout" data-noindex="true">
+    
+    <!-- SIDEBAR -->
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <span class="logo-emoji">🛒</span>
+        <h2>Panda Admin</h2>
+      </div>
+      <nav class="admin-nav">
+        <button class="admin-nav-btn active" data-tab="dashboard">
+          <span>📊</span> Panel de control
+        </button>
+        <button class="admin-nav-btn" data-tab="create-order">
+          <span>🛍️</span> Crear pedido
+        </button>
+        <button class="admin-nav-btn" data-tab="orders">
+          <span>📦</span> Pedidos
+        </button>
+        <button class="admin-nav-btn" data-tab="products">
+          <span>🏷️</span> Productos
+        </button>
+        <button class="admin-nav-btn" data-tab="clients">
+          <span>👥</span> Clientes
+        </button>
+        <button class="admin-nav-btn" data-tab="reports">
+          <span>📈</span> Reportes
+        </button>
+        <button class="admin-nav-btn" data-tab="finance">
+          <span>💰</span> Financiero
+        </button>
+        <button class="admin-nav-btn" data-tab="settings">
+          <span>⚙️</span> Tienda
+        </button>
+      </nav>
+      <div class="admin-sidebar-footer">
+        <button class="btn-exit-admin" id="btn-close-admin">
+          <span>⬅️</span> Salir al Catálogo
         </button>
       </div>
+    </aside>
 
-      <!-- Admin tabs -->
-      <div class="admin-tabs">
-        <button class="admin-tab active" data-tab="products">Productos</button>
-        <button class="admin-tab" data-tab="orders">Pedidos</button>
-        <button class="admin-tab" data-tab="reports">Reportes</button>
-        <button class="admin-tab" data-tab="settings">Tienda</button>
-      </div>
-
-      <!-- TAB: Products -->
-      <div class="admin-tab-content active" id="tab-products">
-        <div class="admin-actions-bar">
-          <div class="search-box admin-search">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input type="text" id="admin-search-input" placeholder="Buscar nombre o ref…" autocomplete="off" />
+    <!-- MAIN CONTENT -->
+    <main class="admin-main-content">
+      
+      <!-- TAB: DASHBOARD (Panel de Control) -->
+      <div class="admin-tab-content active" id="tab-dashboard">
+        <div class="admin-page-header">
+          <h2>Panel de Control</h2>
+        </div>
+        <div class="dashboard-metrics-grid">
+          <div class="metric-card primary">
+            <div class="metric-title">Ventas Totales</div>
+            <div class="metric-value" id="dash-total-sales">COP 0</div>
           </div>
-          <button class="btn-add-product" id="btn-add-product">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Agregar producto
-          </button>
-          <button class="btn-add-product" id="btn-bulk-excel" style="background:#10B981; margin-left: 0.5rem;" title="Subir productos masivamente desde Excel">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            Subir Excel
-          </button>
-          <input type="file" id="bulk-upload-excel" accept=".xlsx, .xls" style="display:none;" />
-
-          <button class="btn-add-product" id="btn-bulk-photos" style="background:#8B5CF6; margin-left: 0.5rem;" title="Sube varias fotos a la vez: nombra cada archivo igual a la Referencia del producto (ej. CAM-AZ-M.jpg)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="M21 15l-5-5L5 21" />
-            </svg>
-            Subir Fotos en Lote
-          </button>
-          <input type="file" id="bulk-upload-photos" accept="image/*" multiple style="display:none;" />
+          <div class="metric-card success">
+            <div class="metric-title">Ganancia Neta</div>
+            <div class="metric-value" id="dash-net-profit">COP 0</div>
+          </div>
+          <div class="metric-card warning">
+            <div class="metric-title">Pedidos Pendientes</div>
+            <div class="metric-value" id="dash-pending-orders">0</div>
+          </div>
+          <div class="metric-card info">
+            <div class="metric-title">Inventario Valorizado</div>
+            <div class="metric-value" id="dash-inventory-value">COP 0</div>
+          </div>
         </div>
-
-        <div class="admin-products-list" id="admin-products-list">
-          <!-- Generated by JS -->
+        <div class="dashboard-charts-row">
+          <!-- Charts can be added here later -->
         </div>
       </div>
 
+      <!-- TAB: CREAR PEDIDO (POS) -->
+      <div class="admin-tab-content" id="tab-create-order">
+        <div class="admin-page-header">
+          <h2>Crear Pedido</h2>
+          <div class="pos-mode-selector">
+            <button class="pos-mode-btn active" id="pos-mode-physical">🏪 Punto Físico</button>
+            <button class="pos-mode-btn" id="pos-mode-shipping">🚚 Venta por Envío</button>
+          </div>
+        </div>
+        
+        <div class="pos-layout">
+          <!-- Products selection -->
+          <div class="pos-products-col">
+            <div class="pos-search-bar">
+              <input type="text" id="pos-search-input" placeholder="Buscar por nombre o referencia..." class="field-input" />
+              <button id="pos-scan-qr-btn" class="btn-scan-qr">📷 Escanear QR</button>
+            </div>
+            <div id="qr-reader" style="display:none; width:100%; margin-top:10px;"></div>
+            
+            <div class="pos-products-grid" id="pos-products-grid">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
 
-      <!-- TAB: Orders -->
+          <!-- Order Summary / Cart -->
+          <div class="pos-cart-col">
+            <div class="pos-cart-items" id="pos-cart-items">
+              <!-- Rendered by JS -->
+              <div class="empty-state-pos">No hay productos en el pedido</div>
+            </div>
+            
+            <div class="pos-shipping-form" id="pos-shipping-form" style="display:none;">
+              <h4>Datos de Envío</h4>
+              <input type="text" id="pos-customer-name" class="field-input" placeholder="Nombre del cliente" />
+              <input type="tel" id="pos-customer-phone" class="field-input" placeholder="Celular" />
+              <select id="pos-customer-dept" class="field-input"><option value="">Departamento</option></select>
+              <select id="pos-customer-city" class="field-input" disabled><option value="">Ciudad</option></select>
+              <input type="text" id="pos-customer-address" class="field-input" placeholder="Dirección" />
+            </div>
+
+            <div class="pos-totals">
+              <div class="pos-total-row"><span>Subtotal</span> <span id="pos-subtotal">COP 0</span></div>
+              <div class="pos-total-row" id="pos-shipping-cost-row" style="display:none;">
+                <span>Envío</span> 
+                <input type="number" id="pos-shipping-cost-input" class="field-input-sm" value="0" />
+              </div>
+              <div class="pos-total-row total"><span>Total</span> <span id="pos-total">COP 0</span></div>
+            </div>
+
+            <div class="pos-payment-methods">
+              <label>Método de Pago</label>
+              <select id="pos-payment-method" class="field-input">
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="mixto">Mixto</option>
+                <option value="pendiente">Pendiente por pagar</option>
+              </select>
+            </div>
+            
+            <input type="text" id="pos-seller-name" class="field-input" placeholder="Nombre del Vendedor (Opcional)" style="margin-top: 10px;" />
+
+            <button class="btn-create-order-pos" id="btn-create-order-pos">Crear Pedido</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: PEDIDOS -->
       <div class="admin-tab-content" id="tab-orders">
-        <!-- Botón para registrar venta externa -->
-        <button class="btn-external-sale" id="btn-add-external-sale">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          Registrar venta externa (ML / Otro)
-        </button>
-        <div id="admin-orders-list">
-          <!-- Generated by JS -->
+        <div class="admin-page-header">
+          <h2>Pedidos</h2>
+          <button class="btn-external-sale" id="btn-add-external-sale">Registrar venta externa (ML / Otro)</button>
+        </div>
+        
+        <!-- Kanban / Status Cards -->
+        <div class="orders-status-cards">
+          <div class="status-card bg-draft" data-status="borrador">
+            <div class="status-count" id="count-borrador">0</div>
+            <div class="status-name">Borradores</div>
+          </div>
+          <div class="status-card bg-gestion" data-status="gestion">
+            <div class="status-count" id="count-gestion">0</div>
+            <div class="status-name">En Gestión</div>
+          </div>
+          <div class="status-card bg-alistamiento" data-status="alistamiento">
+            <div class="status-count" id="count-alistamiento">0</div>
+            <div class="status-name">Alistamiento</div>
+            <div class="status-icon">⚙️</div>
+          </div>
+          <div class="status-card bg-terminado" data-status="terminado">
+            <div class="status-count" id="count-terminado">0</div>
+            <div class="status-name">Terminado</div>
+            <div class="status-icon">✅</div>
+          </div>
+          <div class="status-card bg-entregado" data-status="entregado">
+            <div class="status-count" id="count-entregado">0</div>
+            <div class="status-name">Entregado</div>
+            <div class="status-icon">🚚</div>
+          </div>
+          <div class="status-card bg-cancelado" data-status="cancelado">
+            <div class="status-count" id="count-cancelado">0</div>
+            <div class="status-name">Cancelado</div>
+            <div class="status-icon">❌</div>
+          </div>
+        </div>
+
+        <div class="orders-filters-bar">
+          <input type="text" id="orders-search-input" class="field-input" placeholder="Buscar pedidos por número, cliente..." />
+        </div>
+
+        <div class="orders-table-wrapper">
+          <table class="admin-table" id="orders-table">
+            <thead>
+              <tr>
+                <th>Pedido</th>
+                <th>Cliente</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>Total</th>
+                <th>Método Pago</th>
+                <th>Vendedor</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="orders-table-body">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <!-- TAB: Reports -->
-      <div class="admin-tab-content" id="tab-reports">
+      <!-- TAB: PRODUCTOS -->
+      <div class="admin-tab-content" id="tab-products">
+        <div class="admin-page-header">
+          <h2>Productos</h2>
+          <div class="header-actions">
+            <div class="search-box admin-search">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input type="text" id="admin-search-input" placeholder="Buscar nombre o ref…" autocomplete="off" />
+            </div>
+            <button class="btn-add-product" id="btn-add-product">Agregar producto</button>
+            <button class="btn-add-product" id="btn-bulk-excel" style="background:#10B981;">Subir Excel</button>
+            <input type="file" id="bulk-upload-excel" accept=".xlsx, .xls" style="display:none;" />
+            <button class="btn-add-product" id="btn-bulk-photos" style="background:#8B5CF6;">Subir Fotos</button>
+            <input type="file" id="bulk-upload-photos" accept="image/*" multiple style="display:none;" />
+          </div>
+        </div>
 
-        <!-- Header con selector de período -->
-        <div class="reports-header">
-          <h3 style="margin:0">📊 Dashboard</h3>
-          <select id="report-timeframe" class="field-input" style="width:auto;padding:0.4rem;margin:0">
+        <div class="products-table-wrapper">
+          <table class="admin-table" id="products-table">
+            <thead>
+              <tr>
+                <th>Foto</th>
+                <th>Nombre / Ref</th>
+                <th>Inventario</th>
+                <th>Costo</th>
+                <th>Precio</th>
+                <th>Ganancia Neta</th>
+                <th>Rotación</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="products-table-body">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB: CLIENTES -->
+      <div class="admin-tab-content" id="tab-clients">
+        <div class="admin-page-header">
+          <h2>Clientes</h2>
+          <button class="btn-add-product" id="btn-add-client">Agregar Cliente</button>
+        </div>
+        <div class="orders-filters-bar">
+          <input type="text" id="clients-search-input" class="field-input" placeholder="Buscar por nombre o teléfono..." />
+        </div>
+        <div class="clients-table-wrapper">
+          <table class="admin-table" id="clients-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Celular</th>
+                <th>Ciudad</th>
+                <th>Dirección</th>
+                <th>Total Compras</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="clients-table-body">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB: REPORTES -->
+      <div class="admin-tab-content" id="tab-reports">
+        <!-- Re-use the reports HTML inside here, adapted for full width -->
+        <div class="admin-page-header">
+          <h2>Reportes de Ventas</h2>
+          <select id="report-timeframe" class="field-input" style="width:auto;">
             <option value="day">Hoy</option>
             <option value="week">Esta Semana</option>
             <option value="month" selected>Este Mes</option>
@@ -857,33 +1048,249 @@
             <option value="all">Todo el tiempo</option>
           </select>
         </div>
-
-        <!-- Alerta stock bajo (se muestra dinámicamente) -->
+        
         <div id="report-low-stock-alert" style="display:none"></div>
 
-        <!-- KPIs financieros 4 tarjetas -->
+        <div class="report-section">
+          <h4 class="report-title" style="color:var(--primary)">📡 Ventas por canal</h4>
+          <div id="report-channel-bars" class="channel-bars"></div>
+        </div>
+        
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top:20px;">
+          <details class="report-section" open>
+            <summary class="report-title success" style="cursor: pointer; outline: none;">🔥 Más vendidos</summary>
+            <div id="report-most-sold" class="report-list" style="margin-top: 0.5rem;"></div>
+          </details>
+          <details class="report-section" open>
+            <summary class="report-title danger" style="cursor: pointer; outline: none;">❌ Más cancelados</summary>
+            <div id="report-most-cancelled" class="report-list" style="margin-top: 0.5rem;"></div>
+          </details>
+        </div>
+      </div>
+
+      <!-- TAB: FINANCIERO -->
+      <div class="admin-tab-content" id="tab-finance">
+        <div class="admin-page-header">
+          <h2>Panel Financiero</h2>
+        </div>
         <div class="fin-summary-grid">
           <div class="fin-card">
-            <div class="fin-label">💰 Ingresos</div>
+            <div class="fin-label">💰 Ingresos Totales</div>
             <div class="fin-value success" id="report-revenue-total">COP 0</div>
-            <div style="font-size:0.62rem;color:var(--text-muted);margin-top:0.2rem">pedidos completados</div>
           </div>
           <div class="fin-card">
             <div class="fin-label">✅ Ganancia neta</div>
             <div class="fin-value success" id="report-profit-total">COP 0</div>
-            <div style="font-size:0.62rem;color:var(--text-muted);margin-top:0.2rem">ingreso − costo</div>
           </div>
           <div class="fin-card">
-            <div class="fin-label">⏳ En proceso</div>
-            <div class="fin-value warning" id="report-revenue-pending">COP 0</div>
-            <div style="font-size:0.62rem;color:var(--text-muted);margin-top:0.2rem">pedidos pendientes</div>
+            <div class="fin-label">💸 Costos de Mercancía</div>
+            <div class="fin-value danger" id="finance-total-cost">COP 0</div>
           </div>
           <div class="fin-card">
-            <div class="fin-label">📦 Órdenes</div>
-            <div class="fin-value" id="report-orders-count" style="color:var(--primary)">0</div>
-            <div style="font-size:0.62rem;color:var(--text-muted);margin-top:0.2rem" id="report-conversion-rate">— conversión</div>
+            <div class="fin-label">💎 Ganancia Potencial (Stock)</div>
+            <div class="fin-value info" id="finance-potential-profit">COP 0</div>
           </div>
         </div>
+      </div>
+
+      <!-- TAB: SETTINGS (Tienda) -->
+      <div class="admin-tab-content" id="tab-settings">
+        <!-- Re-use the existing settings form HTML here -->
+        <div class="settings-form">
+          <div class="settings-group">
+            <label class="settings-label">Nombre de la tienda</label>
+            <input type="text" id="settings-store-name" class="settings-input" placeholder="Mi Tienda" maxlength="60" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Eslogan / descripción corta</label>
+            <input type="text" id="settings-tagline" class="settings-input" placeholder="Pedidos por WhatsApp"
+              maxlength="80" />
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Número de WhatsApp Business</label>
+            <input type="tel" id="settings-whatsapp" class="settings-input" placeholder="573018429001" maxlength="20" />
+            <small class="settings-hint">Código de país sin + (ej: 573001234567)</small>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Color principal</label>
+            <div class="color-picker-row">
+              <input type="color" id="settings-color" class="settings-color" value="#6c63ff" />
+              <span id="settings-color-preview" class="color-label">#6c63ff</span>
+            </div>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">📱 Redes Sociales</label>
+            <small class="settings-hint">Se muestran como íconos en el pie de página de tu tienda. Deja en blanco la que no uses.</small>
+            <label class="field-label" style="margin-top:0.6rem;">Instagram</label>
+            <input type="url" id="settings-social-instagram" class="settings-input" placeholder="https://instagram.com/tutienda">
+            <label class="field-label">Facebook</label>
+            <input type="url" id="settings-social-facebook" class="settings-input" placeholder="https://facebook.com/tutienda">
+            <label class="field-label">TikTok</label>
+            <input type="url" id="settings-social-tiktok" class="settings-input" placeholder="https://tiktok.com/@tutienda">
+          </div>
+
+          <div class="settings-group">
+            <label class="settings-label">💛 Fotos de Clientes Satisfechos</label>
+            <small class="settings-hint">Sube fotos reales de tus clientes disfrutando sus productos — se muestran en una galería en tu tienda para generar confianza. Selecciona varias a la vez.</small>
+            <div id="customer-photos-grid" class="customer-photos-admin-grid"></div>
+            <button type="button" class="btn-add-variant" id="btn-upload-customer-photos" style="margin-top:0.6rem;">+ Subir Fotos de Clientes</button>
+            <input type="file" id="customer-photos-input" accept="image/*" multiple style="display:none;" />
+          </div>
+
+          <div class="settings-group">
+            <label class="settings-label">Logo de la tienda (opcional)</label>
+            <div class="image-upload-area" id="logo-upload-area">
+              <img id="settings-logo-preview" src="" alt="" style="display:none" />
+              <div class="upload-placeholder" id="logo-upload-placeholder">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="3" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+                <span>Toca para subir imagen</span>
+              </div>
+              <input type="file" id="logo-file-input" accept="image/*" style="display:none" />
+            </div>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Moneda</label>
+            <select id="settings-currency" class="settings-input">
+              <option value="COP">COP (Peso colombiano)</option>
+              <option value="S/">S/ (Sol peruano)</option>
+              <option value="$">$ (Dólar)</option>
+              <option value="Q">Q (Quetzal guatemalteco)</option>
+              <option value="Bs">Bs (Bolívar / Boliviano)</option>
+              <option value="₡">₡ (Colón costarricense)</option>
+              <option value="L">L (Lempira hondureño)</option>
+            </select>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">Información de Pago (Banco, Cuenta, etc.)</label>
+            <textarea id="settings-payment-info" class="settings-input" style="min-height: 80px; resize: vertical; padding: 10px;" placeholder="Ej: Bancolombia Ahorros #123-456-789 a nombre de Juan Pérez" maxlength="200"></textarea>
+            <small class="settings-hint">Esta información aparecerá en el resumen y en el ticket del cliente.</small>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">QR de Pago (NuBank, Nequi, etc.)</label>
+            <div class="image-upload-area" id="qr-upload-area" style="height: 150px;">
+              <img id="settings-qr-preview" src="" alt="" style="display:none; max-height: 100%; object-fit: contain;" />
+              <div class="upload-placeholder" id="qr-upload-placeholder">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                  <rect x="7" y="7" width="3" height="3"/><rect x="14" y="7" width="3" height="3"/><rect x="7" y="14" width="3" height="3"/><rect x="14" y="14" width="3" height="3"/>
+                </svg>
+                <span>Sube tu QR de pago</span>
+              </div>
+              <input type="file" id="qr-file-input" accept="image/*" style="display:none" />
+            </div>
+            <small class="settings-hint">Los clientes podrán escanear este QR para pagarte más rápido.</small>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">📦 Dirección de origen (tu bodega/tienda)</label>
+            <small class="settings-hint">Se usa para cotizar el envío real con las transportadoras (Interrapidísimo, Servientrega, etc.). Sin esto no se pueden generar cotizaciones.</small>
+            <div class="field-row" style="margin-top:0.6rem;">
+              <div class="field-group">
+                <label class="field-label">Nombre remitente</label>
+                <input type="text" id="settings-origin-name" class="settings-input" placeholder="Ej: PandaVenta">
+              </div>
+              <div class="field-group">
+                <label class="field-label">Teléfono remitente</label>
+                <input type="text" id="settings-origin-phone" class="settings-input" placeholder="Ej: 3001234567">
+              </div>
+            </div>
+            <label class="field-label">Dirección (calle)</label>
+            <input type="text" id="settings-origin-street" class="settings-input" placeholder="Ej: Calle 10 # 43E - 20">
+            <div class="field-row">
+              <div class="field-group">
+                <label class="field-label">Ciudad</label>
+                <input type="text" id="settings-origin-city" class="settings-input" placeholder="Ej: Bogotá">
+              </div>
+              <div class="field-group">
+                <label class="field-label">Departamento</label>
+                <input type="text" id="settings-origin-state" class="settings-input" placeholder="Ej: Cundinamarca">
+              </div>
+            </div>
+            <label class="field-label">Código Postal</label>
+            <input type="text" id="settings-origin-zip" class="settings-input" placeholder="Ej: 110111" maxlength="6">
+          </div>
+
+          <div class="settings-group">
+            <label class="settings-label">Costo de envío de respaldo (si falla la cotización)</label>
+            <input type="number" id="settings-shipping-cost" class="settings-input" placeholder="Ej: 15000" min="0" />
+            <small class="settings-hint">El envío a Bogotá D.C. siempre es <strong>GRATIS</strong>. Este valor solo se usa como respaldo si no se puede cotizar en tiempo real con la transportadora (por ejemplo, si falla la conexión).</small>
+          </div>
+
+          <div class="settings-group">
+            <label class="settings-label">Descuento Mayorista por Defecto (%) 📦</label>
+            <input type="number" id="settings-wholesale-discount" class="settings-input" placeholder="Ej: 20" min="0" max="100" />
+            <small class="settings-hint">El porcentaje de descuento que se aplicará automáticamente a los precios al detal si el producto no tiene un "Precio Mayorista" asignado. Por defecto es 20%.</small>
+          </div>
+
+          <div class="settings-group">
+            <label class="settings-label">Contraseña de administrador</label>
+            <input type="password" id="settings-admin-password" class="settings-input" placeholder="••••••"
+              maxlength="30" />
+            <small class="settings-hint">Deja en blanco para sin contraseña</small>
+          </div>
+
+          <!-- CONTENIDO DINÁMICO POR UBICACIÓN -->
+          <div class="settings-form" style="margin-top:2rem; border-top:1px solid var(--border); padding-top:1.5rem;">
+            <h4 style="margin-bottom:1rem;color:var(--text-main)">📍 Contenido Dinámico por Ubicación</h4>
+            
+            <div style="background:var(--primary-light); padding:1rem; border-radius:var(--radius-md); margin-bottom:1rem;">
+              <h5 style="margin-bottom:0.5rem; font-size:0.85rem; color:var(--primary);">Bogotá (Express)</h5>
+              <div class="settings-group">
+                <label class="settings-label">Título</label>
+                <input type="text" id="settings-loc-bgt-title" class="settings-input" placeholder="Ej: ¡Envío GRATIS hoy en Bogotá! ⚡" />
+              </div>
+              <div class="settings-group">
+                <label class="settings-label">Subtítulo</label>
+                <input type="text" id="settings-loc-bgt-sub" class="settings-input" placeholder="Ej: Pide antes de las 12 PM y recibe hoy mismo." />
+              </div>
+            </div>
+
+            <div style="background:var(--bg-section); padding:1rem; border-radius:var(--radius-md); margin-bottom:1rem;">
+              <h5 style="margin-bottom:0.5rem; font-size:0.85rem; color:var(--text-main);">Nacional (Resto del país)</h5>
+              <div class="settings-group">
+                <label class="settings-label">Título</label>
+                <input type="text" id="settings-loc-nat-title" class="settings-input" placeholder="Ej: Lo que buscas, al mejor precio" />
+              </div>
+              <div class="settings-group">
+                <label class="settings-label">Subtítulo</label>
+                <input type="text" id="settings-loc-nat-sub" class="settings-input" placeholder="Ej: Compra fácil y rápido — envíos a toda Colombia" />
+              </div>
+            </div>
+          </div>
+
+          <!-- CONFIGURACIÓN DE CAMPAÑA -->
+          <div class="settings-form" style="margin-top:2rem; border-top:1px solid var(--border); padding-top:1.5rem;">
+            <h4 style="margin-bottom:1rem;color:var(--text-main)">🎯 Campaña Activa (Seasonal)</h4>
+            <div class="settings-group">
+              <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;font-weight:600;cursor:pointer;">
+                <input type="checkbox" id="settings-camp-enabled"> Activar sección destacada
+              </label>
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Título de la sección</label>
+              <input type="text" id="settings-camp-title" class="settings-input" placeholder="Ej: 🎁 Especial Día de la Madre" />
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Tag a filtrar (debe coincidir con tags del producto)</label>
+              <input type="text" id="settings-camp-tag" class="settings-input" placeholder="Ej: madre" />
+            </div>
+            <div class="settings-group">
+              <label class="settings-label">Texto del Badge (Etiqueta sobre la foto)</label>
+              <input type="text" id="settings-camp-badge" class="settings-input" placeholder="Ej: Regalo Perfecto" />
+            </div>
+          </div>
+          <button class="btn-save-settings" id="btn-save-settings">
+            Guardar configuración
+          </button>
+        </div>
+      </div>
+      
+    </main>
+  </div>
+
 
         <!-- Barras de canal -->
         <div class="report-section">
@@ -1482,5 +1889,6 @@
     </svg>
   </a>
 
+  <script src="https://unpkg.com/html5-qrcode"></script>
 </body>
 </html>
