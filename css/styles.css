@@ -2783,6 +2783,32 @@ input, button, textarea, select {
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
 }
 
+.btn-delete-product-row {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: transparent;
+  color: rgba(226, 232, 240, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.btn-delete-product-row:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+  transform: scale(1.06);
+}
+
+.btn-delete-product-row:active {
+  transform: scale(0.95);
+}
+
 .admin-product-img {
   min-width: 68px;
   min-height: 68px;
@@ -3745,6 +3771,160 @@ textarea:focus {
 
 .btn-new-order:active {
   transform: scale(0.97);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════
+   PIE DE PÁGINA + GALERÍA DE CLIENTES FELICES
+   ════════════════════════════════════════════════════════════════════════════════ */
+
+.section-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.site-footer {
+  margin-top: 3rem;
+  background: var(--text-main);
+  color: var(--bg-pure);
+  padding: 2rem var(--px-mobile) 0;
+}
+
+.site-footer-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.25rem;
+  padding-bottom: 1.5rem;
+}
+
+.footer-store-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.15rem;
+}
+
+.footer-tagline {
+  font-size: 0.85rem;
+  opacity: 0.75;
+  margin-top: 0.3rem;
+  max-width: 320px;
+}
+
+.footer-social {
+  display: none;
+  gap: 0.75rem;
+}
+
+.footer-social-link {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+}
+
+.footer-social-link:hover {
+  background: var(--accent);
+  color: var(--text-main);
+  transform: translateY(-3px);
+}
+
+.footer-bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: center;
+  font-size: 0.75rem;
+  opacity: 0.6;
+  padding: 1rem 0;
+}
+
+.customer-photos-section {
+  max-width: var(--max-width);
+  margin: 3rem auto 0.5rem;
+  padding: 0 var(--px-mobile);
+}
+
+.customer-photos-subtitle {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.customer-photos-wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.85rem;
+}
+
+/* El marco dorado conecta esta galería con el anillo circular del logo real */
+.customer-photo-frame {
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid var(--accent);
+  transition: var(--transition-fast);
+}
+
+.customer-photo-frame:hover {
+  transform: scale(1.03);
+  box-shadow: var(--shadow-md);
+}
+
+.customer-photo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Gestión de fotos de clientes en el panel de administración */
+.customer-photos-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.customer-photo-admin-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: var(--border-width) solid var(--secondary);
+}
+
+.customer-photo-admin-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.customer-photo-admin-item button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ════════════════════════════════════════════════════════════════════════════════
