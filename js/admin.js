@@ -1,4 +1,4 @@
-import { ref, set, update, remove, push, onValue, get } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+﻿import { ref, set, update, remove, push, onValue, get } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 
 let appState = {};
 let appUtils = {};
@@ -120,7 +120,7 @@ function initNavigation() {
       if (btn.dataset.tab === 'orders') renderOrdersTable();
       if (btn.dataset.tab === 'products') renderProductsTable();
       if (btn.dataset.tab === 'clients') renderClientsTable();
-      if (btn.dataset.tab === 'reports' || btn.dataset.tab === 'finance') renderDashboard(); 
+      if (btn.dataset.tab === 'reports' || btn.dataset.tab === 'finance') renderDashboard();
       if (btn.dataset.tab === 'settings') loadSettingsForm();
     };
   });
@@ -130,6 +130,11 @@ function initNavigation() {
 }
 
 function openAdminActual() {
+  // La clase 'active' de .view tiene display:block !important en el CSS,
+  // lo que anula el inline display:none que ponemos abajo.
+  // Quitamos 'active' de todas las vistas primero para evitar ese conflicto.
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+
   appUtils.safeStyle('view-catalog', 'display', 'none');
   appUtils.safeStyle('view-product', 'display', 'none');
   appUtils.safeStyle('view-order', 'display', 'none');
@@ -162,7 +167,7 @@ function openAdminActual() {
 
 function closeAdmin() {
   appUtils.safeStyle('view-admin', 'display', 'none');
-  appUtils.safeStyle('view-catalog', 'display', 'block');
+  appUtils.switchView('catalog');
 }
 
 // ==========================================
