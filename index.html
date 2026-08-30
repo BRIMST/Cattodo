@@ -1010,7 +1010,6 @@
 
       <!-- TAB: REPORTES -->
       <div class="admin-tab-content" id="tab-reports">
-        <!-- Re-use the reports HTML inside here, adapted for full width -->
         <div class="admin-page-header">
           <h2>Reportes de Ventas</h2>
           <select id="report-timeframe" class="field-input" style="width:auto;">
@@ -1021,14 +1020,21 @@
             <option value="all">Todo el tiempo</option>
           </select>
         </div>
-        
+
         <div id="report-low-stock-alert" style="display:none"></div>
 
         <div class="report-section">
           <h4 class="report-title" style="color:var(--primary)">📡 Ventas por canal</h4>
-          <div id="report-channel-bars" class="channel-bars"></div>
+          <div id="report-channel-bars" class="channel-bars">
+            <div style="color:var(--text-muted);font-size:0.82rem;padding:0.5rem 0">Sin datos aún</div>
+          </div>
         </div>
-        
+
+        <div class="report-section">
+          <h4 class="report-title" style="color:var(--text-main)">🗂️ Estado de pedidos</h4>
+          <div id="report-status-summary" style="display:flex;gap:0.5rem;flex-wrap:wrap"></div>
+        </div>
+
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top:20px;">
           <details class="report-section" open>
             <summary class="report-title success" style="cursor: pointer; outline: none;">🔥 Más vendidos</summary>
@@ -1039,6 +1045,11 @@
             <div id="report-most-cancelled" class="report-list" style="margin-top: 0.5rem;"></div>
           </details>
         </div>
+
+        <details class="report-section" style="margin-top:20px;">
+          <summary class="report-title warning" style="cursor: pointer; outline: none;">⚠️ Sin ventas</summary>
+          <div id="report-no-sales" class="report-list" style="margin-top: 0.5rem;"></div>
+        </details>
       </div>
 
       <!-- TAB: FINANCIERO -->
@@ -1260,242 +1271,9 @@
           </button>
         </div>
       </div>
-      
+
     </main>
   </div>
-
-
-        <!-- Barras de canal -->
-        <div class="report-section">
-          <h4 class="report-title" style="color:var(--primary)">📡 Ventas por canal</h4>
-          <div id="report-channel-bars" class="channel-bars">
-            <div style="color:var(--text-muted);font-size:0.82rem;padding:0.5rem 0">Sin datos aún</div>
-          </div>
-        </div>
-
-        <!-- Resumen de pedidos por estado -->
-        <div class="report-section">
-          <h4 class="report-title" style="color:var(--text-main)">🗂️ Estado de pedidos</h4>
-          <div id="report-status-summary" style="display:flex;gap:0.5rem;flex-wrap:wrap"></div>
-        </div>
-
-        <!-- Más vendidos -->
-        <details class="report-section">
-          <summary class="report-title success" style="cursor: pointer; outline: none;">🔥 Más vendidos</summary>
-          <div id="report-most-sold" class="report-list" style="margin-top: 0.5rem;"></div>
-        </details>
-
-        <!-- Más cancelados -->
-        <details class="report-section">
-          <summary class="report-title danger" style="cursor: pointer; outline: none;">❌ Más cancelados</summary>
-          <div id="report-most-cancelled" class="report-list" style="margin-top: 0.5rem;"></div>
-        </details>
-
-        <!-- Sin ventas -->
-        <details class="report-section">
-          <summary class="report-title warning" style="cursor: pointer; outline: none;">⚠️ Sin ventas</summary>
-          <div id="report-no-sales" class="report-list" style="margin-top: 0.5rem;"></div>
-        </details>
-      </div>
-
-
-      <!-- TAB: Settings -->
-      <div class="admin-tab-content" id="tab-settings">
-        <div class="settings-form">
-          <div class="settings-group">
-            <label class="settings-label">Nombre de la tienda</label>
-            <input type="text" id="settings-store-name" class="settings-input" placeholder="Mi Tienda" maxlength="60" />
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">Eslogan / descripción corta</label>
-            <input type="text" id="settings-tagline" class="settings-input" placeholder="Pedidos por WhatsApp"
-              maxlength="80" />
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">Número de WhatsApp Business</label>
-            <input type="tel" id="settings-whatsapp" class="settings-input" placeholder="573018429001" maxlength="20" />
-            <small class="settings-hint">Código de país sin + (ej: 573001234567)</small>
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">Color principal</label>
-            <div class="color-picker-row">
-              <input type="color" id="settings-color" class="settings-color" value="#6c63ff" />
-              <span id="settings-color-preview" class="color-label">#6c63ff</span>
-            </div>
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">📱 Redes Sociales</label>
-            <small class="settings-hint">Se muestran como íconos en el pie de página de tu tienda. Deja en blanco la que no uses.</small>
-            <label class="field-label" style="margin-top:0.6rem;">Instagram</label>
-            <input type="url" id="settings-social-instagram" class="settings-input" placeholder="https://instagram.com/tutienda">
-            <label class="field-label">Facebook</label>
-            <input type="url" id="settings-social-facebook" class="settings-input" placeholder="https://facebook.com/tutienda">
-            <label class="field-label">TikTok</label>
-            <input type="url" id="settings-social-tiktok" class="settings-input" placeholder="https://tiktok.com/@tutienda">
-          </div>
-
-          <div class="settings-group">
-            <label class="settings-label">💛 Fotos de Clientes Satisfechos</label>
-            <small class="settings-hint">Sube fotos reales de tus clientes disfrutando sus productos — se muestran en una galería en tu tienda para generar confianza. Selecciona varias a la vez.</small>
-            <div id="customer-photos-grid" class="customer-photos-admin-grid"></div>
-            <button type="button" class="btn-add-variant" id="btn-upload-customer-photos" style="margin-top:0.6rem;">+ Subir Fotos de Clientes</button>
-            <input type="file" id="customer-photos-input" accept="image/*" multiple style="display:none;" />
-          </div>
-
-          <div class="settings-group">
-            <label class="settings-label">Logo de la tienda (opcional)</label>
-            <div class="image-upload-area" id="logo-upload-area">
-              <img id="settings-logo-preview" src="" alt="" style="display:none" />
-              <div class="upload-placeholder" id="logo-upload-placeholder">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <rect x="3" y="3" width="18" height="18" rx="3" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
-                <span>Toca para subir imagen</span>
-              </div>
-              <input type="file" id="logo-file-input" accept="image/*" style="display:none" />
-            </div>
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">Moneda</label>
-            <select id="settings-currency" class="settings-input">
-              <option value="COP">COP (Peso colombiano)</option>
-              <option value="S/">S/ (Sol peruano)</option>
-              <option value="$">$ (Dólar)</option>
-              <option value="Q">Q (Quetzal guatemalteco)</option>
-              <option value="Bs">Bs (Bolívar / Boliviano)</option>
-              <option value="₡">₡ (Colón costarricense)</option>
-              <option value="L">L (Lempira hondureño)</option>
-            </select>
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">Información de Pago (Banco, Cuenta, etc.)</label>
-            <textarea id="settings-payment-info" class="settings-input" style="min-height: 80px; resize: vertical; padding: 10px;" placeholder="Ej: Bancolombia Ahorros #123-456-789 a nombre de Juan Pérez" maxlength="200"></textarea>
-            <small class="settings-hint">Esta información aparecerá en el resumen y en el ticket del cliente.</small>
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">QR de Pago (NuBank, Nequi, etc.)</label>
-            <div class="image-upload-area" id="qr-upload-area" style="height: 150px;">
-              <img id="settings-qr-preview" src="" alt="" style="display:none; max-height: 100%; object-fit: contain;" />
-              <div class="upload-placeholder" id="qr-upload-placeholder">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
-                  <rect x="7" y="7" width="3" height="3"/><rect x="14" y="7" width="3" height="3"/><rect x="7" y="14" width="3" height="3"/><rect x="14" y="14" width="3" height="3"/>
-                </svg>
-                <span>Sube tu QR de pago</span>
-              </div>
-              <input type="file" id="qr-file-input" accept="image/*" style="display:none" />
-            </div>
-            <small class="settings-hint">Los clientes podrán escanear este QR para pagarte más rápido.</small>
-          </div>
-          <div class="settings-group">
-            <label class="settings-label">📦 Dirección de origen (tu bodega/tienda)</label>
-            <small class="settings-hint">Se usa para cotizar el envío real con las transportadoras (Interrapidísimo, Servientrega, etc.). Sin esto no se pueden generar cotizaciones.</small>
-            <div class="field-row" style="margin-top:0.6rem;">
-              <div class="field-group">
-                <label class="field-label">Nombre remitente</label>
-                <input type="text" id="settings-origin-name" class="settings-input" placeholder="Ej: PandaVenta">
-              </div>
-              <div class="field-group">
-                <label class="field-label">Teléfono remitente</label>
-                <input type="text" id="settings-origin-phone" class="settings-input" placeholder="Ej: 3001234567">
-              </div>
-            </div>
-            <label class="field-label">Dirección (calle)</label>
-            <input type="text" id="settings-origin-street" class="settings-input" placeholder="Ej: Calle 10 # 43E - 20">
-            <div class="field-row">
-              <div class="field-group">
-                <label class="field-label">Ciudad</label>
-                <input type="text" id="settings-origin-city" class="settings-input" placeholder="Ej: Bogotá">
-              </div>
-              <div class="field-group">
-                <label class="field-label">Departamento</label>
-                <input type="text" id="settings-origin-state" class="settings-input" placeholder="Ej: Cundinamarca">
-              </div>
-            </div>
-            <label class="field-label">Código Postal</label>
-            <input type="text" id="settings-origin-zip" class="settings-input" placeholder="Ej: 110111" maxlength="6">
-          </div>
-
-          <div class="settings-group">
-            <label class="settings-label">Costo de envío de respaldo (si falla la cotización)</label>
-            <input type="number" id="settings-shipping-cost" class="settings-input" placeholder="Ej: 15000" min="0" />
-            <small class="settings-hint">El envío a Bogotá D.C. siempre es <strong>GRATIS</strong>. Este valor solo se usa como respaldo si no se puede cotizar en tiempo real con la transportadora (por ejemplo, si falla la conexión).</small>
-          </div>
-
-          <div class="settings-group">
-            <label class="settings-label">Descuento Mayorista por Defecto (%) 📦</label>
-            <input type="number" id="settings-wholesale-discount" class="settings-input" placeholder="Ej: 20" min="0" max="100" />
-            <small class="settings-hint">El porcentaje de descuento que se aplicará automáticamente a los precios al detal si el producto no tiene un "Precio Mayorista" asignado. Por defecto es 20%.</small>
-          </div>
-
-          <div class="settings-group">
-            <label class="settings-label">Contraseña de administrador</label>
-            <input type="password" id="settings-admin-password" class="settings-input" placeholder="••••••"
-              maxlength="30" />
-            <small class="settings-hint">Deja en blanco para sin contraseña</small>
-          </div>
-
-          <!-- CONTENIDO DINÁMICO POR UBICACIÓN -->
-          <div class="settings-form" style="margin-top:2rem; border-top:1px solid var(--border); padding-top:1.5rem;">
-            <h4 style="margin-bottom:1rem;color:var(--text-main)">📍 Contenido Dinámico por Ubicación</h4>
-            
-            <div style="background:var(--primary-light); padding:1rem; border-radius:var(--radius-md); margin-bottom:1rem;">
-              <h5 style="margin-bottom:0.5rem; font-size:0.85rem; color:var(--primary);">Bogotá (Express)</h5>
-              <div class="settings-group">
-                <label class="settings-label">Título</label>
-                <input type="text" id="settings-loc-bgt-title" class="settings-input" placeholder="Ej: ¡Envío GRATIS hoy en Bogotá! ⚡" />
-              </div>
-              <div class="settings-group">
-                <label class="settings-label">Subtítulo</label>
-                <input type="text" id="settings-loc-bgt-sub" class="settings-input" placeholder="Ej: Pide antes de las 12 PM y recibe hoy mismo." />
-              </div>
-            </div>
-
-            <div style="background:var(--bg-section); padding:1rem; border-radius:var(--radius-md); margin-bottom:1rem;">
-              <h5 style="margin-bottom:0.5rem; font-size:0.85rem; color:var(--text-main);">Nacional (Resto del país)</h5>
-              <div class="settings-group">
-                <label class="settings-label">Título</label>
-                <input type="text" id="settings-loc-nat-title" class="settings-input" placeholder="Ej: Lo que buscas, al mejor precio" />
-              </div>
-              <div class="settings-group">
-                <label class="settings-label">Subtítulo</label>
-                <input type="text" id="settings-loc-nat-sub" class="settings-input" placeholder="Ej: Compra fácil y rápido — envíos a toda Colombia" />
-              </div>
-            </div>
-          </div>
-
-          <!-- CONFIGURACIÓN DE CAMPAÑA -->
-          <div class="settings-form" style="margin-top:2rem; border-top:1px solid var(--border); padding-top:1.5rem;">
-            <h4 style="margin-bottom:1rem;color:var(--text-main)">🎯 Campaña Activa (Seasonal)</h4>
-            <div class="settings-group">
-              <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.9rem;font-weight:600;cursor:pointer;">
-                <input type="checkbox" id="settings-camp-enabled"> Activar sección destacada
-              </label>
-            </div>
-            <div class="settings-group">
-              <label class="settings-label">Título de la sección</label>
-              <input type="text" id="settings-camp-title" class="settings-input" placeholder="Ej: 🎁 Especial Día de la Madre" />
-            </div>
-            <div class="settings-group">
-              <label class="settings-label">Tag a filtrar (debe coincidir con tags del producto)</label>
-              <input type="text" id="settings-camp-tag" class="settings-input" placeholder="Ej: madre" />
-            </div>
-            <div class="settings-group">
-              <label class="settings-label">Texto del Badge (Etiqueta sobre la foto)</label>
-              <input type="text" id="settings-camp-badge" class="settings-input" placeholder="Ej: Regalo Perfecto" />
-            </div>
-          </div>
-          <button class="btn-save-settings" id="btn-save-settings">
-            Guardar configuración
-          </button>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
   <!-- ═══════════════════════════════════════════════════════ -->
   <!--  MODAL: AGREGAR / EDITAR PRODUCTO                      -->
   <!-- ═══════════════════════════════════════════════════════ -->
