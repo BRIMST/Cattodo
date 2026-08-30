@@ -16,7 +16,86 @@ export function initAdmin(state, utils) {
   window.posAddToCart = posAddToCart;
   window.posRemoveFromCart = posRemoveFromCart;
   window.changeOrderStatus = changeOrderStatus;
-  window.openProductModal = window.openProductModal || function(){}; // fallback
+  window.openProductModal = openProductModal;
+  window.deleteProduct = deleteProduct;
+  window.toggleProductTypeFields = toggleProductTypeFields;
+  window.addVariantRow = addVariantRow;
+  window.removeProductImage = removeProductImage;
+  window.deleteCustomerPhoto = deleteCustomerPhoto;
+  window.confirmDeleteProduct = confirmDeleteProduct;
+
+  const on = (id, event, fn) => {
+    const el = document.getElementById(id);
+    if (el) el[event] = fn;
+  };
+
+  // Modal de producto: abrir / cerrar / guardar / eliminar
+  on('btn-add-product', 'onclick', () => openProductModal(null));
+  on('btn-close-product-modal', 'onclick', () => appUtils.safeStyle('modal-product', 'display', 'none'));
+  on('btn-save-product', 'onclick', saveProduct);
+  on('btn-delete-product', 'onclick', () => {
+    if (!window.currentEditId) return;
+    if (confirm('¿Eliminar este producto? Esta acción no se puede deshacer.')) {
+      deleteProduct(window.currentEditId);
+      window.currentEditId = null;
+      appState.currentProductImages = [];
+      appUtils.safeStyle('modal-product', 'display', 'none');
+      appUtils.showToast('Producto eliminado');
+    }
+  });
+
+  // Subir imágenes del producto
+  on('btn-trigger-upload', 'onclick', () => document.getElementById('product-file-input')?.click());
+  on('product-file-input', 'onchange', async (e) => {
+    const files = Array.from(e.target.files).slice(0, 5 - appState.currentProductImages.length);
+    const newImages = await Promise.all(files.map(file => new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = async (ev) => resolve(await appUtils.compressImage(ev.target.result));
+      reader.readAsDataURL(file);
+    })));
+    newImages.forEach(img => { if (appState.currentProductImages.length < 5) appState.currentProductImages.push(img); });
+    renderProductImagePreview();
+    e.target.value = '';
+  });
+
+  // Carga masiva: Excel y fotos de producto
+  on('btn-bulk-excel', 'onclick', () => document.getElementById('bulk-upload-excel')?.click());
+  on('bulk-upload-excel', 'onchange', handleBulkExcelUpload);
+  on('btn-bulk-photos', 'onclick', () => document.getElementById('bulk-upload-photos')?.click());
+  on('bulk-upload-photos', 'onchange', handleBulkPhotoUpload);
+
+  // Configuración: guardar + logo + QR + fotos de clientes
+  on('btn-save-settings', 'onclick', saveSettings);
+  on('logo-upload-area', 'onclick', () => document.getElementById('logo-file-input')?.click());
+  on('logo-file-input', 'onchange', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const compressed = await appUtils.compressImage(ev.target.result, 400, 0.7);
+      appState.settings.logo = compressed;
+      appUtils.safeSet('settings-logo-preview', 'src', compressed);
+      appUtils.safeStyle('settings-logo-preview', 'display', 'block');
+      appUtils.safeStyle('logo-upload-placeholder', 'display', 'none');
+    };
+    reader.readAsDataURL(file);
+  });
+  on('qr-upload-area', 'onclick', () => document.getElementById('qr-file-input')?.click());
+  on('qr-file-input', 'onchange', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const compressed = await appUtils.compressImage(ev.target.result, 400, 0.8);
+      appState.settings.paymentQR = compressed;
+      appUtils.safeSet('settings-qr-preview', 'src', compressed);
+      appUtils.safeStyle('settings-qr-preview', 'display', 'block');
+      appUtils.safeStyle('qr-upload-placeholder', 'display', 'none');
+    };
+    reader.readAsDataURL(file);
+  });
+  on('btn-upload-customer-photos', 'onclick', () => document.getElementById('customer-photos-input')?.click());
+  on('customer-photos-input', 'onchange', handleCustomerPhotosUpload);
 
   initNavigation();
   initPOS();
@@ -42,6 +121,7 @@ function initNavigation() {
       if (btn.dataset.tab === 'products') renderProductsTable();
       if (btn.dataset.tab === 'clients') renderClientsTable();
       if (btn.dataset.tab === 'reports' || btn.dataset.tab === 'finance') renderDashboard(); 
+      if (btn.dataset.tab === 'settings') loadSettingsForm();
     };
   });
   
@@ -469,6 +549,7 @@ function renderProductsTable() {
         <td>
            <button class="action-btn" onclick="openProductModal('${p.id}')">✏️ Editar</button>
            <button class="action-btn" style="color:var(--danger); margin-left:8px;" onclick="promptCastigo('${p.id}')">⬇️ Castigar</button>
+           <button class="action-btn" style="color:var(--danger); margin-left:8px;" onclick="window.confirmDeleteProduct('${p.id}')">🗑️ Eliminar</button>
         </td>
       </tr>
     `;
@@ -538,3 +619,541 @@ function renderClientsTable() {
 }
 
 export function renderAdminProducts() { renderProductsTable(); }
+
+// ==========================================
+// MODULE: MODAL DE PRODUCTO (Crear/Editar/Eliminar)
+// ==========================================
+function openProductModal(id = null) {
+  if (id === 'undefined') id = null;
+  window.currentEditId = id;
+  window.currentProductOrigen = null;
+  appState.currentProductImages = [];
+  const p = id ? appState.products.find(x => x.id === id) : null;
+  if (p) window.currentProductOrigen = p.origen;
+  if (p) appState.currentProductImages = p.images ? [...p.images] : (p.image ? [p.image] : []);
+
+  appUtils.safeStyle('modal-product', 'display', 'flex');
+  appUtils.safeText('modal-product-title', p ? 'Editar Producto' : 'Nuevo Producto');
+  appUtils.safeValue('product-name', p ? p.name : '');
+  appUtils.safeValue('product-ref', p ? (p.ref || '') : '');
+  appUtils.safeValue('product-category', p ? (p.category || '') : '');
+  appUtils.safeValue('product-tags', p ? (p.tags || '') : '');
+  appUtils.safeValue('product-price', p ? parseInt(p.price).toLocaleString('es-CO') : '');
+  appUtils.safeValue('product-original-price', p && p.originalPrice ? parseInt(p.originalPrice).toLocaleString('es-CO') : '');
+  appUtils.safeValue('product-cost', p && p.cost ? parseInt(p.cost).toLocaleString('es-CO') : '');
+  appUtils.safeValue('product-wholesale-price', p && p.wholesalePrice ? parseInt(p.wholesalePrice).toLocaleString('es-CO') : '');
+  appUtils.safeValue('product-weight', p && p.weight ? p.weight : '');
+  appUtils.safeValue('product-stock', p ? (p.stock || '') : '');
+  appUtils.safeValue('product-unit', p ? (p.unit || 'und') : 'und');
+  appUtils.safeValue('product-description', p ? (p.description || '') : '');
+  appUtils.safeValue('product-clip-url', p ? (p.clipUrl || p.videoUrl || p.video || p.clip || '') : '');
+  appUtils.safeValue('product-video-thumbnail', p ? (p.videoThumbnail || '') : '');
+  appUtils.safeSet('product-active', 'checked', p ? (p.active ?? true) : true);
+  appUtils.safeStyle('btn-delete-product', 'display', p ? 'block' : 'none');
+
+  const hasVariants = p && p.variants && p.variants.length > 0;
+  const typeRadios = document.getElementsByName('product-type');
+  if (typeRadios.length > 1) {
+    typeRadios[0].checked = !hasVariants;
+    typeRadios[1].checked = hasVariants;
+  }
+
+  appUtils.safeValue('product-variant-type', (p && p.variantType) ? p.variantType : 'color');
+  window.updateVariantTypeUI();
+
+  const list = document.getElementById('variants-list');
+  if (list) {
+    list.innerHTML = '';
+    if (hasVariants) p.variants.forEach(v => addVariantRow(v.color, v.stock));
+  }
+  toggleProductTypeFields();
+  renderProductImagePreview();
+}
+
+function toggleProductTypeFields() {
+  const type = document.querySelector('input[name="product-type"]:checked')?.value;
+  appUtils.safeStyle('group-stock-simple', 'display', type === 'variants' ? 'none' : 'block');
+  appUtils.safeStyle('group-variant-type', 'display', type === 'variants' ? 'block' : 'none');
+  appUtils.safeStyle('group-product-variants', 'display', type === 'variants' ? 'block' : 'none');
+}
+
+const VARIANT_TYPE_META = {
+  color:  { label: 'Variantes de Color',  addBtn: '+ Agregar color',  placeholder: 'Ej: Rojo' },
+  aroma:  { label: 'Variantes de Aroma',  addBtn: '+ Agregar aroma',  placeholder: 'Ej: Vainilla' },
+  'tamaño': { label: 'Variantes de Tamaño', addBtn: '+ Agregar tamaño', placeholder: 'Ej: M' }
+};
+
+// Se expone en window porque el <select> del tipo de variante la llama por
+// onchange inline en el HTML.
+window.updateVariantTypeUI = function() {
+  const type = document.getElementById('product-variant-type')?.value || 'color';
+  const meta = VARIANT_TYPE_META[type] || VARIANT_TYPE_META.color;
+  appUtils.safeText('variants-list-label', meta.label);
+  appUtils.safeText('btn-add-variant', meta.addBtn);
+  document.querySelectorAll('#variants-list .var-name').forEach(input => {
+    input.placeholder = meta.placeholder;
+  });
+};
+
+function addVariantRow(name = '', stock = '') {
+  const list = document.getElementById('variants-list');
+  if (!list) return;
+  const type = document.getElementById('product-variant-type')?.value || 'color';
+  const meta = VARIANT_TYPE_META[type] || VARIANT_TYPE_META.color;
+  const row = document.createElement('div');
+  row.className = 'variant-row';
+  row.innerHTML = `
+    <input type="text" class="field-input var-name" placeholder="${meta.placeholder}" value="${name}" style="flex:2">
+    <input type="number" class="field-input var-stock" placeholder="Stock" value="${stock}" style="flex:1">
+    <button type="button" onclick="this.parentElement.remove()">×</button>
+  `;
+  list.appendChild(row);
+}
+
+function renderProductImagePreview() {
+  const container = document.getElementById('product-images-list');
+  const trigger = document.getElementById('btn-trigger-upload');
+  if (!container || !trigger) return;
+  container.innerHTML = '';
+  appState.currentProductImages.forEach((img, idx) => {
+    const div = document.createElement('div');
+    div.className = 'multi-image-item';
+    div.innerHTML = `<img src="${img}" style="width:100%;height:100%;object-fit:cover;" />
+                     <button onclick="window.removeProductImage(${idx})">×</button>`;
+    container.appendChild(div);
+  });
+  if (appState.currentProductImages.length < 5) container.appendChild(trigger);
+}
+
+function removeProductImage(idx) {
+  appState.currentProductImages.splice(idx, 1);
+  renderProductImagePreview();
+}
+
+async function saveProduct() {
+  const name = document.getElementById('product-name')?.value.trim();
+  const price = parseFloat(document.getElementById('product-price')?.value.replace(/\./g, ''));
+  if (!name || isNaN(price)) return appUtils.showToast('Nombre y precio requeridos');
+
+  const originalPriceInput = document.getElementById('product-original-price')?.value;
+  const originalPrice = originalPriceInput ? parseFloat(originalPriceInput.replace(/\./g, '')) : null;
+
+  const costInput = document.getElementById('product-cost')?.value;
+  const cost = costInput ? parseFloat(costInput.replace(/\./g, '')) : null;
+
+  const wholesalePriceInput = document.getElementById('product-wholesale-price')?.value;
+  const wholesalePrice = wholesalePriceInput ? parseFloat(wholesalePriceInput.replace(/\./g, '')) : null;
+
+  const weight = parseFloat(document.getElementById('product-weight')?.value) || 0.3;
+
+  const pData = {
+    name, price,
+    ref: document.getElementById('product-ref')?.value || '',
+    category: document.getElementById('product-category')?.value || '',
+    tags: document.getElementById('product-tags')?.value || '',
+    originalPrice: originalPrice,
+    cost: cost,
+    wholesalePrice: wholesalePrice,
+    weight: weight,
+    stock: parseInt(document.getElementById('product-stock')?.value) || 0,
+    unit: document.getElementById('product-unit')?.value || 'und',
+    description: document.getElementById('product-description')?.value || '',
+    clipUrl: document.getElementById('product-clip-url')?.value.trim() || null,
+    videoThumbnail: document.getElementById('product-video-thumbnail')?.value.trim() || null,
+    active: document.getElementById('product-active')?.checked ?? true,
+    images: [...appState.currentProductImages]
+  };
+
+  const type = document.querySelector('input[name="product-type"]:checked')?.value;
+  if (type === 'variants') {
+    const variantRows = document.querySelectorAll('.variant-row');
+    const variants = [];
+    variantRows.forEach(row => {
+      const vname = row.querySelector('.var-name')?.value.trim();
+      const vstock = parseInt(row.querySelector('.var-stock')?.value) || 0;
+      if (vname) variants.push({ color: vname, stock: vstock });
+    });
+    pData.variants = variants;
+    pData.variantType = document.getElementById('product-variant-type')?.value || 'color';
+    pData.stock = variants.reduce((sum, v) => sum + v.stock, 0);
+  } else {
+    pData.variants = null;
+  }
+
+  pData.origen = (window.currentProductOrigen === 'mastershop') ? 'mastershop' : 'propio';
+
+  try {
+    if (window.currentEditId && window.currentEditId !== "undefined") {
+      await update(ref(appState.db, `products/${window.currentEditId}`), pData);
+    } else {
+      await push(ref(appState.db, 'products'), pData);
+    }
+    appUtils.safeStyle('modal-product', 'display', 'none');
+    appUtils.showToast('Guardado ✅');
+    if (window.loadCatalog) window.loadCatalog();
+    renderProductsTable();
+  } catch (error) {
+    console.error("Error saving product:", error);
+    appUtils.showToast('Error al guardar: ' + error.message);
+  }
+}
+
+async function deleteProduct(id) {
+  await remove(ref(appState.db, `products/${id}`));
+  if (window.loadCatalog) window.loadCatalog();
+  renderProductsTable();
+}
+
+function confirmDeleteProduct(id) {
+  const product = appState.products.find(p => p.id === id);
+  const name = product ? product.name : 'este producto';
+  if (confirm(`¿Eliminar "${name}"? Esta acción no se puede deshacer.`)) {
+    deleteProduct(id);
+    appUtils.showToast('Producto eliminado');
+  }
+}
+
+// ==========================================
+// MODULE: CONFIGURACIÓN (Tienda)
+// ==========================================
+function loadSettingsForm() {
+  appUtils.safeValue('settings-store-name', appState.settings.storeName || '');
+  appUtils.safeValue('settings-tagline', appState.settings.tagline || '');
+  appUtils.safeValue('settings-whatsapp', appState.settings.whatsapp || '');
+  appUtils.safeValue('settings-color', appState.settings.color || '#6c63ff');
+  appUtils.safeValue('settings-currency', appState.settings.currency || 'COP');
+  appUtils.safeValue('settings-payment-info', appState.settings.paymentInfo || '');
+  appUtils.safeValue('settings-shipping-cost', appState.settings.shippingCost || 0);
+  appUtils.safeValue('settings-wholesale-discount', appState.settings.wholesaleDiscount !== undefined ? appState.settings.wholesaleDiscount : 20);
+
+  const social = appState.settings.social || {};
+  appUtils.safeValue('settings-social-instagram', social.instagram || '');
+  appUtils.safeValue('settings-social-facebook', social.facebook || '');
+  appUtils.safeValue('settings-social-tiktok', social.tiktok || '');
+
+  renderCustomerPhotosAdmin();
+
+  const origin = appState.settings.originAddress || {};
+  appUtils.safeValue('settings-origin-name', origin.name || '');
+  appUtils.safeValue('settings-origin-phone', origin.phone || '');
+  appUtils.safeValue('settings-origin-street', origin.street || '');
+  appUtils.safeValue('settings-origin-city', origin.city || '');
+  appUtils.safeValue('settings-origin-state', origin.state || '');
+  appUtils.safeValue('settings-origin-zip', origin.zip || '');
+
+  const loc = appState.settings.locContent || {};
+  appUtils.safeValue('settings-loc-bgt-title', loc.bgtTitle || '');
+  appUtils.safeValue('settings-loc-bgt-sub', loc.bgtSub || '');
+  appUtils.safeValue('settings-loc-nat-title', loc.natTitle || '');
+  appUtils.safeValue('settings-loc-nat-sub', loc.natSub || '');
+
+  const camp = appState.settings.activeCampaign || {};
+  appUtils.safeSet('settings-camp-enabled', 'checked', !!camp.enabled);
+  appUtils.safeValue('settings-camp-title', camp.title || '');
+  appUtils.safeValue('settings-camp-tag', camp.tag || '');
+  appUtils.safeValue('settings-camp-badge', camp.badgeText || '');
+
+  if (appState.settings.logo) {
+    appUtils.safeSet('settings-logo-preview', 'src', appState.settings.logo);
+    appUtils.safeStyle('settings-logo-preview', 'display', 'block');
+    appUtils.safeStyle('logo-upload-placeholder', 'display', 'none');
+  }
+  if (appState.settings.paymentQR) {
+    appUtils.safeSet('settings-qr-preview', 'src', appState.settings.paymentQR);
+    appUtils.safeStyle('settings-qr-preview', 'display', 'block');
+    appUtils.safeStyle('qr-upload-placeholder', 'display', 'none');
+  }
+}
+
+async function saveSettings() {
+  const newSettings = {
+    ...appState.settings,
+    storeName: document.getElementById('settings-store-name')?.value || '',
+    tagline: document.getElementById('settings-tagline')?.value || '',
+    whatsapp: document.getElementById('settings-whatsapp')?.value || '',
+    color: document.getElementById('settings-color')?.value || '#6c63ff',
+    currency: document.getElementById('settings-currency')?.value || 'COP',
+    paymentInfo: document.getElementById('settings-payment-info')?.value || '',
+    shippingCost: parseFloat(document.getElementById('settings-shipping-cost')?.value) || 0,
+    wholesaleDiscount: parseInt(document.getElementById('settings-wholesale-discount')?.value) >= 0 ? parseInt(document.getElementById('settings-wholesale-discount')?.value) : 20,
+    originAddress: {
+      name: document.getElementById('settings-origin-name')?.value || '',
+      phone: document.getElementById('settings-origin-phone')?.value || '',
+      street: document.getElementById('settings-origin-street')?.value || '',
+      city: document.getElementById('settings-origin-city')?.value || '',
+      state: document.getElementById('settings-origin-state')?.value || '',
+      zip: document.getElementById('settings-origin-zip')?.value || ''
+    },
+    social: {
+      instagram: document.getElementById('settings-social-instagram')?.value.trim() || '',
+      facebook: document.getElementById('settings-social-facebook')?.value.trim() || '',
+      tiktok: document.getElementById('settings-social-tiktok')?.value.trim() || ''
+    },
+    locContent: {
+      bgtTitle: document.getElementById('settings-loc-bgt-title')?.value || '',
+      bgtSub: document.getElementById('settings-loc-bgt-sub')?.value || '',
+      natTitle: document.getElementById('settings-loc-nat-title')?.value || '',
+      natSub: document.getElementById('settings-loc-nat-sub')?.value || ''
+    },
+    activeCampaign: {
+      enabled: document.getElementById('settings-camp-enabled')?.checked || false,
+      title: document.getElementById('settings-camp-title')?.value || '',
+      tag: document.getElementById('settings-camp-tag')?.value || '',
+      badgeText: document.getElementById('settings-camp-badge')?.value || ''
+    }
+  };
+  const newPass = document.getElementById('settings-admin-password')?.value || '';
+  if (newPass) newSettings.adminPasswordHash = await appUtils.hashPassword(newPass);
+
+  try {
+    await set(ref(appState.db, 'settings'), newSettings);
+    appState.settings = newSettings;
+    appUtils.showToast('Configuración guardada ✅');
+    if (window.loadCatalog) window.loadCatalog();
+  } catch (error) {
+    console.error("Error saving settings:", error);
+    appUtils.showToast('Error al guardar configuración: ' + error.message);
+  }
+}
+
+// ==========================================
+// MODULE: FOTOS DE CLIENTES SATISFECHOS
+// ==========================================
+async function handleCustomerPhotosUpload(e) {
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+
+  appUtils.showToast(`Subiendo ${files.length} foto(s)...`);
+
+  const current = Array.isArray(appState.settings.customerPhotos) ? [...appState.settings.customerPhotos] : [];
+
+  for (const file of files) {
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const compressed = await appUtils.compressImage(dataUrl);
+      current.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, url: compressed });
+    } catch (err) {
+      console.error(`Error subiendo foto de cliente ${file.name}:`, err);
+    }
+  }
+
+  try {
+    await update(ref(appState.db, 'settings'), { customerPhotos: current });
+    appState.settings.customerPhotos = current;
+    appUtils.showToast('Fotos de clientes actualizadas ✅');
+    renderCustomerPhotosAdmin();
+    if (window.loadCatalog) window.loadCatalog();
+  } catch (err) {
+    console.error('Error guardando fotos de clientes:', err);
+    appUtils.showToast('Error al guardar las fotos: ' + err.message);
+  }
+  e.target.value = '';
+}
+
+async function deleteCustomerPhoto(photoId) {
+  if (!confirm('¿Eliminar esta foto de la galería de clientes?')) return;
+  const current = (appState.settings.customerPhotos || []).filter(p => p.id !== photoId);
+  try {
+    await update(ref(appState.db, 'settings'), { customerPhotos: current });
+    appState.settings.customerPhotos = current;
+    renderCustomerPhotosAdmin();
+    if (window.loadCatalog) window.loadCatalog();
+  } catch (err) {
+    console.error('Error eliminando foto de cliente:', err);
+    appUtils.showToast('Error al eliminar: ' + err.message);
+  }
+}
+
+function renderCustomerPhotosAdmin() {
+  const grid = document.getElementById('customer-photos-grid');
+  if (!grid) return;
+  const photos = appState.settings.customerPhotos || [];
+  grid.innerHTML = photos.map(p => `
+    <div class="customer-photo-admin-item">
+      <img src="${p.url}" alt="Foto de cliente" />
+      <button type="button" onclick="window.deleteCustomerPhoto('${p.id}')" title="Eliminar">×</button>
+    </div>
+  `).join('');
+}
+
+// ==========================================
+// MODULE: CARGA MASIVA (Excel + Fotos de producto)
+// ==========================================
+async function handleBulkPhotoUpload(e) {
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+
+  appUtils.showToast(`Procesando ${files.length} foto(s)...`);
+
+  let matchedCount = 0;
+  const unmatchedNames = [];
+
+  for (const file of files) {
+    const baseName = file.name.replace(/\.[^/.]+$/, '').trim();
+    const existing = appState.products.find(p => p.ref && String(p.ref).trim().toLowerCase() === baseName.toLowerCase());
+
+    if (!existing) {
+      unmatchedNames.push(file.name);
+      continue;
+    }
+
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const compressed = await appUtils.compressImage(dataUrl);
+      await update(ref(appState.db, `products/${existing.id}`), { images: [compressed] });
+      matchedCount++;
+    } catch (err) {
+      console.error(`Error subiendo foto ${file.name}:`, err);
+      unmatchedNames.push(file.name + ' (error al procesar)');
+    }
+  }
+
+  let summary = `${matchedCount} foto(s) subida(s) y vinculada(s) ✅`;
+  if (unmatchedNames.length > 0) {
+    summary += ` — ⚠️ ${unmatchedNames.length} sin producto coincidente (revisa que el nombre del archivo sea igual a la Referencia)`;
+    console.warn('Fotos sin producto coincidente:', unmatchedNames);
+  }
+  appUtils.showToast(summary);
+  if (window.loadCatalog) window.loadCatalog();
+  renderProductsTable();
+  e.target.value = '';
+}
+
+async function handleBulkExcelUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  appUtils.showToast("Leyendo Excel...");
+
+  const reader = new FileReader();
+  reader.onload = async (evt) => {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (jsonData.length === 0) {
+        appUtils.showToast("El archivo de Excel está vacío.");
+        return;
+      }
+
+      const findKey = (row, possibleNames) => {
+        const rowKeys = Object.keys(row);
+        for (const name of possibleNames) {
+          const matched = rowKeys.find(k => k.trim().toLowerCase() === name.toLowerCase());
+          if (matched !== undefined) return matched;
+        }
+        return null;
+      };
+
+      const resolvePhotoUrl = (rawValue) => {
+        let url = String(rawValue || '').trim();
+        if (!url) return { url: '', valid: false };
+        const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+        if (driveMatch) {
+          url = `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+        }
+        const looksLikeUrl = /^https?:\/\//i.test(url);
+        return { url, valid: looksLikeUrl };
+      };
+
+      let importedCount = 0;
+      let updatedCount = 0;
+      let missingPhotoCount = 0;
+      const missingPhotoNames = [];
+
+      for (const row of jsonData) {
+        const fotoKey = findKey(row, ["foto", "imagen", "image", "url"]);
+        const nombreKey = findKey(row, ["nombre", "name"]);
+        const refKey = findKey(row, ["referencia", "ref", "reference"]);
+        const categoriaKey = findKey(row, ["categoria", "categoría", "category"]);
+        const tagsKey = findKey(row, ["tags", "etiquetas"]);
+        const stockKey = findKey(row, ["cantidad de stock", "stock", "cantidad", "existencias"]);
+        const costoKey = findKey(row, ["precio de compra", "costo", "cost", "compra"]);
+        const precioKey = findKey(row, ["precio de venta", "precio", "price", "venta"]);
+        const precioOriginalKey = findKey(row, ["precio original", "precio antes de descuento", "original price"]);
+        const precioMayoristaKey = findKey(row, ["precio mayorista", "wholesale price", "precio al por mayor"]);
+        const pesoKey = findKey(row, ["peso", "peso (kg)", "weight"]);
+        const unidadKey = findKey(row, ["unidad", "unit"]);
+        const descripcionKey = findKey(row, ["descripcion", "descripción", "description"]);
+        const videoKey = findKey(row, ["video", "clip", "clip url", "video url", "tiktok"]);
+        const activoKey = findKey(row, ["activo", "active", "visible"]);
+
+        const name = nombreKey ? String(row[nombreKey] || '').trim() : '';
+        const price = precioKey ? parseFloat(String(row[precioKey]).replace(/[^\d]/g, '')) : NaN;
+
+        if (!name || isNaN(price)) continue;
+
+        const refValue = refKey ? String(row[refKey] || '').trim() : '';
+        const stock = stockKey ? parseInt(String(row[stockKey]).replace(/[^\d]/g, '')) || 0 : 0;
+        const cost = costoKey ? parseFloat(String(row[costoKey]).replace(/[^\d]/g, '')) || null : null;
+        const originalPrice = precioOriginalKey ? (parseFloat(String(row[precioOriginalKey]).replace(/[^\d]/g, '')) || null) : null;
+        const wholesalePrice = precioMayoristaKey ? (parseFloat(String(row[precioMayoristaKey]).replace(/[^\d]/g, '')) || null) : null;
+        const weight = pesoKey ? (parseFloat(String(row[pesoKey]).replace(',', '.')) || 0.3) : 0.3;
+        const unit = unidadKey ? (String(row[unidadKey] || '').trim() || 'und') : 'und';
+        const category = categoriaKey ? String(row[categoriaKey] || '').trim() : '';
+        const tags = tagsKey ? String(row[tagsKey] || '').trim() : '';
+        const description = descripcionKey ? String(row[descripcionKey] || '').trim() : '';
+        const clipUrl = videoKey ? (String(row[videoKey] || '').trim() || null) : null;
+        const activoRaw = activoKey ? String(row[activoKey] || '').trim().toLowerCase() : '';
+        const active = activoRaw ? !['no', 'false', '0', 'inactivo'].includes(activoRaw) : true;
+
+        const rawFoto = fotoKey ? row[fotoKey] : '';
+        const { url: foto, valid: fotoValid } = resolvePhotoUrl(rawFoto);
+        if (!fotoValid) {
+          missingPhotoCount++;
+          missingPhotoNames.push(name);
+        }
+
+        const pData = {
+          name, price, ref: refValue, category, tags, stock, cost,
+          originalPrice, wholesalePrice, weight, unit, description, clipUrl, active,
+          origen: 'propio'
+        };
+
+        let existingId = null;
+        if (refValue) {
+          const existing = appState.products.find(p => p.ref && String(p.ref).trim() === refValue);
+          if (existing) existingId = existing.id;
+        }
+
+        if (existingId) {
+          if (fotoValid) pData.images = [foto];
+          await update(ref(appState.db, `products/${existingId}`), pData);
+          updatedCount++;
+        } else {
+          pData.images = fotoValid ? [foto] : [];
+          await push(ref(appState.db, 'products'), pData);
+          importedCount++;
+        }
+      }
+
+      let summary = `Excel procesado: ${importedCount} creados, ${updatedCount} actualizados ✅`;
+      if (missingPhotoCount > 0) {
+        summary += ` — ⚠️ ${missingPhotoCount} sin foto válida (revisa que la columna "foto" tenga un link http(s), no una imagen pegada)`;
+        console.warn('Productos importados sin foto válida:', missingPhotoNames);
+      }
+      appUtils.showToast(summary);
+      if (window.loadCatalog) window.loadCatalog();
+      renderProductsTable();
+    } catch (err) {
+      console.error(err);
+      appUtils.showToast("Error al procesar Excel: " + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
