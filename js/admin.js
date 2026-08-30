@@ -97,6 +97,12 @@ export function initAdmin(state, utils) {
   on('btn-upload-customer-photos', 'onclick', () => document.getElementById('customer-photos-input')?.click());
   on('customer-photos-input', 'onchange', handleCustomerPhotosUpload);
 
+  // Venta Externa
+  on('btn-add-external-sale', 'onclick', openExternalSaleModal);
+  on('btn-close-external-modal', 'onclick', closeExternalSaleModal);
+  on('btn-save-external-sale', 'onclick', saveExternalSale);
+  on('btn-add-ext-item', 'onclick', addExtItem);
+
   initNavigation();
   initPOS();
   
@@ -1161,4 +1167,193 @@ async function handleBulkExcelUpload(e) {
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// ==========================================
+// MODULE: VENTA EXTERNA (ML / Otro canal)
+// ==========================================
+let extItems = []; // [{productId, name, price, cost, qty}]
+
+function openExternalSaleModal() {
+  extItems = [];
+  appUtils.safeStyle('modal-external-sale', 'display', 'flex');
+  // Reset form
+  const fields = ['ext-customer-name','ext-customer-phone','ext-order-id','ext-notes',
+                   'ext-ml-commission-pct','ext-shipping-cost','ext-ad-cost'];
+  fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = el.defaultValue || ''; });
+  document.getElementById('ext-ml-commission-pct').value = '13';
+  document.getElementById('ext-shipping-cost').value = '';
+  document.getElementById('ext-ad-cost').value = '';
+  // Reset channel
+  document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
+  const firstBtn = document.querySelector('.channel-btn[data-channel="mercado_libre"]');
+  if (firstBtn) firstBtn.classList.add('active');
+  const hiddenChannel = document.getElementById('ext-channel');
+  if (hiddenChannel) hiddenChannel.value = 'mercado_libre';
+  // Channel selector
+  document.querySelectorAll('.channel-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const hiddenCh = document.getElementById('ext-channel');
+      if (hiddenCh) hiddenCh.value = btn.dataset.channel;
+      const costsSection = document.getElementById('ext-ml-costs');
+      if (costsSection) costsSection.style.display = btn.dataset.channel === 'mercado_libre' ? 'block' : 'none';
+      calcExtTotals();
+    };
+  });
+  // Show ML costs by default
+  const costsSection = document.getElementById('ext-ml-costs');
+  if (costsSection) costsSection.style.display = 'block';
+  // Live recalc on cost inputs
+  ['ext-ml-commission-pct','ext-shipping-cost','ext-ad-cost'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.oninput = calcExtTotals;
+  });
+  renderExtItems();
+  calcExtTotals();
+}
+
+function closeExternalSaleModal() {
+  appUtils.safeStyle('modal-external-sale', 'display', 'none');
+}
+
+function addExtItem() {
+  // Muestra un select rapido de productos
+  const products = appState.products || [];
+  const opts = products.filter(p => p.active).map(p =>
+    `<option value="${p.id}">${p.name} — ${appUtils.formatMoney(p.price || 0)}</option>`
+  ).join('');
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'ext-item-row';
+  wrapper.style.cssText = 'display:flex;gap:0.4rem;align-items:center;margin-bottom:0.4rem;';
+  wrapper.innerHTML = `
+    <select class="field-input ext-item-product" style="flex:3;font-size:0.8rem;padding:0.3rem;">
+      <option value="">-- Producto --</option>${opts}
+    </select>
+    <input type="number" class="field-input ext-item-qty" placeholder="Cant." value="1" min="1" style="flex:1;font-size:0.8rem;padding:0.3rem;">
+    <input type="text" class="field-input ext-item-price" placeholder="Precio venta" inputmode="numeric" style="flex:2;font-size:0.8rem;padding:0.3rem;">
+    <button type="button" onclick="this.parentElement.remove(); calcExtTotals();"
+      style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:1.1rem;flex-shrink:0;">x</button>
+  `;
+  // Auto-fill price when product selected
+  wrapper.querySelector('.ext-item-product').onchange = function() {
+    const p = (appState.products || []).find(x => x.id === this.value);
+    if (p) wrapper.querySelector('.ext-item-price').value = Math.round(p.price || 0);
+    calcExtTotals();
+  };
+  wrapper.querySelector('.ext-item-qty').oninput = calcExtTotals;
+  wrapper.querySelector('.ext-item-price').oninput = calcExtTotals;
+
+  const list = document.getElementById('ext-items-list');
+  if (list) list.appendChild(wrapper);
+}
+
+window.calcExtTotals = function() {
+  const rows = document.querySelectorAll('.ext-item-row');
+  let subtotal = 0;
+  let totalCost = 0;
+  rows.forEach(row => {
+    const pid = row.querySelector('.ext-item-product')?.value;
+    const qty = parseFloat(row.querySelector('.ext-item-qty')?.value) || 1;
+    const price = parseFloat(row.querySelector('.ext-item-price')?.value?.replace(/\./g,'')) || 0;
+    subtotal += price * qty;
+    const p = (appState.products || []).find(x => x.id === pid);
+    if (p) totalCost += (parseFloat(p.cost) || 0) * qty;
+  });
+
+  const channel = document.getElementById('ext-channel')?.value || 'otro';
+  const commissionPct = channel === 'mercado_libre'
+    ? (parseFloat(document.getElementById('ext-ml-commission-pct')?.value) || 0) : 0;
+  const shippingCost = parseFloat(document.getElementById('ext-shipping-cost')?.value?.replace(/\./g,'')) || 0;
+  const adCost = parseFloat(document.getElementById('ext-ad-cost')?.value?.replace(/\./g,'')) || 0;
+
+  const commission = subtotal * (commissionPct / 100);
+  const netProfit = subtotal - totalCost - commission - shippingCost - adCost;
+
+  // Update summary
+  appUtils.safeText('ext-fin-subtotal', appUtils.formatMoney(subtotal));
+
+  const commRow = document.getElementById('ext-fin-commission-row');
+  if (commRow) commRow.style.display = commission > 0 ? 'flex' : 'none';
+  appUtils.safeText('ext-fin-commission', '-' + appUtils.formatMoney(commission));
+
+  const shipRow = document.getElementById('ext-fin-shipping-row');
+  if (shipRow) shipRow.style.display = shippingCost > 0 ? 'flex' : 'none';
+  appUtils.safeText('ext-fin-shipping', '-' + appUtils.formatMoney(shippingCost));
+
+  const adRow = document.getElementById('ext-fin-ad-row');
+  if (adRow) adRow.style.display = adCost > 0 ? 'flex' : 'none';
+  appUtils.safeText('ext-fin-ad', '-' + appUtils.formatMoney(adCost));
+
+  const profitEl = document.getElementById('ext-fin-profit');
+  if (profitEl) {
+    profitEl.textContent = appUtils.formatMoney(netProfit);
+    profitEl.style.color = netProfit >= 0 ? 'var(--success)' : 'var(--danger)';
+  }
+};
+
+async function saveExternalSale() {
+  const rows = document.querySelectorAll('.ext-item-row');
+  if (rows.length === 0) return appUtils.showToast('Agrega al menos un producto.');
+
+  const items = [];
+  let subtotal = 0;
+  let totalCost = 0;
+  let valid = true;
+
+  rows.forEach(row => {
+    const pid = row.querySelector('.ext-item-product')?.value;
+    const qty = parseInt(row.querySelector('.ext-item-qty')?.value) || 1;
+    const price = parseFloat(row.querySelector('.ext-item-price')?.value?.replace(/\./g,'')) || 0;
+    if (!pid || price <= 0) { valid = false; return; }
+    const p = (appState.products || []).find(x => x.id === pid);
+    items.push({ id: pid, name: p?.name || '', price, cost: parseFloat(p?.cost) || 0, qty });
+    subtotal += price * qty;
+    totalCost += (parseFloat(p?.cost) || 0) * qty;
+  });
+
+  if (!valid) return appUtils.showToast('Completa todos los productos con precio.');
+
+  const channel = document.getElementById('ext-channel')?.value || 'otro';
+  const commissionPct = channel === 'mercado_libre'
+    ? (parseFloat(document.getElementById('ext-ml-commission-pct')?.value) || 0) : 0;
+  const shippingCost = parseFloat(document.getElementById('ext-shipping-cost')?.value?.replace(/\./g,'')) || 0;
+  const adCost = parseFloat(document.getElementById('ext-ad-cost')?.value?.replace(/\./g,'')) || 0;
+  const commission = subtotal * (commissionPct / 100);
+  const netProfit = subtotal - totalCost - commission - shippingCost - adCost;
+
+  const orderData = {
+    timestamp: Date.now(),
+    status: 'entregado',
+    channel,
+    items,
+    subtotal,
+    shippingValue: shippingCost,
+    total: subtotal,
+    totalCost,
+    commissionPct,
+    commissionValue: commission,
+    adCost,
+    netProfit,
+    customer: {
+      name: document.getElementById('ext-customer-name')?.value || 'Cliente Externo',
+      phone: document.getElementById('ext-customer-phone')?.value || ''
+    },
+    externalOrderId: document.getElementById('ext-order-id')?.value || '',
+    notes: document.getElementById('ext-notes')?.value || '',
+    paymentMethod: channel,
+    seller: 'Admin'
+  };
+
+  try {
+    appUtils.showToast('Guardando venta...');
+    await push(ref(appState.db, 'orders'), orderData);
+    appUtils.showToast('Venta registrada con exito');
+    closeExternalSaleModal();
+    document.querySelector('.admin-nav-btn[data-tab="orders"]')?.click();
+  } catch (e) {
+    appUtils.showToast('Error: ' + e.message);
+  }
 }
