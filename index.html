@@ -866,6 +866,11 @@
                 <option value="mixto">Mixto</option>
                 <option value="pendiente">Pendiente por pagar</option>
               </select>
+              <div id="pos-mixed-payment-fields" style="display:none; margin-top:0.6rem; display:flex; gap:0.5rem;">
+                <input type="number" id="pos-mixed-cash" class="field-input" placeholder="Efectivo" min="0" style="flex:1;" />
+                <input type="number" id="pos-mixed-transfer" class="field-input" placeholder="Transferencia" min="0" style="flex:1;" />
+              </div>
+              <small id="pos-mixed-payment-hint" style="display:none; color:var(--text-muted); font-size:0.75rem;"></small>
             </div>
             
             <input type="text" id="pos-seller-name" class="field-input" placeholder="Nombre del Vendedor (Opcional)" style="margin-top: 10px;" />
@@ -969,6 +974,7 @@
                 <th>Costo</th>
                 <th>Precio</th>
                 <th>Ganancia Neta</th>
+                <th>Ganancia Total (todo el stock)</th>
                 <th>Rotación</th>
                 <th>Acciones</th>
               </tr>
@@ -1437,6 +1443,70 @@
       <div class="modal-footer">
         <button class="btn-delete-product" id="btn-delete-product" style="display:none">Eliminar</button>
         <button class="btn-save-product" id="btn-save-product">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  MODAL: CLIENTE (Crear / Editar)                        -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="modal-client" class="modal-overlay" style="display:none">
+    <div class="modal-card modal-card-sm">
+      <div class="modal-header">
+        <h3 id="modal-client-title">Nuevo Cliente</h3>
+        <button class="btn-close-modal" id="btn-close-client-modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <label class="field-label">Nombre completo *</label>
+        <input type="text" id="client-name" class="field-input" placeholder="Ej: María Pérez" />
+
+        <label class="field-label">Celular *</label>
+        <input type="tel" id="client-phone" class="field-input" placeholder="Ej: 3001234567" maxlength="10"
+          oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
+
+        <label class="field-label">Departamento</label>
+        <input type="text" id="client-dept" class="field-input" placeholder="Ej: Cundinamarca" />
+
+        <label class="field-label">Ciudad</label>
+        <input type="text" id="client-city" class="field-input" placeholder="Ej: Bogotá" />
+
+        <label class="field-label">Barrio</label>
+        <input type="text" id="client-barrio" class="field-input" placeholder="Ej: Chapinero" />
+
+        <label class="field-label">Dirección</label>
+        <input type="text" id="client-address" class="field-input" placeholder="Ej: Calle 10 # 43E - 20" />
+
+        <label class="field-label">Notas (opcional)</label>
+        <textarea id="client-notes" class="field-input field-textarea" placeholder="Preferencias, referencias, etc."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-delete-product" id="btn-delete-client" style="display:none">Eliminar</button>
+        <button class="btn-save-product" id="btn-save-client">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  MODAL: HISTORIAL DE MOVIMIENTOS DE PRODUCTO             -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="modal-product-history" class="modal-overlay" style="display:none">
+    <div class="modal-card modal-card-sm">
+      <div class="modal-header">
+        <h3 id="modal-history-title">Historial de Movimientos</h3>
+        <button class="btn-close-modal" id="btn-close-history-modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div id="product-history-list">
+          <!-- Generado por JS -->
+        </div>
       </div>
     </div>
   </div>
