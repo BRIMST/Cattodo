@@ -15,6 +15,7 @@ export function initAdmin(state, utils) {
   window.closeAdmin = closeAdmin;
   window.posAddToCart = posAddToCart;
   window.posRemoveFromCart = posRemoveFromCart;
+  window.posChangeQty = posChangeQty;
   window.changeOrderStatus = changeOrderStatus;
   window.openProductModal = openProductModal;
   window.deleteProduct = deleteProduct;
@@ -23,6 +24,7 @@ export function initAdmin(state, utils) {
   window.removeProductImage = removeProductImage;
   window.deleteCustomerPhoto = deleteCustomerPhoto;
   window.confirmDeleteProduct = confirmDeleteProduct;
+  window.openClientModal = openClientModal;
 
   const on = (id, event, fn) => {
     const el = document.getElementById(id);
@@ -96,6 +98,18 @@ export function initAdmin(state, utils) {
   });
   on('btn-upload-customer-photos', 'onclick', () => document.getElementById('customer-photos-input')?.click());
   on('customer-photos-input', 'onchange', handleCustomerPhotosUpload);
+
+  // Clientes: crear / editar / eliminar / buscar
+  on('btn-add-client', 'onclick', () => openClientModal(null));
+  on('btn-close-client-modal', 'onclick', () => appUtils.safeStyle('modal-client', 'display', 'none'));
+  on('btn-save-client', 'onclick', saveClient);
+  on('btn-delete-client', 'onclick', () => {
+    if (window.currentEditClientId) deleteClient(window.currentEditClientId);
+  });
+  on('clients-search-input', 'oninput', renderClientsTable);
+
+  // Historial de movimientos de producto
+  on('btn-close-history-modal', 'onclick', () => appUtils.safeStyle('modal-product-history', 'display', 'none'));
 
   // Venta Externa
   on('btn-add-external-sale', 'onclick', openExternalSaleModal);
@@ -259,6 +273,39 @@ function initPOS() {
   if (createBtn) createBtn.onclick = createPOSOrder;
   
   document.getElementById('pos-shipping-cost-input')?.addEventListener('input', calcPOSTotals);
+
+  const paymentSelect = document.getElementById('pos-payment-method');
+  if (paymentSelect) paymentSelect.onchange = () => {
+    const mixedFields = document.getElementById('pos-mixed-payment-fields');
+    const hint = document.getElementById('pos-mixed-payment-hint');
+    const isMixed = paymentSelect.value === 'mixto';
+    if (mixedFields) mixedFields.style.display = isMixed ? 'flex' : 'none';
+    if (hint) hint.style.display = isMixed ? 'block' : 'none';
+    updateMixedPaymentHint();
+  };
+  ['pos-mixed-cash', 'pos-mixed-transfer'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', updateMixedPaymentHint);
+  });
+}
+
+function updateMixedPaymentHint() {
+  const hint = document.getElementById('pos-mixed-payment-hint');
+  if (!hint) return;
+  const cash = parseFloat(document.getElementById('pos-mixed-cash')?.value) || 0;
+  const transfer = parseFloat(document.getElementById('pos-mixed-transfer')?.value) || 0;
+  const totalText = document.getElementById('pos-total')?.textContent || '';
+  const total = parseFloat(totalText.replace(/[^\d]/g, '')) || 0;
+  const diff = total - (cash + transfer);
+  if (diff === 0 && total > 0) {
+    hint.style.color = 'var(--success, #059669)';
+    hint.textContent = '✓ Los montos coinciden con el total';
+  } else if (diff > 0) {
+    hint.style.color = 'var(--danger, #DC2626)';
+    hint.textContent = `Falta ${appUtils.formatMoney(diff)} para completar el total`;
+  } else {
+    hint.style.color = 'var(--danger, #DC2626)';
+    hint.textContent = `Sobran ${appUtils.formatMoney(-diff)} — revisa los montos`;
+  }
 }
 
 function renderPOSProducts() {
@@ -296,9 +343,23 @@ function posAddToCart(productId) {
     if (existing.qty < (p.stock || 999)) existing.qty++;
     else appUtils.showToast('No hay suficiente stock');
   } else {
-    posCart.push({ id: p.id, name: p.name, price: p.price || 0, cost: p.cost || 0, qty: 1, img: (p.images && p.images[0]) || p.image });
+    posCart.push({
+      id: p.id, name: p.name, price: p.price || 0, cost: p.cost || 0, qty: 1,
+      stock: p.stock || 0,
+      img: (p.images && p.images[0]) || p.image
+    });
   }
   
+  renderPOSCart();
+}
+
+function posChangeQty(idx, delta) {
+  const item = posCart[idx];
+  if (!item) return;
+  const next = item.qty + delta;
+  if (next <= 0) { posCart.splice(idx, 1); renderPOSCart(); return; }
+  if (delta > 0 && next > item.stock) { appUtils.showToast('No hay suficiente stock'); return; }
+  item.qty = next;
   renderPOSCart();
 }
 
@@ -316,11 +377,19 @@ function renderPOSCart() {
   } else {
     container.innerHTML = posCart.map((item, idx) => `
       <div class="pos-cart-item">
-        <div style="flex:1;">
-          <div style="font-weight:600; font-size:0.85rem;">${item.name}</div>
-          <div style="color:var(--primary); font-size:0.8rem;">${appUtils.formatMoney(item.price)} x ${item.qty}</div>
+        ${item.img ? `<img src="${item.img}" class="pos-cart-item-img" loading="lazy" />` : '<div class="pos-cart-item-img pos-cart-item-noimg">📦</div>'}
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:600; font-size:0.85rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.name}</div>
+          <div style="color:var(--primary); font-size:0.8rem;">${appUtils.formatMoney(item.price)} c/u</div>
+          <div style="color:var(--text-muted); font-size:0.72rem;">Disponible: ${item.stock}</div>
         </div>
-        <button class="action-btn" onclick="posRemoveFromCart(${idx})" style="color:var(--danger)">X</button>
+        <div class="pos-cart-qty-stepper">
+          <button type="button" onclick="posChangeQty(${idx}, -1)">−</button>
+          <span>${item.qty}</span>
+          <button type="button" onclick="posChangeQty(${idx}, 1)">+</button>
+        </div>
+        <div style="font-weight:700; font-size:0.85rem; min-width:70px; text-align:right;">${appUtils.formatMoney(item.price * item.qty)}</div>
+        <button class="action-btn" onclick="posRemoveFromCart(${idx})" style="color:var(--danger)">✕</button>
       </div>
     `).join('');
   }
@@ -341,6 +410,7 @@ function calcPOSTotals() {
   }
   
   appUtils.safeText('pos-total', appUtils.formatMoney(subtotal + shipping));
+  updateMixedPaymentHint();
 }
 
 let html5QrcodeScanner = null;
@@ -384,6 +454,13 @@ async function createPOSOrder() {
   
   const method = document.getElementById('pos-payment-method')?.value || 'efectivo';
   const seller = document.getElementById('pos-seller-name')?.value || 'Admin';
+
+  let mixedPayment = null;
+  if (method === 'mixto') {
+    const cash = parseFloat(document.getElementById('pos-mixed-cash')?.value) || 0;
+    const transfer = parseFloat(document.getElementById('pos-mixed-transfer')?.value) || 0;
+    mixedPayment = { cash, transfer };
+  }
   
   const subtotal = posCart.reduce((sum, item) => sum + (item.price * item.qty), 0);
   const totalCost = posCart.reduce((sum, item) => sum + (item.cost * item.qty), 0);
@@ -408,6 +485,11 @@ async function createPOSOrder() {
   } else {
     customerInfo = { name: 'Cliente en Punto Físico' };
   }
+
+  const total = subtotal + shipping;
+  if (method === 'mixto' && (mixedPayment.cash + mixedPayment.transfer) !== total) {
+    return appUtils.showToast('Los montos de pago mixto no coinciden con el total del pedido.');
+  }
   
   const orderData = {
     timestamp: Date.now(),
@@ -416,10 +498,11 @@ async function createPOSOrder() {
     items: posCart,
     subtotal: subtotal,
     shippingValue: shipping,
-    total: subtotal + shipping,
+    total: total,
     totalCost: totalCost,
     customer: customerInfo,
     paymentMethod: method,
+    mixedPayment: mixedPayment,
     seller: seller
   };
   
@@ -441,6 +524,12 @@ async function createPOSOrder() {
     // Reset Cart
     posCart = [];
     renderPOSCart();
+    ['pos-mixed-cash', 'pos-mixed-transfer'].forEach(id => {
+      if (document.getElementById(id)) document.getElementById(id).value = '';
+    });
+    document.getElementById('pos-mixed-payment-fields').style.display = 'none';
+    document.getElementById('pos-mixed-payment-hint').style.display = 'none';
+    document.getElementById('pos-payment-method').value = 'efectivo';
     if (posMode === 'shipping') {
       ['pos-customer-name','pos-customer-phone','pos-customer-address','pos-shipping-cost-input'].forEach(id => {
         if(document.getElementById(id)) document.getElementById(id).value = '';
@@ -544,6 +633,7 @@ function renderProductsTable() {
     const price = parseFloat(p.price) || 0;
     const stock = parseInt(p.stock) || 0;
     const netProfit = price - cost;
+    const totalProfitIfSold = netProfit * stock;
     const rotation = salesMap[p.id] || 0;
     
     return `
@@ -556,9 +646,11 @@ function renderProductsTable() {
         <td>${appUtils.formatMoney(cost)}</td>
         <td>${appUtils.formatMoney(price)}</td>
         <td style="color:var(--success); font-weight:bold;">${appUtils.formatMoney(netProfit)}</td>
+        <td style="color:var(--success);">${appUtils.formatMoney(totalProfitIfSold)}</td>
         <td>${rotation} uds.</td>
         <td>
            <button class="action-btn" onclick="openProductModal('${p.id}')">✏️ Editar</button>
+           <button class="action-btn" style="color:var(--text-muted); margin-left:8px;" onclick="window.openProductHistory('${p.id}')">📜 Historial</button>
            <button class="action-btn" style="color:var(--danger); margin-left:8px;" onclick="promptCastigo('${p.id}')">⬇️ Castigar</button>
            <button class="action-btn" style="color:var(--danger); margin-left:8px;" onclick="window.confirmDeleteProduct('${p.id}')">🗑️ Eliminar</button>
         </td>
@@ -598,11 +690,91 @@ window.promptCastigo = async function(id) {
 // ==========================================
 // MODULE: CLIENTES
 // ==========================================
+window.openProductHistory = function(id) {
+  const p = appState.products.find(x => x.id === id);
+  if (!p) return;
+  appUtils.safeText('modal-history-title', `Historial — ${p.name}`);
+  const list = document.getElementById('product-history-list');
+  const movements = p.movements ? Object.values(p.movements).sort((a, b) => (b.date || 0) - (a.date || 0)) : [];
+
+  if (movements.length === 0) {
+    list.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:1.5rem 0;">Sin movimientos registrados todavía.</p>';
+  } else {
+    const TYPE_LABELS = { out_castigo: '⬇️ Castigo', in_bulk: '📥 Carga masiva', in_manual: '📥 Ajuste manual', out_sale: '🛒 Venta' };
+    list.innerHTML = movements.map(m => `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0; border-bottom:1px solid var(--secondary, #E5E7EB);">
+        <div>
+          <div style="font-weight:700; font-size:0.85rem;">${TYPE_LABELS[m.type] || m.type}</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">${m.date ? new Date(m.date).toLocaleString('es-CO') : 'Sin fecha'}</div>
+          ${m.reason ? `<div style="font-size:0.78rem; color:var(--text-secondary);">${m.reason}</div>` : ''}
+        </div>
+        <div style="font-weight:800; color:var(--danger);">-${m.qty}</div>
+      </div>
+    `).join('');
+  }
+  appUtils.safeStyle('modal-product-history', 'display', 'flex');
+};
+
+// ==========================================
+// MODULE: CLIENTES (Crear / Editar)
+// ==========================================
+function openClientModal(id = null) {
+  window.currentEditClientId = id;
+  const c = id ? (appState.clients || []).find(x => x.id === id) : null;
+
+  appUtils.safeText('modal-client-title', c ? 'Editar Cliente' : 'Nuevo Cliente');
+  appUtils.safeValue('client-name', c ? (c.name || '') : '');
+  appUtils.safeValue('client-phone', c ? (c.phone || '') : '');
+  appUtils.safeValue('client-dept', c ? (c.dept || '') : '');
+  appUtils.safeValue('client-city', c ? (c.city || '') : '');
+  appUtils.safeValue('client-barrio', c ? (c.barrio || '') : '');
+  appUtils.safeValue('client-address', c ? (c.address || '') : '');
+  appUtils.safeValue('client-notes', c ? (c.notes || '') : '');
+  appUtils.safeStyle('btn-delete-client', 'display', c ? 'block' : 'none');
+  appUtils.safeStyle('modal-client', 'display', 'flex');
+}
+
+async function saveClient() {
+  const name = document.getElementById('client-name')?.value.trim();
+  const phone = document.getElementById('client-phone')?.value.trim();
+  if (!name || !phone) return appUtils.showToast('Nombre y celular son obligatorios');
+
+  const cData = {
+    name, phone,
+    dept: document.getElementById('client-dept')?.value.trim() || '',
+    city: document.getElementById('client-city')?.value.trim() || '',
+    barrio: document.getElementById('client-barrio')?.value.trim() || '',
+    address: document.getElementById('client-address')?.value.trim() || '',
+    notes: document.getElementById('client-notes')?.value.trim() || ''
+  };
+
+  try {
+    if (window.currentEditClientId) {
+      await update(ref(appState.db, `clients/${window.currentEditClientId}`), cData);
+    } else {
+      await push(ref(appState.db, 'clients'), cData);
+    }
+    appUtils.safeStyle('modal-client', 'display', 'none');
+    appUtils.showToast('Cliente guardado ✅');
+  } catch (err) {
+    console.error('Error guardando cliente:', err);
+    appUtils.showToast('Error al guardar: ' + err.message);
+  }
+}
+
+async function deleteClient(id) {
+  if (!confirm('¿Eliminar este cliente?')) return;
+  await remove(ref(appState.db, `clients/${id}`));
+  appUtils.safeStyle('modal-client', 'display', 'none');
+  appUtils.showToast('Cliente eliminado');
+}
+
 function renderClientsTable() {
   const tbody = document.getElementById('clients-table-body');
   if (!tbody) return;
   
-  const clients = appState.clients || [];
+  const query = (document.getElementById('clients-search-input')?.value || '').toLowerCase();
+  let clients = appState.clients || [];
   
   // group clients by phone to show unique clients if there are duplicates from orders
   const map = {};
@@ -613,8 +785,16 @@ function renderClientsTable() {
     }
   });
   
-  const unique = Object.values(map);
+  let unique = Object.values(map);
+  if (query) {
+    unique = unique.filter(c => (c.name || '').toLowerCase().includes(query) || (c.phone || '').includes(query));
+  }
   
+  if (unique.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Sin clientes todavía. Se agregan automáticamente al crear un pedido con envío, o puedes crear uno manualmente.</td></tr>`;
+    return;
+  }
+
   tbody.innerHTML = unique.map(c => `
     <tr>
       <td><strong>${c.name}</strong></td>
@@ -623,7 +803,7 @@ function renderClientsTable() {
       <td>${c.address || ''}</td>
       <td>${c.count || 1} pedido(s)</td>
       <td>
-        <button class="action-btn">✏️ Editar</button>
+        <button class="action-btn" onclick="window.openClientModal('${c.id || ''}')">✏️ Editar</button>
       </td>
     </tr>
   `).join('');
