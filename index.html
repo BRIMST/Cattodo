@@ -847,6 +847,11 @@
               <select id="pos-customer-dept" class="field-input"><option value="">Departamento</option></select>
               <select id="pos-customer-city" class="field-input" disabled><option value="">Ciudad</option></select>
               <input type="text" id="pos-customer-address" class="field-input" placeholder="Dirección" />
+              <input type="text" id="pos-customer-zip" class="field-input" placeholder="Código Postal" maxlength="6" />
+              <button type="button" class="btn-add-product" id="btn-pos-quote-shipping" style="width:100%; margin-top:0.5rem;">
+                📦 Cotizar Envío
+              </button>
+              <div id="pos-shipping-quote-status" style="font-size:0.8rem; color:var(--text-muted); margin-top:0.4rem;"></div>
             </div>
 
             <div class="pos-totals">
