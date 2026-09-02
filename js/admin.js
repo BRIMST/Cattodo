@@ -262,6 +262,23 @@ function initPOS() {
     posMode = 'shipping';
     calcPOSTotals();
   };
+
+  // Poblar departamento/ciudad con la misma data que usa el checkout de clientes (colombia.js)
+  const posDeptEl = document.getElementById('pos-customer-dept');
+  const posCityEl = document.getElementById('pos-customer-city');
+  if (posDeptEl && typeof COLOMBIA_LOCATIONS !== 'undefined') {
+    posDeptEl.innerHTML = '<option value="">Departamento</option>' +
+      Object.keys(COLOMBIA_LOCATIONS).sort().map(d => `<option value="${d}">${d}</option>`).join('');
+    posDeptEl.onchange = () => {
+      const cities = COLOMBIA_LOCATIONS[posDeptEl.value] || [];
+      posCityEl.innerHTML = '<option value="">Ciudad</option>' + cities.map(c => `<option value="${c}">${c}</option>`).join('');
+      posCityEl.disabled = cities.length === 0;
+      resetPOSShippingQuote();
+    };
+    posCityEl.onchange = resetPOSShippingQuote;
+  }
+
+  document.getElementById('btn-pos-quote-shipping')?.addEventListener('click', quotePOSShipping);
   
   const searchInput = document.getElementById('pos-search-input');
   if (searchInput) searchInput.oninput = renderPOSProducts;
@@ -371,6 +388,13 @@ function posRemoveFromCart(idx) {
 function renderPOSCart() {
   const container = document.getElementById('pos-cart-items');
   if (!container) return;
+
+  // Si el carrito cambia después de haber cotizado, el peso/total ya no es
+  // el mismo que se cotizó — se resetea para evitar cobrar un envío desfasado.
+  const statusEl = document.getElementById('pos-shipping-quote-status');
+  if (posMode === 'shipping' && statusEl && statusEl.textContent) {
+    resetPOSShippingQuote();
+  }
   
   if (posCart.length === 0) {
     container.innerHTML = '<div class="empty-state-pos">No hay productos en el pedido</div>';
@@ -449,6 +473,86 @@ function onScanFailure(error) {
   // handle scan failure, usually better to ignore and keep scanning
 }
 
+// Reutiliza el mismo endpoint /api/calcular-envio que ya cotiza en tiempo real
+// con Interrapidísimo/Servientrega para el checkout de clientes.
+function resetPOSShippingQuote() {
+  const statusEl = document.getElementById('pos-shipping-quote-status');
+  const costInput = document.getElementById('pos-shipping-cost-input');
+  if (statusEl) statusEl.textContent = '';
+  if (costInput) costInput.value = 0;
+  calcPOSTotals();
+}
+
+async function quotePOSShipping() {
+  const dept = document.getElementById('pos-customer-dept')?.value;
+  const city = document.getElementById('pos-customer-city')?.value;
+  const address = document.getElementById('pos-customer-address')?.value.trim();
+  const zip = document.getElementById('pos-customer-zip')?.value.trim();
+  const statusEl = document.getElementById('pos-shipping-quote-status');
+  const costInput = document.getElementById('pos-shipping-cost-input');
+  const quoteBtn = document.getElementById('btn-pos-quote-shipping');
+
+  if (!dept || !city || !address) {
+    return appUtils.showToast('Completa departamento, ciudad y dirección antes de cotizar');
+  }
+  if (!zip) {
+    return appUtils.showToast('Ingresa el código postal para poder cotizar');
+  }
+  if (posCart.length === 0) {
+    return appUtils.showToast('Agrega productos al pedido antes de cotizar');
+  }
+
+  if (quoteBtn) { quoteBtn.disabled = true; quoteBtn.textContent = 'Cotizando...'; }
+  if (statusEl) statusEl.textContent = 'Consultando transportadoras...';
+
+  const itemsArray = posCart.map(item => {
+    const p = appState.products.find(x => x.id === item.id);
+    return {
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      qty: item.qty,
+      weight: (p && p.weight) || 0.3,
+      origen: (p && p.origen) || 'propio'
+    };
+  });
+
+  try {
+    const response = await fetch('/api/calcular-envio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ciudad_destino: city,
+        departamento_destino: dept,
+        direccion_destino: address,
+        codigo_postal_destino: zip,
+        items: itemsArray
+      })
+    });
+    const data = await response.json();
+
+    if (data.es_gratis) {
+      costInput.value = 0;
+      if (statusEl) statusEl.textContent = '✅ Envío gratis (Bogotá)';
+    } else if (data.opciones && data.opciones.length > 0) {
+      // Autoselecciona la más económica; el vendedor puede editar el valor si quiere otra transportadora.
+      const cheapest = [...data.opciones].sort((a, b) => a.price - b.price)[0];
+      costInput.value = cheapest.price;
+      if (statusEl) statusEl.textContent = `✅ ${cheapest.carrier_label || cheapest.carrier} — ${appUtils.formatMoney(cheapest.price)} (${data.opciones.length} opción(es) disponibles, se eligió la más económica)`;
+    } else {
+      costInput.value = data.costo_envio || 0;
+      if (statusEl) statusEl.textContent = `⚠️ ${data.mensaje || 'Tarifa de respaldo aplicada'}`;
+    }
+  } catch (err) {
+    console.error('Error cotizando envío en POS:', err);
+    if (statusEl) statusEl.textContent = '❌ No se pudo cotizar. Ingresa el valor manualmente.';
+    appUtils.showToast('Error al cotizar el envío');
+  } finally {
+    if (quoteBtn) { quoteBtn.disabled = false; quoteBtn.textContent = '📦 Cotizar Envío'; }
+    calcPOSTotals();
+  }
+}
+
 async function createPOSOrder() {
   if (posCart.length === 0) return appUtils.showToast('Agrega productos al pedido.');
   
@@ -477,7 +581,8 @@ async function createPOSOrder() {
       name, phone,
       address: document.getElementById('pos-customer-address')?.value || '',
       city: document.getElementById('pos-customer-city')?.value || '',
-      dept: document.getElementById('pos-customer-dept')?.value || ''
+      dept: document.getElementById('pos-customer-dept')?.value || '',
+      zip: document.getElementById('pos-customer-zip')?.value || ''
     };
     
     // Save to clients database optionally
@@ -493,7 +598,9 @@ async function createPOSOrder() {
   
   const orderData = {
     timestamp: Date.now(),
-    status: 'gestion', // using standard kanban statuses
+    // Punto físico: la venta ya se completó en el momento (se entrega el
+    // producto ahí mismo). Envío: sigue el flujo normal de gestión/despacho.
+    status: posMode === 'physical' ? 'entregado' : 'gestion',
     channel: posMode === 'physical' ? 'pos' : 'whatsapp', // assuming pos or manual entry
     items: posCart,
     subtotal: subtotal,
@@ -531,9 +638,11 @@ async function createPOSOrder() {
     document.getElementById('pos-mixed-payment-hint').style.display = 'none';
     document.getElementById('pos-payment-method').value = 'efectivo';
     if (posMode === 'shipping') {
-      ['pos-customer-name','pos-customer-phone','pos-customer-address','pos-shipping-cost-input'].forEach(id => {
+      ['pos-customer-name','pos-customer-phone','pos-customer-address','pos-customer-zip','pos-shipping-cost-input'].forEach(id => {
         if(document.getElementById(id)) document.getElementById(id).value = '';
       });
+      const statusEl = document.getElementById('pos-shipping-quote-status');
+      if (statusEl) statusEl.textContent = '';
     }
     document.querySelector('.admin-nav-btn[data-tab="orders"]')?.click();
     
