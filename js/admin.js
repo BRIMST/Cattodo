@@ -25,6 +25,8 @@ export function initAdmin(state, utils) {
   window.deleteCustomerPhoto = deleteCustomerPhoto;
   window.confirmDeleteProduct = confirmDeleteProduct;
   window.openClientModal = openClientModal;
+  window.confirmDeleteOrder = confirmDeleteOrder;
+  window.toggleOrderPaymentStatus = toggleOrderPaymentStatus;
 
   const on = (id, event, fn) => {
     const el = document.getElementById(id);
@@ -107,9 +109,16 @@ export function initAdmin(state, utils) {
     if (window.currentEditClientId) deleteClient(window.currentEditClientId);
   });
   on('clients-search-input', 'oninput', renderClientsTable);
+  on('orders-search-input', 'oninput', renderOrdersTable);
+  on('btn-delete-selected-orders', 'onclick', deleteSelectedOrders);
+  on('orders-select-all', 'onchange', (e) => {
+    document.querySelectorAll('.order-select-checkbox').forEach(cb => { cb.checked = e.target.checked; });
+    updateBulkDeleteOrdersButton();
+  });
 
   // Historial de movimientos de producto
   on('btn-close-history-modal', 'onclick', () => appUtils.safeStyle('modal-product-history', 'display', 'none'));
+  on('btn-close-order-details-modal', 'onclick', () => appUtils.safeStyle('modal-order-details', 'display', 'none'));
 
   // Venta Externa
   on('btn-add-external-sale', 'onclick', openExternalSaleModal);
@@ -660,12 +669,10 @@ function renderOrdersTable() {
   const counts = { borrador: 0, gestion: 0, alistamiento: 0, terminado: 0, entregado: 0, cancelado: 0 };
   
   orders.forEach(o => {
-    // Map legacy statuses if any
     let s = o.status || 'gestion';
     if (s === 'pending') s = 'gestion';
     if (s === 'completed') s = 'entregado';
     if (s === 'cancelled') s = 'cancelado';
-    
     if (counts[s] !== undefined) counts[s]++;
   });
   
@@ -673,35 +680,184 @@ function renderOrdersTable() {
   
   const tbody = document.getElementById('orders-table-body');
   if (!tbody) return;
-  
-  const sorted = [...orders].sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
-  
-  const statusesHTML = (current) => `
-    <select onchange="changeOrderStatus('${current.id}', this.value)" style="padding:4px; border-radius:4px;">
-      <option value="borrador" ${current.status==='borrador'?'selected':''}>Borrador</option>
-      <option value="gestion" ${current.status==='gestion'||current.status==='pending'?'selected':''}>En Gestión</option>
-      <option value="alistamiento" ${current.status==='alistamiento'?'selected':''}>Alistamiento</option>
-      <option value="terminado" ${current.status==='terminado'?'selected':''}>Terminado</option>
-      <option value="entregado" ${current.status==='entregado'||current.status==='completed'?'selected':''}>Entregado</option>
-      <option value="cancelado" ${current.status==='cancelado'||current.status==='cancelled'?'selected':''}>Cancelado</option>
-    </select>
-  `;
-  
-  tbody.innerHTML = sorted.map(o => `
+
+  // Búsqueda
+  const query = (document.getElementById('orders-search-input')?.value || '').toLowerCase();
+  let filtered = orders;
+  if (query) {
+    filtered = orders.filter(o =>
+      (o.customer?.name || '').toLowerCase().includes(query) ||
+      (o.id || '').toLowerCase().includes(query)
+    );
+  }
+
+  // Numeración tipo "YYYYMMDD-N": secuencial por día, en orden de creación
+  const dateKey = (ts) => {
+    const d = new Date(ts || Date.now());
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const ascending = [...orders].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  const dayCounters = {};
+  const orderNumbers = {};
+  ascending.forEach(o => {
+    const key = dateKey(o.timestamp);
+    dayCounters[key] = (dayCounters[key] || 0) + 1;
+    orderNumbers[o.id] = `${key}-${dayCounters[key]}`;
+  });
+
+  const relativeDay = (ts) => {
+    if (!ts) return '';
+    const d = new Date(ts), now = new Date();
+    const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    if (sameDay(d, now)) return 'Hoy';
+    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+    if (sameDay(d, yesterday)) return 'Ayer';
+    return d.toLocaleDateString('es-CO');
+  };
+
+  const clientCode = (phone) => {
+    const digits = (phone || '').replace(/\D/g, '');
+    return `CLI-${digits.slice(-5).padStart(5, '0')}`;
+  };
+
+  const STATUS_BADGE = {
+    borrador:     { label: 'Borrador',     bg: '#F3F4F6', color: '#6B7280' },
+    gestion:      { label: 'En Gestión',   bg: '#FEF3C7', color: '#92400E' },
+    alistamiento: { label: 'Alistamiento', bg: '#DBEAFE', color: '#1E40AF' },
+    terminado:    { label: 'Terminado',    bg: '#E0E7FF', color: '#3730A3' },
+    entregado:    { label: 'Entregado',    bg: '#DBEAFE', color: '#1D4ED8' },
+    cancelado:    { label: 'Cancelado',    bg: '#FEE2E2', color: '#991B1B' }
+  };
+
+  const sorted = [...filtered].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+  tbody.innerHTML = sorted.map(o => {
+    const items = o.items || [];
+    const distinctCount = items.length;
+    const unitsCount = items.reduce((s, i) => s + (i.qty || 0), 0);
+    const status = STATUS_BADGE[o.status] || STATUS_BADGE.gestion;
+    const paid = (o.paymentStatus || 'pagado') === 'pagado';
+
+    return `
     <tr>
-      <td><strong style="color:var(--primary)">#${(o.id || '').slice(-6).toUpperCase()}</strong></td>
-      <td>${o.customer?.name || 'Desconocido'}<br><small>${o.customer?.phone||''}</small></td>
-      <td>${o.timestamp ? new Date(o.timestamp).toLocaleDateString('es-CO') : ''}</td>
-      <td>${statusesHTML(o)}</td>
-      <td style="font-weight:bold">${appUtils.formatMoney(o.total || 0)}</td>
-      <td><span style="background:#f4f7fe; padding:2px 8px; border-radius:10px; font-size:0.8rem;">${o.paymentMethod || 'Web'}</span></td>
-      <td>${o.seller || 'Web'}</td>
+      <td><input type="checkbox" class="order-select-checkbox" data-order-id="${o.id}" /></td>
       <td>
-         <button class="action-btn" title="Ver Ticket">📥</button>
+        <strong style="color:var(--primary)">${orderNumbers[o.id] || (o.id || '').slice(-6)}</strong><br>
+        <small style="color:var(--text-muted)">${distinctCount}/${unitsCount}</small><br>
+        <a href="#" onclick="window.viewOrderDetails('${o.id}'); return false;" style="font-size:0.78rem;">Ver</a>
+        <span style="color:var(--text-muted); font-size:0.78rem;"> | </span>
+        <a href="#" onclick="window.confirmDeleteOrder('${o.id}'); return false;" style="font-size:0.78rem; color:var(--danger);">Eliminar</a>
       </td>
+      <td>
+        <strong>${(o.customer?.name || 'Desconocido').toUpperCase()}</strong><br>
+        <small style="color:var(--text-muted)">${clientCode(o.customer?.phone)}</small><br>
+        <small>📞 ${o.customer?.phone || 'Sin teléfono'}</small>
+      </td>
+      <td>
+        ${o.timestamp ? new Date(o.timestamp).toLocaleDateString('es-CO') : ''}<br>
+        <small style="color:var(--success)">${relativeDay(o.timestamp)}</small>
+      </td>
+      <td>
+        <span style="background:${status.bg}; color:${status.color}; padding:3px 10px; border-radius:12px; font-size:0.78rem; font-weight:700;">${status.label}</span>
+      </td>
+      <td>
+        <strong>${appUtils.formatMoney(o.total || 0)}</strong>
+        ${o.totalCost ? `<br><small style="color:var(--danger)">-${appUtils.formatMoney(o.totalCost)}</small>` : ''}
+      </td>
+      <td>${o.paymentMethod || 'No especificado'}</td>
+      <td>
+        <span onclick="window.toggleOrderPaymentStatus('${o.id}')" style="cursor:pointer; background:${paid ? '#D1FAE5' : '#FEF3C7'}; color:${paid ? '#065F46' : '#92400E'}; padding:3px 10px; border-radius:12px; font-size:0.78rem; font-weight:700;">
+          ${paid ? '✓ Pagado' : '⏳ Pendiente'}
+        </span>
+      </td>
+      <td>${o.seller || 'Web'}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
+
+  // Selección múltiple: mostrar/ocultar botón de eliminar en lote
+  document.querySelectorAll('.order-select-checkbox').forEach(cb => {
+    cb.onchange = updateBulkDeleteOrdersButton;
+  });
 }
+
+function updateBulkDeleteOrdersButton() {
+  const checked = document.querySelectorAll('.order-select-checkbox:checked');
+  const btn = document.getElementById('btn-delete-selected-orders');
+  if (btn) btn.style.display = checked.length > 0 ? 'inline-block' : 'none';
+}
+
+function confirmDeleteOrder(id) {
+  if (!confirm('¿Eliminar este pedido? Esta acción no se puede deshacer.')) return;
+  remove(ref(appState.db, `orders/${id}`));
+  appUtils.showToast('Pedido eliminado');
+}
+
+async function deleteSelectedOrders() {
+  const ids = Array.from(document.querySelectorAll('.order-select-checkbox:checked')).map(cb => cb.dataset.orderId);
+  if (ids.length === 0) return;
+  if (!confirm(`¿Eliminar ${ids.length} pedido(s) seleccionado(s)? Esta acción no se puede deshacer.`)) return;
+  await Promise.all(ids.map(id => remove(ref(appState.db, `orders/${id}`))));
+  appUtils.showToast(`${ids.length} pedido(s) eliminado(s)`);
+}
+
+async function toggleOrderPaymentStatus(id) {
+  const o = (appState.orders || []).find(x => x.id === id);
+  if (!o) return;
+  const next = (o.paymentStatus || 'pagado') === 'pagado' ? 'pendiente' : 'pagado';
+  await update(ref(appState.db, `orders/${id}`), { paymentStatus: next });
+}
+
+window.viewOrderDetails = function(orderId) {
+  const o = (appState.orders || []).find(x => x.id === orderId);
+  if (!o) return;
+
+  appUtils.safeText('modal-order-details-title', `Pedido #${(o.id || '').slice(-6).toUpperCase()}`);
+
+  const itemsHTML = (o.items || []).map(i => `
+    <div style="display:flex; justify-content:space-between; padding:0.4rem 0; border-bottom:1px dashed #e0e5f2; font-size:0.85rem;">
+      <span>${i.name} x${i.qty}</span>
+      <span>${appUtils.formatMoney((i.price || 0) * (i.qty || 0))}</span>
+    </div>
+  `).join('') || '<p style="color:var(--text-muted);">Sin productos registrados.</p>';
+
+  const mixedHTML = o.mixedPayment
+    ? `<div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">Efectivo: ${appUtils.formatMoney(o.mixedPayment.cash || 0)} · Transferencia: ${appUtils.formatMoney(o.mixedPayment.transfer || 0)}</div>`
+    : '';
+
+  const addressHTML = (o.customer && o.customer.address)
+    ? `<div style="margin-top:0.75rem;"><strong>📍 Envío a:</strong><br>${o.customer.address}, ${o.customer.city || ''} (${o.customer.dept || ''})</div>`
+    : '';
+
+  document.getElementById('order-details-content').innerHTML = `
+    <div><strong>Cliente:</strong> ${o.customer?.name || 'Desconocido'} — ${o.customer?.phone || 'Sin teléfono'}</div>
+    <div><strong>Vendedor:</strong> ${o.seller || 'Web'} · <strong>Canal:</strong> ${o.channel === 'pos' ? 'Punto físico' : (o.channel || 'Web')}</div>
+    ${addressHTML}
+    <div style="margin-top:0.9rem; margin-bottom:0.4rem; font-weight:800;">🛒 Productos</div>
+    ${itemsHTML}
+    <div style="display:flex; justify-content:space-between; padding-top:0.6rem; font-size:0.85rem;">
+      <span>Subtotal</span><span>${appUtils.formatMoney(o.subtotal || 0)}</span>
+    </div>
+    ${o.shippingValue ? `<div style="display:flex; justify-content:space-between; font-size:0.85rem;"><span>Envío</span><span>${appUtils.formatMoney(o.shippingValue)}</span></div>` : ''}
+    <div style="display:flex; justify-content:space-between; font-weight:800; font-size:1rem; margin-top:0.4rem;">
+      <span>Total</span><span style="color:var(--primary)">${appUtils.formatMoney(o.total || 0)}</span>
+    </div>
+    <div style="margin-top:0.5rem;"><strong>Método de pago:</strong> ${o.paymentMethod || 'No especificado'}</div>
+    ${mixedHTML}
+    <div style="margin-top:0.9rem;">
+      <label class="field-label">Estado del pedido</label>
+      <select class="field-input" onchange="changeOrderStatus('${o.id}', this.value)">
+        <option value="borrador" ${o.status==='borrador'?'selected':''}>Borrador</option>
+        <option value="gestion" ${(o.status==='gestion'||!o.status)?'selected':''}>En Gestión</option>
+        <option value="alistamiento" ${o.status==='alistamiento'?'selected':''}>Alistamiento</option>
+        <option value="terminado" ${o.status==='terminado'?'selected':''}>Terminado</option>
+        <option value="entregado" ${o.status==='entregado'?'selected':''}>Entregado</option>
+        <option value="cancelado" ${o.status==='cancelado'?'selected':''}>Cancelado</option>
+      </select>
+    </div>
+  `;
+  appUtils.safeStyle('modal-order-details', 'display', 'flex');
+};
 
 async function changeOrderStatus(orderId, newStatus) {
   try {
