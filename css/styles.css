@@ -4379,3 +4379,26 @@ textarea:focus {
   font-size: 0.85rem;
   text-align: center;
 }
+
+.orders-filters-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.orders-filters-bar .field-input {
+  flex: 1;
+}
+
+.admin-table td small {
+  color: var(--text-muted, #a3aed1);
+}
+
+.admin-table td a {
+  text-decoration: none;
+}
+
+.admin-table td a:hover {
+  text-decoration: underline;
+}
