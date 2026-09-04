@@ -956,14 +956,7 @@
         <div class="admin-page-header">
           <h2>Productos</h2>
           <div class="header-actions">
-            <div class="search-box admin-search">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input type="text" id="admin-search-input" placeholder="Buscar nombre o ref…" autocomplete="off" />
-            </div>
-            <button class="btn-add-product" id="btn-add-product">Agregar producto</button>
+            <button class="btn-add-product" id="btn-add-product">+ Agregar producto</button>
             <button class="btn-add-product" id="btn-bulk-excel" style="background:#10B981;">Subir Excel</button>
             <input type="file" id="bulk-upload-excel" accept=".xlsx, .xls" style="display:none;" />
             <button class="btn-add-product" id="btn-bulk-photos" style="background:#8B5CF6;">Subir Fotos</button>
@@ -971,18 +964,61 @@
           </div>
         </div>
 
+        <!-- Resumen rápido del inventario -->
+        <div class="products-kpi-row">
+          <div class="products-kpi-card">
+            <div class="products-kpi-label">📦 Total Productos</div>
+            <div class="products-kpi-value" id="kpi-total-products">0</div>
+          </div>
+          <div class="products-kpi-card">
+            <div class="products-kpi-label">💰 Valor de Inventario</div>
+            <div class="products-kpi-value" id="kpi-inventory-value">COP 0</div>
+          </div>
+          <div class="products-kpi-card kpi-warning">
+            <div class="products-kpi-label">⚠️ Bajo Stock</div>
+            <div class="products-kpi-value" id="kpi-low-stock">0</div>
+          </div>
+          <div class="products-kpi-card kpi-danger">
+            <div class="products-kpi-label">❌ Agotados</div>
+            <div class="products-kpi-value" id="kpi-out-of-stock">0</div>
+          </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="products-filters-bar">
+          <div class="search-box admin-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" id="admin-search-input" placeholder="Buscar nombre o ref…" autocomplete="off" />
+          </div>
+          <select id="products-category-filter" class="field-input">
+            <option value="">Todas las categorías</option>
+          </select>
+          <div class="products-stock-filter" id="products-stock-filter">
+            <button type="button" class="stock-filter-chip active" data-filter="all">Todos</button>
+            <button type="button" class="stock-filter-chip" data-filter="low">Bajo stock</button>
+            <button type="button" class="stock-filter-chip" data-filter="out">Agotados</button>
+            <button type="button" class="stock-filter-chip" data-filter="inactive">Inactivos</button>
+          </div>
+          <button class="action-btn" id="btn-delete-selected-products" style="display:none; color:var(--danger);">🗑️ Eliminar seleccionados</button>
+        </div>
+
         <div class="products-table-wrapper">
           <table class="admin-table" id="products-table">
             <thead>
               <tr>
+                <th><input type="checkbox" id="products-select-all" /></th>
                 <th>Foto</th>
-                <th>Nombre / Ref</th>
-                <th>Inventario</th>
-                <th>Costo</th>
-                <th>Precio</th>
-                <th>Ganancia Neta</th>
-                <th>Ganancia Total (todo el stock)</th>
-                <th>Rotación</th>
+                <th class="sortable-th" data-sort="name">Nombre / Ref <span class="sort-arrow"></span></th>
+                <th class="sortable-th" data-sort="stock">Inventario <span class="sort-arrow"></span></th>
+                <th class="sortable-th" data-sort="cost">Costo <span class="sort-arrow"></span></th>
+                <th class="sortable-th" data-sort="price">Precio <span class="sort-arrow"></span></th>
+                <th class="sortable-th" data-sort="netProfit">Ganancia Neta <span class="sort-arrow"></span></th>
+                <th class="sortable-th" data-sort="totalProfit">Ganancia Total <span class="sort-arrow"></span></th>
+                <th class="sortable-th" data-sort="rotation">Rotación <span class="sort-arrow"></span></th>
+                <th>Estado</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -991,6 +1027,8 @@
             </tbody>
           </table>
         </div>
+
+        <div class="products-pagination" id="products-pagination"></div>
       </div>
 
       <!-- TAB: CLIENTES -->
