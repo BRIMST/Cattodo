@@ -68,6 +68,31 @@ export function initAdmin(state, utils) {
   on('btn-bulk-photos', 'onclick', () => document.getElementById('bulk-upload-photos')?.click());
   on('bulk-upload-photos', 'onchange', handleBulkPhotoUpload);
 
+  // Productos: búsqueda, filtros, orden, paginación y selección múltiple
+  const resetToPage1AndRender = () => { productsCurrentPage = 1; renderProductsTable(); };
+  on('admin-search-input', 'oninput', resetToPage1AndRender);
+  on('products-category-filter', 'onchange', resetToPage1AndRender);
+  document.querySelectorAll('.stock-filter-chip').forEach(chip => {
+    chip.onclick = () => {
+      document.querySelectorAll('.stock-filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      resetToPage1AndRender();
+    };
+  });
+  document.querySelectorAll('.sortable-th').forEach(th => {
+    th.onclick = () => {
+      const key = th.dataset.sort;
+      if (productsSortState.key === key) productsSortState.dir *= -1;
+      else { productsSortState.key = key; productsSortState.dir = 1; }
+      renderProductsTable();
+    };
+  });
+  on('products-select-all', 'onchange', (e) => {
+    document.querySelectorAll('.product-select-checkbox').forEach(cb => { cb.checked = e.target.checked; });
+    updateBulkDeleteProductsButton();
+  });
+  on('btn-delete-selected-products', 'onclick', deleteSelectedProducts);
+
   // Configuración: guardar + logo + QR + fotos de clientes
   on('btn-save-settings', 'onclick', saveSettings);
   on('logo-upload-area', 'onclick', () => document.getElementById('logo-file-input')?.click());
@@ -871,58 +896,183 @@ async function changeOrderStatus(orderId, newStatus) {
 // ==========================================
 // MODULE: PRODUCTOS
 // ==========================================
+let productsSortState = { key: null, dir: 1 };
+let productsCurrentPage = 1;
+const PRODUCTS_PER_PAGE = 20;
+
 function renderProductsTable() {
   const tbody = document.getElementById('products-table-body');
   if (!tbody) return;
-  
+
+  const allProducts = appState.products || [];
   const query = (document.getElementById('admin-search-input')?.value || '').toLowerCase();
-  let products = appState.products || [];
-  if (query) {
-    products = products.filter(p => (p.name||'').toLowerCase().includes(query) || (p.ref||'').toLowerCase().includes(query));
+  const categoryFilter = document.getElementById('products-category-filter')?.value || '';
+  const stockFilter = document.querySelector('.stock-filter-chip.active')?.dataset.filter || 'all';
+
+  // Categorías disponibles (se recalculan cada vez por si se agregó una nueva)
+  const catSelect = document.getElementById('products-category-filter');
+  if (catSelect) {
+    const cats = [...new Set(allProducts.map(p => p.category).filter(Boolean))].sort();
+    const currentVal = catSelect.value;
+    catSelect.innerHTML = '<option value="">Todas las categorías</option>' + cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    catSelect.value = currentVal;
   }
-  
-  // Calc metrics
-  // We need to know sales per product
+
+  // Ventas por producto (para la columna de Rotación)
   const salesMap = {};
   (appState.orders || []).forEach(o => {
     if (o.status !== 'cancelado') {
-      (o.items || []).forEach(i => {
-        salesMap[i.id] = (salesMap[i.id] || 0) + (i.qty || 1);
-      });
+      (o.items || []).forEach(i => { salesMap[i.id] = (salesMap[i.id] || 0) + (i.qty || 1); });
     }
   });
 
-  tbody.innerHTML = products.map(p => {
-    const img = (p.images && p.images[0]) ? p.images[0] : (p.image || '');
+  // Enriquecer cada producto con los valores calculados, una sola vez
+  let products = allProducts.map(p => {
     const cost = parseFloat(p.cost) || 0;
     const price = parseFloat(p.price) || 0;
     const stock = parseInt(p.stock) || 0;
-    const netProfit = price - cost;
-    const totalProfitIfSold = netProfit * stock;
-    const rotation = salesMap[p.id] || 0;
-    
-    return `
-      <tr>
-        <td>${img ? `<img src="${img}" class="table-img" loading="lazy" />` : '📦'}</td>
-        <td><strong>${p.name}</strong><br><small>${p.ref || 'Sin ref'}</small></td>
-        <td>
-           <span style="font-weight:bold; font-size:1.1rem; color:${stock <= (p.minStock||3) ? 'var(--danger)' : 'var(--text-main)'}">${stock}</span>
-        </td>
-        <td>${appUtils.formatMoney(cost)}</td>
-        <td>${appUtils.formatMoney(price)}</td>
-        <td style="color:var(--success); font-weight:bold;">${appUtils.formatMoney(netProfit)}</td>
-        <td style="color:var(--success);">${appUtils.formatMoney(totalProfitIfSold)}</td>
-        <td>${rotation} uds.</td>
-        <td>
-           <button class="action-btn" onclick="openProductModal('${p.id}')">✏️ Editar</button>
-           <button class="action-btn" style="color:var(--text-muted); margin-left:8px;" onclick="window.openProductHistory('${p.id}')">📜 Historial</button>
-           <button class="action-btn" style="color:var(--danger); margin-left:8px;" onclick="promptCastigo('${p.id}')">⬇️ Castigar</button>
-           <button class="action-btn" style="color:var(--danger); margin-left:8px;" onclick="window.confirmDeleteProduct('${p.id}')">🗑️ Eliminar</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
+    const minStock = p.minStock || 3;
+    return {
+      ...p, cost, price, stock, minStock,
+      netProfit: price - cost,
+      totalProfit: (price - cost) * stock,
+      rotation: salesMap[p.id] || 0
+    };
+  });
+
+  // KPIs (calculados sobre el inventario completo, sin filtrar)
+  appUtils.safeText('kpi-total-products', products.length);
+  appUtils.safeText('kpi-inventory-value', appUtils.formatMoney(products.reduce((s, p) => s + p.cost * p.stock, 0)));
+  appUtils.safeText('kpi-low-stock', products.filter(p => p.stock > 0 && p.stock <= p.minStock).length);
+  appUtils.safeText('kpi-out-of-stock', products.filter(p => p.stock <= 0).length);
+
+  // Filtros
+  if (query) {
+    products = products.filter(p => (p.name || '').toLowerCase().includes(query) || (p.ref || '').toLowerCase().includes(query));
+  }
+  if (categoryFilter) {
+    products = products.filter(p => p.category === categoryFilter);
+  }
+  if (stockFilter === 'low') products = products.filter(p => p.stock > 0 && p.stock <= p.minStock);
+  else if (stockFilter === 'out') products = products.filter(p => p.stock <= 0);
+  else if (stockFilter === 'inactive') products = products.filter(p => p.active === false);
+
+  // Orden
+  if (productsSortState.key) {
+    const k = productsSortState.key;
+    products.sort((a, b) => {
+      let va = k === 'name' ? (a.name || '').toLowerCase() : a[k];
+      let vb = k === 'name' ? (b.name || '').toLowerCase() : b[k];
+      if (va < vb) return -1 * productsSortState.dir;
+      if (va > vb) return 1 * productsSortState.dir;
+      return 0;
+    });
+  }
+
+  document.querySelectorAll('.sortable-th').forEach(th => {
+    const arrow = th.querySelector('.sort-arrow');
+    if (th.dataset.sort === productsSortState.key) {
+      arrow.textContent = productsSortState.dir === 1 ? '▲' : '▼';
+    } else {
+      arrow.textContent = '';
+    }
+  });
+
+  // Paginación
+  const totalPages = Math.max(1, Math.ceil(products.length / PRODUCTS_PER_PAGE));
+  if (productsCurrentPage > totalPages) productsCurrentPage = totalPages;
+  const startIdx = (productsCurrentPage - 1) * PRODUCTS_PER_PAGE;
+  const pageProducts = products.slice(startIdx, startIdx + PRODUCTS_PER_PAGE);
+
+  if (pageProducts.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:var(--text-muted); padding:2rem;">No se encontraron productos con estos filtros.</td></tr>`;
+  } else {
+    tbody.innerHTML = pageProducts.map(p => {
+      const img = (p.images && p.images[0]) ? p.images[0] : (p.image || '');
+      let stockBadge = '';
+      if (p.stock <= 0) stockBadge = '<br><span class="stock-badge stock-badge-out">Agotado</span>';
+      else if (p.stock <= p.minStock) stockBadge = '<br><span class="stock-badge stock-badge-low">Bajo stock</span>';
+
+      return `
+        <tr>
+          <td><input type="checkbox" class="product-select-checkbox" data-product-id="${p.id}" /></td>
+          <td>${img ? `<img src="${img}" class="table-img" loading="lazy" />` : '📦'}</td>
+          <td><strong>${p.name}</strong><br><small>${p.ref || 'Sin ref'}${p.category ? ` · ${p.category}` : ''}</small></td>
+          <td>
+             <span style="font-weight:bold; font-size:1.1rem; color:${p.stock <= p.minStock ? 'var(--danger)' : 'var(--text-main)'}">${p.stock}</span>
+             ${stockBadge}
+          </td>
+          <td>${appUtils.formatMoney(p.cost)}</td>
+          <td>${appUtils.formatMoney(p.price)}</td>
+          <td style="color:var(--success); font-weight:bold;">${appUtils.formatMoney(p.netProfit)}</td>
+          <td style="color:var(--success);">${appUtils.formatMoney(p.totalProfit)}</td>
+          <td>${p.rotation} uds.</td>
+          <td>
+            <span class="status-toggle-badge ${p.active === false ? 'status-inactive' : 'status-active'}" onclick="window.toggleProductActive('${p.id}')">
+              ${p.active === false ? '⏸ Inactivo' : '✓ Activo'}
+            </span>
+          </td>
+          <td>
+             <button class="action-btn" onclick="openProductModal('${p.id}')">✏️</button>
+             <button class="action-btn" style="color:var(--text-muted);" onclick="window.openProductHistory('${p.id}')">📜</button>
+             <button class="action-btn" style="color:var(--danger);" onclick="promptCastigo('${p.id}')">⬇️</button>
+             <button class="action-btn" style="color:var(--danger);" onclick="window.confirmDeleteProduct('${p.id}')">🗑️</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // Controles de paginación
+  const pag = document.getElementById('products-pagination');
+  if (pag) {
+    if (totalPages <= 1) {
+      pag.innerHTML = '';
+    } else {
+      let btns = '';
+      for (let i = 1; i <= totalPages; i++) {
+        btns += `<button type="button" class="page-btn ${i === productsCurrentPage ? 'active' : ''}" onclick="window.goToProductsPage(${i})">${i}</button>`;
+      }
+      pag.innerHTML = `
+        <button type="button" class="page-btn" ${productsCurrentPage === 1 ? 'disabled' : ''} onclick="window.goToProductsPage(${productsCurrentPage - 1})">‹</button>
+        ${btns}
+        <button type="button" class="page-btn" ${productsCurrentPage === totalPages ? 'disabled' : ''} onclick="window.goToProductsPage(${productsCurrentPage + 1})">›</button>
+        <span class="page-info">${products.length} producto(s)</span>
+      `;
+    }
+  }
+
+  document.querySelectorAll('.product-select-checkbox').forEach(cb => {
+    cb.onchange = updateBulkDeleteProductsButton;
+  });
 }
+
+window.goToProductsPage = function(page) {
+  productsCurrentPage = page;
+  renderProductsTable();
+};
+
+function updateBulkDeleteProductsButton() {
+  const checked = document.querySelectorAll('.product-select-checkbox:checked');
+  const btn = document.getElementById('btn-delete-selected-products');
+  if (btn) btn.style.display = checked.length > 0 ? 'inline-block' : 'none';
+}
+
+async function deleteSelectedProducts() {
+  const ids = Array.from(document.querySelectorAll('.product-select-checkbox:checked')).map(cb => cb.dataset.productId);
+  if (ids.length === 0) return;
+  if (!confirm(`¿Eliminar ${ids.length} producto(s) seleccionado(s)? Esta acción no se puede deshacer.`)) return;
+  await Promise.all(ids.map(id => remove(ref(appState.db, `products/${id}`))));
+  appUtils.showToast(`${ids.length} producto(s) eliminado(s)`);
+  if (window.loadCatalog) window.loadCatalog();
+}
+
+window.toggleProductActive = async function(id) {
+  const p = appState.products.find(x => x.id === id);
+  if (!p) return;
+  await update(ref(appState.db, `products/${id}`), { active: p.active === false ? true : false });
+  if (window.loadCatalog) window.loadCatalog();
+};
 
 window.promptCastigo = async function(id) {
   const p = appState.products.find(x => x.id === id);
