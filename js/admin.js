@@ -174,7 +174,8 @@ function initNavigation() {
       if (btn.dataset.tab === 'orders') renderOrdersTable();
       if (btn.dataset.tab === 'products') renderProductsTable();
       if (btn.dataset.tab === 'clients') renderClientsTable();
-      if (btn.dataset.tab === 'reports' || btn.dataset.tab === 'finance') renderDashboard();
+      if (btn.dataset.tab === 'reports') renderReports();
+      if (btn.dataset.tab === 'finance') renderFinance();
       if (btn.dataset.tab === 'settings') loadSettingsForm();
     };
   });
@@ -205,6 +206,8 @@ function openAdminActual() {
       appState.orders = val ? Object.entries(val).map(([k, v]) => ({ id: k, ...v })) : [];
       renderOrdersTable();
       renderDashboard();
+      if (document.getElementById('tab-reports')?.classList.contains('active')) renderReports();
+      if (document.getElementById('tab-finance')?.classList.contains('active')) renderFinance();
     });
     
     // Listen to Clients
@@ -227,6 +230,21 @@ function closeAdmin() {
 // ==========================================
 // MODULE: DASHBOARD & FINANCE
 // ==========================================
+
+// Devuelve el timestamp de inicio para un periodo dado ('day','week','month','semester','all')
+function getTimeframeSince(timeframe) {
+  const now = new Date();
+  const start = new Date(now);
+  switch (timeframe) {
+    case 'day': start.setHours(0, 0, 0, 0); break;
+    case 'week': start.setDate(now.getDate() - 7); break;
+    case 'month': start.setMonth(now.getMonth() - 1); break;
+    case 'semester': start.setMonth(now.getMonth() - 6); break;
+    case 'all': default: return 0;
+  }
+  return start.getTime();
+}
+
 function renderDashboard() {
   const orders = appState.orders || [];
   const products = appState.products || [];
@@ -251,7 +269,7 @@ function renderDashboard() {
   let potentialProfit = 0;
   
   products.forEach(p => {
-    if (p.active) {
+    if (p.active !== false) {
       const stock = parseInt(p.stock) || 0;
       const cost = parseFloat(p.cost) || 0;
       const price = parseFloat(p.price) || 0;
@@ -260,17 +278,208 @@ function renderDashboard() {
     }
   });
   
-  // Dashboard Metrics
   appUtils.safeText('dash-total-sales', appUtils.formatMoney(totalSales));
   appUtils.safeText('dash-net-profit', appUtils.formatMoney(totalSales - totalCost));
   appUtils.safeText('dash-pending-orders', pendingCount);
   appUtils.safeText('dash-inventory-value', appUtils.formatMoney(inventoryValue));
-  
-  // Finance Metrics
+
+  renderDashboardTrendChart();
+}
+
+// Gráfica simple de ventas de los últimos 14 días, sin depender de ninguna
+// librería externa — barras generadas con divs, dimensionadas por CSS.
+function renderDashboardTrendChart() {
+  const container = document.getElementById('dashboard-charts-row');
+  if (!container) return;
+  const orders = appState.orders || [];
+
+  const days = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - i);
+    days.push(d);
+  }
+
+  const salesByDay = days.map(d => {
+    const nextDay = new Date(d); nextDay.setDate(d.getDate() + 1);
+    const total = orders
+      .filter(o => o.status !== 'cancelado' && o.timestamp >= d.getTime() && o.timestamp < nextDay.getTime())
+      .reduce((s, o) => s + (o.total || 0), 0);
+    return { date: d, total };
+  });
+
+  const maxVal = Math.max(...salesByDay.map(d => d.total), 1);
+
+  container.innerHTML = `
+    <div class="dashboard-chart-card">
+      <h4 class="report-title">📈 Ventas — últimos 14 días</h4>
+      <div class="trend-chart">
+        ${salesByDay.map(d => `
+          <div class="trend-bar-wrap" title="${d.date.toLocaleDateString('es-CO')}: ${appUtils.formatMoney(d.total)}">
+            <div class="trend-bar" style="height:${Math.max(4, (d.total / maxVal) * 100)}%"></div>
+            <span class="trend-bar-label">${d.date.getDate()}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// Filtra pedidos según el periodo elegido en "report-timeframe"
+function getFilteredOrdersForReports() {
+  const timeframe = document.getElementById('report-timeframe')?.value || 'month';
+  const since = getTimeframeSince(timeframe);
+  return (appState.orders || []).filter(o => (o.timestamp || 0) >= since);
+}
+
+function renderReports() {
+  const orders = getFilteredOrdersForReports();
+  const products = appState.products || [];
+
+  const confirmed = orders.filter(o => o.status === 'entregado' || o.status === 'terminado');
+  const cancelled = orders.filter(o => o.status === 'cancelado');
+  const totalSales = confirmed.reduce((s, o) => s + (o.total || 0), 0);
+  const totalCost = confirmed.reduce((s, o) => s + (o.totalCost || 0), 0);
+
+  appUtils.safeText('report-revenue-total', appUtils.formatMoney(totalSales));
+  appUtils.safeText('report-profit-total', appUtils.formatMoney(totalSales - totalCost));
+
+  // Alerta de stock bajo
+  const lowStock = products.filter(p => p.active !== false && (parseInt(p.stock) || 0) <= (p.minStock || 3));
+  const alertEl = document.getElementById('report-low-stock-alert');
+  if (alertEl) {
+    if (lowStock.length > 0) {
+      alertEl.style.display = 'block';
+      alertEl.innerHTML = `
+        <div class="report-alert-banner">
+          ⚠️ <strong>${lowStock.length} producto(s)</strong> con stock bajo o agotado:
+          ${lowStock.slice(0, 5).map(p => p.name).join(', ')}${lowStock.length > 5 ? '…' : ''}
+        </div>`;
+    } else {
+      alertEl.style.display = 'none';
+    }
+  }
+
+  // Ventas por canal
+  const channelMap = {};
+  confirmed.forEach(o => {
+    const ch = o.channel === 'pos' ? 'Punto Físico' : (o.channel || 'Web');
+    channelMap[ch] = (channelMap[ch] || 0) + (o.total || 0);
+  });
+  const channelEl = document.getElementById('report-channel-bars');
+  if (channelEl) {
+    const entries = Object.entries(channelMap);
+    if (entries.length === 0) {
+      channelEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:0.5rem 0">Sin datos en este periodo</div>';
+    } else {
+      const maxCh = Math.max(...entries.map(e => e[1]), 1);
+      channelEl.innerHTML = entries.map(([name, val]) => `
+        <div class="channel-bar-row">
+          <span class="channel-bar-label">${name}</span>
+          <div class="channel-bar-track"><div class="channel-bar-fill" style="width:${(val / maxCh) * 100}%"></div></div>
+          <span class="channel-bar-value">${appUtils.formatMoney(val)}</span>
+        </div>
+      `).join('');
+    }
+  }
+
+  // Estado de pedidos
+  const STATUS_LABELS = { borrador: 'Borrador', gestion: 'En Gestión', alistamiento: 'Alistamiento', terminado: 'Terminado', entregado: 'Entregado', cancelado: 'Cancelado' };
+  const statusCounts = {};
+  orders.forEach(o => { const s = o.status || 'gestion'; statusCounts[s] = (statusCounts[s] || 0) + 1; });
+  const statusEl = document.getElementById('report-status-summary');
+  if (statusEl) {
+    statusEl.innerHTML = Object.entries(statusCounts).map(([s, count]) => `
+      <div class="status-summary-chip">${STATUS_LABELS[s] || s}: <strong>${count}</strong></div>
+    `).join('') || '<div style="color:var(--text-muted);font-size:0.82rem;">Sin pedidos en este periodo</div>';
+  }
+
+  // Más vendidos
+  const soldMap = {};
+  confirmed.forEach(o => (o.items || []).forEach(i => { soldMap[i.id] = (soldMap[i.id] || 0) + (i.qty || 0); }));
+  const mostSold = Object.entries(soldMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const mostSoldEl = document.getElementById('report-most-sold');
+  if (mostSoldEl) {
+    mostSoldEl.innerHTML = mostSold.length > 0
+      ? mostSold.map(([id, qty]) => {
+          const p = products.find(x => x.id === id);
+          return `<div class="report-list-row"><span>${p ? p.name : 'Producto eliminado'}</span><strong>${qty} uds.</strong></div>`;
+        }).join('')
+      : '<div style="color:var(--text-muted);font-size:0.82rem;">Sin ventas en este periodo</div>';
+  }
+
+  // Más cancelados
+  const cancelMap = {};
+  cancelled.forEach(o => (o.items || []).forEach(i => { cancelMap[i.id] = (cancelMap[i.id] || 0) + (i.qty || 0); }));
+  const mostCancelled = Object.entries(cancelMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const mostCancelledEl = document.getElementById('report-most-cancelled');
+  if (mostCancelledEl) {
+    mostCancelledEl.innerHTML = mostCancelled.length > 0
+      ? mostCancelled.map(([id, qty]) => {
+          const p = products.find(x => x.id === id);
+          return `<div class="report-list-row"><span>${p ? p.name : 'Producto eliminado'}</span><strong>${qty} uds.</strong></div>`;
+        }).join('')
+      : '<div style="color:var(--text-muted);font-size:0.82rem;">Sin cancelaciones en este periodo 🎉</div>';
+  }
+
+  // Sin ventas (productos activos que no se han vendido en el periodo)
+  const noSalesEl = document.getElementById('report-no-sales');
+  if (noSalesEl) {
+    const noSales = products.filter(p => p.active !== false && !soldMap[p.id]);
+    noSalesEl.innerHTML = noSales.length > 0
+      ? noSales.slice(0, 15).map(p => `<div class="report-list-row"><span>${p.name}</span><small style="color:var(--text-muted)">${p.stock || 0} en stock</small></div>`).join('')
+        + (noSales.length > 15 ? `<div style="color:var(--text-muted); font-size:0.78rem; margin-top:0.4rem;">y ${noSales.length - 15} más…</div>` : '')
+      : '<div style="color:var(--text-muted);font-size:0.82rem;">Todos tus productos activos tuvieron ventas en este periodo 🎉</div>';
+  }
+}
+
+function renderFinance() {
+  const orders = getFilteredOrdersForReports();
+  const products = appState.products || [];
+
+  const confirmed = orders.filter(o => o.status === 'entregado' || o.status === 'terminado');
+  const totalSales = confirmed.reduce((s, o) => s + (o.total || 0), 0);
+  const totalCost = confirmed.reduce((s, o) => s + (o.totalCost || 0), 0);
+
+  let inventoryValue = 0, potentialProfit = 0;
+  products.forEach(p => {
+    if (p.active !== false) {
+      const stock = parseInt(p.stock) || 0;
+      const cost = parseFloat(p.cost) || 0;
+      const price = parseFloat(p.price) || 0;
+      inventoryValue += (stock * cost);
+      potentialProfit += (stock * (price - cost));
+    }
+  });
+
   appUtils.safeText('report-revenue-total', appUtils.formatMoney(totalSales));
   appUtils.safeText('report-profit-total', appUtils.formatMoney(totalSales - totalCost));
   appUtils.safeText('finance-total-cost', appUtils.formatMoney(totalCost));
   appUtils.safeText('finance-potential-profit', appUtils.formatMoney(potentialProfit));
+
+  // Margen de ganancia (%)
+  const marginPct = totalSales > 0 ? (((totalSales - totalCost) / totalSales) * 100).toFixed(1) : '0.0';
+  appUtils.safeText('finance-margin-pct', `${marginPct}%`);
+
+  // Ingresos por método de pago
+  const methodMap = {};
+  confirmed.forEach(o => {
+    const method = o.paymentMethod || 'No especificado';
+    methodMap[method] = (methodMap[method] || 0) + (o.total || 0);
+  });
+  const methodEl = document.getElementById('finance-payment-methods');
+  if (methodEl) {
+    const entries = Object.entries(methodMap);
+    methodEl.innerHTML = entries.length > 0
+      ? entries.map(([m, v]) => `<div class="report-list-row"><span>${m}</span><strong>${appUtils.formatMoney(v)}</strong></div>`).join('')
+      : '<div style="color:var(--text-muted);font-size:0.82rem;">Sin datos en este periodo</div>';
+  }
+
+  // Pagos pendientes de cobro
+  const unpaidTotal = orders.filter(o => o.status !== 'cancelado' && (o.paymentStatus || 'pagado') === 'pendiente')
+    .reduce((s, o) => s + (o.total || 0), 0);
+  appUtils.safeText('finance-unpaid-total', appUtils.formatMoney(unpaidTotal));
 }
 
 // ==========================================
@@ -313,6 +522,10 @@ function initPOS() {
   }
 
   document.getElementById('btn-pos-quote-shipping')?.addEventListener('click', quotePOSShipping);
+  document.getElementById('report-timeframe')?.addEventListener('change', () => {
+    renderReports();
+    renderFinance();
+  });
   
   const searchInput = document.getElementById('pos-search-input');
   if (searchInput) searchInput.oninput = renderPOSProducts;
@@ -1190,33 +1403,62 @@ function renderClientsTable() {
   
   const query = (document.getElementById('clients-search-input')?.value || '').toLowerCase();
   let clients = appState.clients || [];
-  
-  // group clients by phone to show unique clients if there are duplicates from orders
+  const orders = appState.orders || [];
+
+  const clientCode = (phone) => {
+    const digits = (phone || '').replace(/\D/g, '');
+    return `CLI-${digits.slice(-5).padStart(5, '0')}`;
+  };
+
+  // Gasto real por cliente: se suman los pedidos confirmados (no cancelados) que
+  // coinciden por teléfono, ya sean del checkout web o del POS.
+  const spentByPhone = {};
+  const ordersByPhone = {};
+  orders.forEach(o => {
+    const phone = o.customer?.phone;
+    if (!phone || o.status === 'cancelado') return;
+    spentByPhone[phone] = (spentByPhone[phone] || 0) + (o.total || 0);
+    ordersByPhone[phone] = (ordersByPhone[phone] || 0) + 1;
+  });
+
+  // Agrupar clientes únicos por teléfono (pueden llegar duplicados desde varios pedidos)
   const map = {};
   clients.forEach(c => {
-    if (c.phone) {
-      if (!map[c.phone]) map[c.phone] = {...c, count: 1};
-      else map[c.phone].count++;
-    }
+    if (c.phone && !map[c.phone]) map[c.phone] = c;
   });
-  
-  let unique = Object.values(map);
+
+  let unique = Object.values(map).map(c => ({
+    ...c,
+    totalSpent: spentByPhone[c.phone] || 0,
+    orderCount: ordersByPhone[c.phone] || 0
+  }));
+
+  // KPIs (sobre todos los clientes, sin filtrar por búsqueda)
+  appUtils.safeText('kpi-total-clients', unique.length);
+  appUtils.safeText('kpi-clients-total-value', appUtils.formatMoney(unique.reduce((s, c) => s + c.totalSpent, 0)));
+  const topClient = [...unique].sort((a, b) => b.totalSpent - a.totalSpent)[0];
+  appUtils.safeText('kpi-top-client', topClient && topClient.totalSpent > 0 ? topClient.name : '—');
+
   if (query) {
     unique = unique.filter(c => (c.name || '').toLowerCase().includes(query) || (c.phone || '').includes(query));
   }
+
+  // Mejores clientes primero — más útil para un CRM que el orden de llegada
+  unique.sort((a, b) => b.totalSpent - a.totalSpent);
   
   if (unique.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Sin clientes todavía. Se agregan automáticamente al crear un pedido con envío, o puedes crear uno manualmente.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Sin clientes todavía. Se agregan automáticamente al crear un pedido con envío, o puedes crear uno manualmente.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = unique.map(c => `
     <tr>
-      <td><strong>${c.name}</strong></td>
-      <td>${c.phone}</td>
+      <td><strong>${c.name}</strong><br><small style="color:var(--text-muted)">${clientCode(c.phone)}</small></td>
+      <td>📞 ${c.phone}</td>
       <td>${c.city || ''} <small>${c.dept ? `(${c.dept})` : ''}</small></td>
       <td>${c.address || ''}</td>
-      <td>${c.count || 1} pedido(s)</td>
+      <td>${c.orderCount}</td>
+      <td><strong style="color:var(--success)">${appUtils.formatMoney(c.totalSpent)}</strong></td>
       <td>
         <button class="action-btn" onclick="window.openClientModal('${c.id || ''}')">✏️ Editar</button>
       </td>
