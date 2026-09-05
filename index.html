@@ -772,6 +772,12 @@
         </button>
       </nav>
       <div class="admin-sidebar-footer">
+        <div class="admin-current-user" id="admin-current-user">
+          <span>👤</span> <span id="admin-current-user-email">—</span>
+        </div>
+        <button class="btn-exit-admin" id="btn-logout-admin">
+          <span>🚪</span> Cerrar sesión
+        </button>
         <button class="btn-exit-admin" id="btn-close-admin">
           <span>⬅️</span> Salir al Catálogo
         </button>
@@ -878,7 +884,9 @@
               <small id="pos-mixed-payment-hint" style="display:none; color:var(--text-muted); font-size:0.75rem;"></small>
             </div>
             
-            <input type="text" id="pos-seller-name" class="field-input" placeholder="Nombre del Vendedor (Opcional)" style="margin-top: 10px;" />
+            <div class="pos-seller-display" id="pos-seller-display" style="margin-top: 10px;">
+              👤 Vendedor: <strong id="pos-seller-current-name">—</strong>
+            </div>
 
             <button class="btn-create-order-pos" id="btn-create-order-pos">Crear Pedido</button>
           </div>
@@ -1162,6 +1170,24 @@
       <div class="admin-tab-content" id="tab-settings">
         <!-- Re-use the existing settings form HTML here -->
         <div class="settings-form">
+          <div class="settings-group">
+            <label class="settings-label">👤 Vendedores / Equipo</label>
+            <small class="settings-hint">Crea una cuenta real por cada vendedor que use el panel. Cada uno inicia sesión con su propio correo y contraseña — así sabes exactamente quién hizo cada venta.</small>
+            <div class="field-row" style="margin-top:0.6rem;">
+              <div class="field-group">
+                <label class="field-label">Nombre del vendedor</label>
+                <input type="text" id="new-seller-name" class="settings-input" placeholder="Ej: Juan Pérez">
+              </div>
+              <div class="field-group">
+                <label class="field-label">Correo</label>
+                <input type="email" id="new-seller-email" class="settings-input" placeholder="juan@pandaventa.com">
+              </div>
+            </div>
+            <label class="field-label">Contraseña temporal (mínimo 6 caracteres)</label>
+            <input type="text" id="new-seller-password" class="settings-input" placeholder="Ej: temporal123">
+            <button type="button" class="btn-add-variant" id="btn-add-seller" style="margin-top:0.6rem;">+ Crear cuenta de vendedor</button>
+          </div>
+
           <div class="settings-group">
             <label class="settings-label">Nombre de la tienda</label>
             <input type="text" id="settings-store-name" class="settings-input" placeholder="Mi Tienda" maxlength="60" />
@@ -1623,8 +1649,12 @@
       </div>
       <div class="modal-body">
         <div class="field-group">
+          <label class="field-label">Correo</label>
+          <input type="email" id="login-email" class="field-input" placeholder="tu@correo.com" autocomplete="username" />
+        </div>
+        <div class="field-group">
           <label class="field-label">Contraseña</label>
-          <input type="password" id="login-password" class="field-input" placeholder="••••••" />
+          <input type="password" id="login-password" class="field-input" placeholder="••••••" autocomplete="current-password" />
           <div class="login-error" id="login-error" style="display:none">Contraseña incorrecta</div>
         </div>
         <button class="btn-save-product" id="btn-login-submit" style="width:100%">Entrar</button>
