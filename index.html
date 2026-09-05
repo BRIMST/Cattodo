@@ -1037,6 +1037,22 @@
           <h2>Clientes</h2>
           <button class="btn-add-product" id="btn-add-client">Agregar Cliente</button>
         </div>
+
+        <div class="products-kpi-row" style="grid-template-columns: repeat(3, 1fr);">
+          <div class="products-kpi-card">
+            <div class="products-kpi-label">👥 Total Clientes</div>
+            <div class="products-kpi-value" id="kpi-total-clients">0</div>
+          </div>
+          <div class="products-kpi-card">
+            <div class="products-kpi-label">💰 Valor Total de Cartera</div>
+            <div class="products-kpi-value" id="kpi-clients-total-value">COP 0</div>
+          </div>
+          <div class="products-kpi-card">
+            <div class="products-kpi-label">⭐ Mejor Cliente</div>
+            <div class="products-kpi-value" id="kpi-top-client" style="font-size:1rem;">—</div>
+          </div>
+        </div>
+
         <div class="orders-filters-bar">
           <input type="text" id="clients-search-input" class="field-input" placeholder="Buscar por nombre o teléfono..." />
         </div>
@@ -1044,11 +1060,12 @@
           <table class="admin-table" id="clients-table">
             <thead>
               <tr>
-                <th>Nombre</th>
+                <th>Cliente</th>
                 <th>Celular</th>
                 <th>Ciudad</th>
                 <th>Dirección</th>
-                <th>Total Compras</th>
+                <th>Pedidos</th>
+                <th>Total Comprado</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -1125,6 +1142,19 @@
             <div class="fin-label">💎 Ganancia Potencial (Stock)</div>
             <div class="fin-value info" id="finance-potential-profit">COP 0</div>
           </div>
+          <div class="fin-card">
+            <div class="fin-label">📊 Margen de Ganancia</div>
+            <div class="fin-value info" id="finance-margin-pct">0.0%</div>
+          </div>
+          <div class="fin-card">
+            <div class="fin-label">⏳ Pendiente de Cobro</div>
+            <div class="fin-value danger" id="finance-unpaid-total">COP 0</div>
+          </div>
+        </div>
+
+        <div class="report-section" style="margin-top:20px;">
+          <h4 class="report-title" style="color:var(--primary)">💳 Ingresos por método de pago</h4>
+          <div id="finance-payment-methods" class="report-list"></div>
         </div>
       </div>
 
