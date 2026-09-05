@@ -1,4 +1,6 @@
 ﻿import { ref, set, update, remove, push, onValue, get } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+import { initializeApp, getApps, deleteApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+import { getAuth, signOut, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
 let appState = {};
 let appUtils = {};
@@ -27,6 +29,19 @@ export function initAdmin(state, utils) {
   window.openClientModal = openClientModal;
   window.confirmDeleteOrder = confirmDeleteOrder;
   window.toggleOrderPaymentStatus = toggleOrderPaymentStatus;
+
+  // Sesión: mostrar el usuario real conectado y permitir cerrar sesión
+  const currentUser = appState.auth?.currentUser;
+  appUtils.safeText('admin-current-user-email', currentUser?.email || '—');
+  appUtils.safeText('pos-seller-current-name', currentUser?.displayName || currentUser?.email || 'Sin identificar');
+
+  document.getElementById('btn-logout-admin')?.addEventListener('click', async () => {
+    if (!confirm('¿Cerrar sesión?')) return;
+    await signOut(appState.auth);
+    closeAdmin();
+  });
+
+  document.getElementById('btn-add-seller')?.addEventListener('click', createSellerAccount);
 
   const on = (id, event, fn) => {
     const el = document.getElementById(id);
@@ -804,7 +819,7 @@ async function createPOSOrder() {
   if (posCart.length === 0) return appUtils.showToast('Agrega productos al pedido.');
   
   const method = document.getElementById('pos-payment-method')?.value || 'efectivo';
-  const seller = document.getElementById('pos-seller-name')?.value || 'Admin';
+  const seller = appState.auth?.currentUser?.displayName || appState.auth?.currentUser?.email || 'Admin';
 
   let mixedPayment = null;
   if (method === 'mixto') {
@@ -1360,6 +1375,47 @@ function openClientModal(id = null) {
   appUtils.safeValue('client-notes', c ? (c.notes || '') : '');
   appUtils.safeStyle('btn-delete-client', 'display', c ? 'block' : 'none');
   appUtils.safeStyle('modal-client', 'display', 'flex');
+}
+
+// Crea una cuenta real de Firebase Authentication para un nuevo vendedor.
+// Usa una instancia SECUNDARIA de Firebase (no la principal) porque
+// createUserWithEmailAndPassword inicia sesión automáticamente como el
+// usuario recién creado — sin esto, cerraría tu propia sesión de admin.
+async function createSellerAccount() {
+  const name = document.getElementById('new-seller-name')?.value.trim();
+  const email = document.getElementById('new-seller-email')?.value.trim();
+  const password = document.getElementById('new-seller-password')?.value;
+
+  if (!name || !email || !password) return appUtils.showToast('Completa nombre, correo y contraseña');
+  if (password.length < 6) return appUtils.showToast('La contraseña debe tener al menos 6 caracteres');
+
+  const btn = document.getElementById('btn-add-seller');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creando...'; }
+
+  const SECONDARY_APP_NAME = 'seller-creation';
+  let secondaryApp = getApps().find(a => a.name === SECONDARY_APP_NAME);
+  if (!secondaryApp) {
+    secondaryApp = initializeApp(appState.auth.app.options, SECONDARY_APP_NAME);
+  }
+  const secondaryAuth = getAuth(secondaryApp);
+
+  try {
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    await updateProfile(cred.user, { displayName: name });
+    await signOut(secondaryAuth); // cierra la sesión en la app secundaria, no afecta la tuya
+    appUtils.showToast(`Cuenta creada para ${name} ✅ — ya puede iniciar sesión con ${email}`);
+    ['new-seller-name', 'new-seller-email', 'new-seller-password'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+  } catch (err) {
+    console.error('Error creando vendedor:', err);
+    const msg = err.code === 'auth/email-already-in-use' ? 'Ese correo ya tiene una cuenta' : 'Error al crear la cuenta: ' + err.message;
+    appUtils.showToast(msg);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '+ Crear cuenta de vendedor'; }
+    await deleteApp(secondaryApp);
+  }
 }
 
 async function saveClient() {
@@ -2181,7 +2237,7 @@ async function saveExternalSale() {
     externalOrderId: document.getElementById('ext-order-id')?.value || '',
     notes: document.getElementById('ext-notes')?.value || '',
     paymentMethod: channel,
-    seller: 'Admin'
+    seller: appState.auth?.currentUser?.displayName || appState.auth?.currentUser?.email || 'Admin'
   };
 
   try {

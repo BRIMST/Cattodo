@@ -18,6 +18,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/fireba
 import {
   getDatabase, ref, onValue, push
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+import {
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword, updateProfile
+} from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
 // ====== SECURITY - Password hashing ======
 const hashPassword = async (password) => {
@@ -41,6 +44,7 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getDatabase(firebaseApp);
+const auth = getAuth(firebaseApp);
 
 // ====== STATE ======
 let products = [];
@@ -1847,38 +1851,55 @@ function initSecondaryApp() {
     } catch (err) { showToast('Error al generar imagen'); }
   });
 
-  // ====== ADMIN ACCESS ======
+  // ====== ADMIN ACCESS — Autenticación real con Firebase Auth ======
+  // Antes: se comparaba un hash guardado en /settings del lado del cliente,
+  // lo cual no era autenticación real — cualquiera con la URL de la base de
+  // datos podía escribir sin ninguna credencial. Ahora cada vendedor/admin
+  // tiene su propia cuenta real en Firebase Authentication.
   const openAdmin = async () => {
-    const state = { db, products, settings, orders, cart, currentProductImages, viewerImages, viewerIndex };
+    const state = { db, auth, products, settings, orders, cart, currentProductImages, viewerImages, viewerIndex };
     const utils = { formatMoney, showToast, switchView, safeSet, safeText, safeHTML, safeValue, safeStyle, compressImage, hashPassword, isBogota, getShippingCost };
     const { initAdmin } = await import('./admin.js');
     initAdmin(state, utils);
   };
 
   const triggerAdminAccess = async () => {
-    if (settings.adminPasswordHash) {
-      safeStyle('modal-login', 'display', 'flex');
-    } else {
-      openAdmin();
-    }
+    safeStyle('modal-login', 'display', 'flex');
   };
 
   on('btn-open-admin', 'onclick', triggerAdminAccess);
 
   on('btn-login-submit', 'onclick', async () => {
+    const emailInput = document.getElementById('login-email');
     const passInput = document.getElementById('login-password');
     const errorMsg = document.getElementById('login-error');
-    if (!passInput) return;
-    const enteredHash = await hashPassword(passInput.value);
-    if (enteredHash === settings.adminPasswordHash) {
+    if (!passInput || !emailInput) return;
+
+    const submitBtn = document.getElementById('btn-login-submit');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Entrando...'; }
+
+    try {
+      await signInWithEmailAndPassword(auth, emailInput.value.trim(), passInput.value);
       safeStyle('modal-login', 'display', 'none');
       if (errorMsg) errorMsg.style.display = 'none';
       passInput.value = '';
       openAdmin();
-    } else {
-      if (errorMsg) errorMsg.style.display = 'block';
+    } catch (err) {
+      console.error('Error de autenticación:', err.code);
+      if (errorMsg) {
+        errorMsg.textContent = (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found')
+          ? 'Correo o contraseña incorrectos'
+          : 'Error al iniciar sesión. Intenta de nuevo.';
+        errorMsg.style.display = 'block';
+      }
       passInput.value = '';
+    } finally {
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Entrar'; }
     }
+  });
+
+  onAuthStateChanged(auth, (user) => {
+    window.currentAdminUser = user;
   });
 
   // Logo triple click
