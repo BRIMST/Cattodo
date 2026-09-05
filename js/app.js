@@ -18,9 +18,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/fireba
 import {
   getDatabase, ref, onValue, push
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
-import {
-  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword, updateProfile
-} from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
 // ====== SECURITY - Password hashing ======
 const hashPassword = async (password) => {
@@ -44,7 +41,6 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getDatabase(firebaseApp);
-const auth = getAuth(firebaseApp);
 
 // ====== STATE ======
 let products = [];
@@ -210,10 +206,52 @@ window.loadCatalog = async function() {
 function init() {
   window.loadCatalog();
 
-  // Nota: se quitó el selector de canal (Detal/Mayorista) — isWholesaleMode
-  // se queda permanentemente en "false" (su valor por defecto), así que toda
-  // la lógica de precios/mínimos mayoristas queda inactiva sin necesidad de
-  // tocarla en cada punto donde se usa.
+  const updateWholesaleToggleUI = () => {
+    const btnRetail = document.getElementById('btn-retail-mode');
+    const btnWholesale = document.getElementById('btn-wholesale-mode');
+    const banner = document.getElementById('wholesale-info-banner');
+    if (!btnRetail || !btnWholesale) return;
+    
+    if (isWholesaleMode) {
+      btnRetail.classList.remove('active');
+      btnRetail.style.background = 'transparent';
+      btnRetail.style.color = 'var(--text-muted)';
+      btnWholesale.classList.add('active');
+      btnWholesale.style.background = 'var(--primary)';
+      btnWholesale.style.color = '#fff';
+      if (banner) banner.style.display = 'block';
+    } else {
+      btnRetail.classList.add('active');
+      btnRetail.style.background = 'var(--primary)';
+      btnRetail.style.color = '#fff';
+      btnWholesale.classList.remove('active');
+      btnWholesale.style.background = 'transparent';
+      btnWholesale.style.color = 'var(--text-muted)';
+      if (banner) banner.style.display = 'none';
+    }
+  };
+
+  const switchWholesaleMode = (wholesale) => {
+    if (isWholesaleMode === wholesale) return;
+    
+    if (Object.keys(cart).length > 0) {
+      const confirmClear = confirm("Cambiar de canal de venta (Detal / Mayorista) vaciará tu carrito actual. ¿Deseas continuar?");
+      if (!confirmClear) return;
+      cart = {};
+      updateCartUI();
+    }
+    
+    isWholesaleMode = wholesale;
+    updateWholesaleToggleUI();
+    renderProducts();
+    renderDiscountSection();
+    updateCartUI();
+  };
+
+  document.getElementById('btn-retail-mode')?.addEventListener('click', () => switchWholesaleMode(false));
+  document.getElementById('btn-wholesale-mode')?.addEventListener('click', () => switchWholesaleMode(true));
+  
+  updateWholesaleToggleUI();
 
   document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.onclick = () => {
@@ -1851,55 +1889,38 @@ function initSecondaryApp() {
     } catch (err) { showToast('Error al generar imagen'); }
   });
 
-  // ====== ADMIN ACCESS — Autenticación real con Firebase Auth ======
-  // Antes: se comparaba un hash guardado en /settings del lado del cliente,
-  // lo cual no era autenticación real — cualquiera con la URL de la base de
-  // datos podía escribir sin ninguna credencial. Ahora cada vendedor/admin
-  // tiene su propia cuenta real en Firebase Authentication.
+  // ====== ADMIN ACCESS ======
   const openAdmin = async () => {
-    const state = { db, auth, products, settings, orders, cart, currentProductImages, viewerImages, viewerIndex };
+    const state = { db, products, settings, orders, cart, currentProductImages, viewerImages, viewerIndex };
     const utils = { formatMoney, showToast, switchView, safeSet, safeText, safeHTML, safeValue, safeStyle, compressImage, hashPassword, isBogota, getShippingCost };
     const { initAdmin } = await import('./admin.js');
     initAdmin(state, utils);
   };
 
   const triggerAdminAccess = async () => {
-    safeStyle('modal-login', 'display', 'flex');
+    if (settings.adminPasswordHash) {
+      safeStyle('modal-login', 'display', 'flex');
+    } else {
+      openAdmin();
+    }
   };
 
   on('btn-open-admin', 'onclick', triggerAdminAccess);
 
   on('btn-login-submit', 'onclick', async () => {
-    const emailInput = document.getElementById('login-email');
     const passInput = document.getElementById('login-password');
     const errorMsg = document.getElementById('login-error');
-    if (!passInput || !emailInput) return;
-
-    const submitBtn = document.getElementById('btn-login-submit');
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Entrando...'; }
-
-    try {
-      await signInWithEmailAndPassword(auth, emailInput.value.trim(), passInput.value);
+    if (!passInput) return;
+    const enteredHash = await hashPassword(passInput.value);
+    if (enteredHash === settings.adminPasswordHash) {
       safeStyle('modal-login', 'display', 'none');
       if (errorMsg) errorMsg.style.display = 'none';
       passInput.value = '';
       openAdmin();
-    } catch (err) {
-      console.error('Error de autenticación:', err.code);
-      if (errorMsg) {
-        errorMsg.textContent = (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found')
-          ? 'Correo o contraseña incorrectos'
-          : 'Error al iniciar sesión. Intenta de nuevo.';
-        errorMsg.style.display = 'block';
-      }
+    } else {
+      if (errorMsg) errorMsg.style.display = 'block';
       passInput.value = '';
-    } finally {
-      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Entrar'; }
     }
-  });
-
-  onAuthStateChanged(auth, (user) => {
-    window.currentAdminUser = user;
   });
 
   // Logo triple click
