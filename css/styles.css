@@ -4697,3 +4697,20 @@ textarea:focus {
   min-width: 90px;
   text-align: right;
 }
+
+.admin-current-user {
+  font-size: 0.8rem;
+  color: #707eae;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e0e5f2;
+  margin-bottom: 0.5rem;
+  word-break: break-all;
+}
+
+.pos-seller-display {
+  background: #f4f7fe;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.85rem;
+  color: #2b3674;
+}
