@@ -4714,3 +4714,64 @@ textarea:focus {
   font-size: 0.85rem;
   color: #2b3674;
 }
+
+/* ════════════════════════════════════════════════════════════════════════════════
+   PÁGINAS DE POLÍTICAS (Envíos / Devoluciones / Contacto) — requeridas por
+   Google Merchant Center.
+   ════════════════════════════════════════════════════════════════════════════════ */
+.policy-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem var(--px-mobile) 3rem;
+}
+
+.policy-content {
+  background: #fff;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: 1.75rem;
+  margin-top: 1rem;
+  color: var(--text-main);
+  line-height: 1.75;
+}
+
+.policy-content p {
+  margin-bottom: 1rem;
+}
+
+.policy-content p:last-child {
+  margin-bottom: 0;
+}
+
+.policy-contact-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #25D366;
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  text-decoration: none;
+  margin-top: 0.5rem;
+}
+
+.footer-policy-links {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--px-mobile) 1rem;
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+
+.footer-policy-links a {
+  color: rgba(255, 255, 255, 0.75);
+  text-decoration: none;
+}
+
+.footer-policy-links a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
