@@ -11,7 +11,9 @@
   "routes": [
     { "handle": "filesystem" },
     { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/(.*)", "dest": "/404.html", "status": 404 }
+    { "src": "/sitemap.xml", "dest": "/api/sitemap" },
+    { "src": "/product-feed.xml", "dest": "/api/product-feed" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "headers": [
     {

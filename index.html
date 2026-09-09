@@ -252,6 +252,11 @@
           <!-- Generado por JS según lo configurado en Configuración -->
         </div>
       </div>
+      <div class="footer-policy-links">
+        <a href="/envios" onclick="navigateTo('/envios'); return false;">Envíos</a>
+        <a href="/devoluciones" onclick="navigateTo('/devoluciones'); return false;">Devoluciones</a>
+        <a href="/contacto" onclick="navigateTo('/contacto'); return false;">Contacto</a>
+      </div>
       <div class="footer-bottom">
         © <span id="footer-year"></span> <span id="footer-store-name-2">Panda Venta</span>. Todos los derechos reservados.
       </div>
@@ -733,6 +738,54 @@
     </div>
   </div>
 
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  VISTA: POLÍTICA DE ENVÍOS                              -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="view-shipping-policy" class="view" data-noindex="false">
+    <div class="page-wrapper policy-page">
+      <header class="page-header">
+        <button class="btn-back" onclick="navigateTo('/'); return false;">←</button>
+        <h2>Política de Envíos</h2>
+        <div></div>
+      </header>
+      <div class="policy-content" id="shipping-policy-content">
+        <!-- Rellenado por JS desde Configuración, con un texto por defecto -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  VISTA: POLÍTICA DE DEVOLUCIONES                        -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="view-returns-policy" class="view" data-noindex="false">
+    <div class="page-wrapper policy-page">
+      <header class="page-header">
+        <button class="btn-back" onclick="navigateTo('/'); return false;">←</button>
+        <h2>Política de Devoluciones y Cambios</h2>
+        <div></div>
+      </header>
+      <div class="policy-content" id="returns-policy-content">
+        <!-- Rellenado por JS desde Configuración, con un texto por defecto -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  VISTA: CONTACTO                                        -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="view-contact" class="view" data-noindex="false">
+    <div class="page-wrapper policy-page">
+      <header class="page-header">
+        <button class="btn-back" onclick="navigateTo('/'); return false;">←</button>
+        <h2>Contacto</h2>
+        <div></div>
+      </header>
+      <div class="policy-content" id="contact-content">
+        <!-- Rellenado por JS desde Configuración -->
+      </div>
+    </div>
+  </div>
+
   
   <!-- ═══════════════════════════════════════════════════════ -->
   <!--  VISTA: ADMINISTRACIÓN (FULL SCREEN DASHBOARD)         -->
@@ -1186,6 +1239,20 @@
             <label class="field-label">Contraseña temporal (mínimo 6 caracteres)</label>
             <input type="text" id="new-seller-password" class="settings-input" placeholder="Ej: temporal123">
             <button type="button" class="btn-add-variant" id="btn-add-seller" style="margin-top:0.6rem;">+ Crear cuenta de vendedor</button>
+          </div>
+
+          <div class="settings-group">
+            <label class="settings-label">📜 Políticas de la tienda</label>
+            <small class="settings-hint">Requeridas por Google Merchant Center y buena práctica general. Se muestran en páginas propias de tu sitio (/envios, /devoluciones, /contacto) y quedan enlazadas en el pie de página.</small>
+
+            <label class="field-label" style="margin-top:0.6rem;">Política de Envíos</label>
+            <textarea id="settings-shipping-policy" class="settings-input field-textarea" rows="4" placeholder="Ej: Realizamos envíos a toda Colombia. Bogotá: entrega el mismo día si pides antes de las 12m. Resto del país: 2-5 días hábiles según transportadora."></textarea>
+
+            <label class="field-label">Política de Devoluciones y Cambios</label>
+            <textarea id="settings-returns-policy" class="settings-input field-textarea" rows="4" placeholder="Ej: Aceptamos cambios y devoluciones dentro de los 5 días hábiles siguientes a la entrega, siempre que el producto esté sin usar y en su empaque original."></textarea>
+
+            <label class="field-label">Información de Contacto</label>
+            <textarea id="settings-contact-info" class="settings-input field-textarea" rows="3" placeholder="Ej: Atención al cliente de lunes a sábado, 9am-6pm. Escríbenos por WhatsApp o al correo contacto@tutienda.com"></textarea>
           </div>
 
           <div class="settings-group">
