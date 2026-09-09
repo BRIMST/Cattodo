@@ -274,6 +274,7 @@ function applySettings() {
   }
 
   renderCustomerPhotos();
+  renderPolicyPages();
 
   // ✅ FIX WHATSAPP BUTTON
   const waBtn = document.getElementById('global-wa-btn');
@@ -315,6 +316,34 @@ function renderCustomerPhotos() {
       <img src="${p.url}" alt="Cliente feliz de ${settings.storeName || 'la tienda'}" loading="lazy">
     </div>
   `).join('');
+}
+
+// Páginas de políticas (Envíos / Devoluciones / Contacto) — requeridas por
+// Google Merchant Center. Usa el texto que el admin escribió en Configuración,
+// o un texto por defecto razonable si todavía no lo ha personalizado.
+function renderPolicyPages() {
+  const storeName = settings.storeName || 'nuestra tienda';
+  const whatsapp = String(settings.whatsapp || '').replace(/\D/g, '');
+
+  const defaultShipping = `Realizamos envíos a toda Colombia. Bogotá D.C.: entrega el mismo día en la mayoría de los casos. Resto del país: normalmente entre 2 y 5 días hábiles, según la transportadora asignada al cotizar tu pedido. El costo de envío se calcula automáticamente al finalizar tu compra, según tu ciudad y el peso de tu pedido.`;
+  const defaultReturns = `Aceptamos cambios y devoluciones dentro de los 5 días hábiles siguientes a la entrega, siempre que el producto esté sin usar, en perfecto estado y en su empaque original. Para iniciar un cambio o devolución, contáctanos por WhatsApp con tu número de pedido y el motivo. Si el producto llega defectuoso o incorrecto, el cambio no tiene ningún costo para ti.`;
+  const defaultContact = `¿Tienes preguntas sobre tu pedido o nuestros productos? Escríbenos por WhatsApp y te responderemos lo antes posible.`;
+
+  const shippingEl = document.getElementById('shipping-policy-content');
+  if (shippingEl) {
+    shippingEl.innerHTML = `<p>${(settings.shippingPolicy || defaultShipping).replace(/\n/g, '</p><p>')}</p>`;
+  }
+
+  const returnsEl = document.getElementById('returns-policy-content');
+  if (returnsEl) {
+    returnsEl.innerHTML = `<p>${(settings.returnsPolicy || defaultReturns).replace(/\n/g, '</p><p>')}</p>`;
+  }
+
+  const contactEl = document.getElementById('contact-content');
+  if (contactEl) {
+    const waLink = whatsapp.length >= 10 ? `<p><a href="https://wa.me/${whatsapp}" target="_blank" rel="noopener" class="policy-contact-link">💬 Escríbenos por WhatsApp</a></p>` : '';
+    contactEl.innerHTML = `<p>${(settings.contactInfo || defaultContact).replace(/\n/g, '</p><p>')}</p>${waLink}`;
+  }
 }
 
 window.openCustomerPhotoViewer = function(idx) {
@@ -650,7 +679,7 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
         </div>
       `).join('')}
       ${extraCount > 0 ? `
-        <div class="color-option more-indicator" onclick="location.hash = '#/product/${p.id}'">
+        <div class="color-option more-indicator" onclick="navigateTo('/producto/${p.id}')">
           +${extraCount}
         </div>
       ` : ''}
@@ -658,7 +687,7 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
   }
 
   return `
-    <div class="product-image-container" onclick="location.hash = '#/product/${p.id}'" style="cursor:pointer;">
+    <div class="product-image-container" onclick="navigateTo('/producto/${p.id}')" style="cursor:pointer;">
       ${badgeText ? `<div class="badge-campaign">${badgeText}</div>` : ''}
       ${mainImg ? `<img src="${mainImg}" alt="Comprar ${p.name} - Panda Venta" 
         ${isCritical ? 'fetchpriority="high"' : 'loading="lazy"'} 
@@ -666,7 +695,7 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
       ${pImages.length > 1 ? `<div class="image-count-badge">1/${pImages.length}</div>` : ''}
       ${hasDiscount ? `<div class="badge-discount-overlay">-${discountPct}%</div>` : ''}
     </div>
-    <div class="product-info" onclick="location.hash = '#/product/${p.id}'" style="cursor:pointer;">
+    <div class="product-info" onclick="navigateTo('/producto/${p.id}')" style="cursor:pointer;">
       ${p.category ? `<div class="product-category-label">${p.category}</div>` : ''}
       <div class="product-title">${p.name} ${p.ref ? `<span style="font-size:0.7em;color:var(--text-muted)">[${p.ref}]</span>` : ''}</div>
       ${getShippingBadgesHTML(price)}
@@ -693,7 +722,7 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
             <button class="btn-qty" onclick="updateCart('${cartId}', -1)">-</button>
             <span class="qty-display">${cart[cartId]}</span>
             <button class="btn-qty" onclick="updateCart('${cartId}', 1)">+</button>
-          ` : `<button class="btn-add ${hasDiscount ? 'btn-add-sale' : ''}" onclick="location.hash = '#/product/${p.id}'">VER DETALLES</button>`}
+          ` : `<button class="btn-add ${hasDiscount ? 'btn-add-sale' : ''}" onclick="navigateTo('/producto/${p.id}')">VER DETALLES</button>`}
         </div>
       </div>
     </div>
@@ -876,10 +905,47 @@ function renderViewer() {
 }
 
 // ====== PRODUCT DETAIL PAGE & ROUTING ======
+// Marca cada página de producto con datos estructurados schema.org/Product —
+// es lo que le permite a Google (Merchant Center y Búsqueda normal) reconocer
+// cada producto individualmente, sin depender solo del feed.
+function injectProductStructuredData(p, price) {
+  let script = document.getElementById('product-structured-data');
+  if (!script) {
+    script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.id = 'product-structured-data';
+    document.head.appendChild(script);
+  }
+
+  const images = p.images && p.images.length > 0 ? p.images : (p.image ? [p.image] : []);
+  const stock = p.variants && p.variants.length > 0
+    ? p.variants.reduce((s, v) => s + (v.stock || 0), 0)
+    : (p.stock || 0);
+
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": p.name,
+    "description": (p.description || p.name).replace(/<[^>]*>/g, '').slice(0, 5000),
+    "sku": p.ref || p.id,
+    "image": images,
+    "offers": {
+      "@type": "Offer",
+      "url": `https://pandaventa.com/producto/${p.id}`,
+      "priceCurrency": settings.currency || "COP",
+      "price": price,
+      "availability": stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      "itemCondition": "https://schema.org/NewCondition"
+    }
+  };
+
+  script.textContent = JSON.stringify(data);
+}
+
 window.openProductPage = function(productId) {
   const p = products.find(x => x.id === productId);
   if (!p) {
-    window.location.hash = '#/';
+    navigateTo('/');
     return;
   }
   
@@ -904,6 +970,8 @@ window.openProductPage = function(productId) {
   // Pricing
   const price = getProductPrice(p);
   const hasDiscount = p.originalPrice && parseFloat(p.originalPrice) > parseFloat(price);
+
+  injectProductStructuredData(p, price);
   const discountPct = hasDiscount ? Math.round((1 - price / p.originalPrice) * 100) : 0;
   
   const originalPriceEl = document.getElementById('detail-price-original');
@@ -1287,22 +1355,41 @@ function renderProductReviews(product) {
   `).join('');
 }
 
+// Navegación con URLs reales (antes: location.hash = '#/product/x').
+// Las URLs reales son necesarias para que los verificadores de Google
+// Merchant Center (y el SEO en general) puedan visitar/rastrear cada
+// producto como una página independiente, no solo un fragmento de cliente.
+function navigateTo(path) {
+  if (window.location.pathname !== path) {
+    history.pushState({}, '', path);
+  }
+  handleRoute();
+  window.scrollTo(0, 0);
+}
+window.navigateTo = navigateTo;
+
 function handleRoute() {
-  const hash = window.location.hash;
-  if (hash.startsWith('#/product/')) {
-    const productId = hash.replace('#/product/', '');
+  const path = window.location.pathname;
+  if (path.startsWith('/producto/')) {
+    const productId = decodeURIComponent(path.replace('/producto/', '').replace(/\/$/, ''));
     openProductPage(productId);
-  } else if (hash === '#/order') {
+  } else if (path === '/pedido') {
     switchView('order');
     renderOrderList();
-  } else if (hash === '#/ticket') {
+  } else if (path === '/ticket') {
     switchView('ticket');
+  } else if (path === '/envios') {
+    switchView('shipping-policy');
+  } else if (path === '/devoluciones') {
+    switchView('returns-policy');
+  } else if (path === '/contacto') {
+    switchView('contact');
   } else {
     switchView('catalog');
   }
 }
 
-window.addEventListener('hashchange', handleRoute);
+window.addEventListener('popstate', handleRoute);
 
 // ====== GLOBAL WINDOW BINDINGS ======
 window.updateCart = updateCart;
@@ -1504,7 +1591,10 @@ function initCriticalApp() {
     catalog: document.getElementById('view-catalog'),
     order: document.getElementById('view-order'),
     ticket: document.getElementById('view-ticket'),
-    product: document.getElementById('view-product')
+    product: document.getElementById('view-product'),
+    'shipping-policy': document.getElementById('view-shipping-policy'),
+    'returns-policy': document.getElementById('view-returns-policy'),
+    contact: document.getElementById('view-contact')
   };
   els = {
     productsGrid: document.getElementById('products-grid'),
@@ -1525,15 +1615,15 @@ function initCriticalApp() {
 
   on('btn-view-order', 'onclick', () => {
     trackEvent('ver_pedido', 'Abrir vista pedido');
-    switchView('order');
+    navigateTo('/pedido');
     renderOrderList();
   });
-  on('btn-back-catalog', 'onclick', () => switchView('catalog'));
-  on('btn-back-order', 'onclick', () => switchView('order'));
+  on('btn-back-catalog', 'onclick', () => navigateTo('/'));
+  on('btn-back-order', 'onclick', () => navigateTo('/pedido'));
   
   // Product Detail Page listeners
   on('btn-back-catalog-product', 'onclick', () => {
-    window.location.hash = '#/';
+    navigateTo('/');
   });
   on('btn-detail-qty-minus', 'onclick', () => {
     if (currentDetailQty > 1) {
