@@ -164,10 +164,14 @@ const safeStyle = (id, prop, val) => { const el = document.getElementById(id); i
 // ====== INIT ======
 window.loadCatalog = async function() {
   try {
-    // Si el panel de admin está abierto o explícitamente pide admin=true, evadimos el caché
-    const url = document.getElementById('panel-admin')?.style.display === 'flex' 
-      ? '/api/catalogo?admin=true' 
-      : '/api/catalogo';
+    // Antes buscaba un elemento "panel-admin" que ya no existe (el panel se
+    // rediseñó y ahora es "view-admin") — por eso nunca detectaba que el
+    // admin estaba abierto, y de paso siempre ejecutaba handleRoute() más
+    // abajo, que fuerza la vista de vuelta al catálogo en cada acción del
+    // panel (guardar producto, quitar foto, etc.) — eso era lo que te
+    // "sacaba" del sistema con cada clic.
+    const adminOpen = document.getElementById('view-admin')?.style.display === 'flex';
+    const url = adminOpen ? '/api/catalogo?admin=true' : '/api/catalogo';
     
     const res = await fetch(url);
     const data = await res.json();
@@ -197,10 +201,13 @@ window.loadCatalog = async function() {
     renderProducts();
     renderDiscountSection();
     updateCartUI();
-    handleRoute();
-    const panel = document.getElementById('panel-admin');
-    if (panel && panel.style.display === 'flex') {
+
+    if (adminOpen) {
+      // El panel de admin sigue abierto: solo refrescamos sus datos, sin
+      // tocar la vista de cliente que hay detrás (evita el "kick out").
       import('./admin.js').then(m => m.renderAdminProducts());
+    } else {
+      handleRoute();
     }
   } catch (error) {
     console.error("Error cargando catálogo", error);
