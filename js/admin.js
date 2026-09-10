@@ -107,6 +107,9 @@ export function initAdmin(state, utils) {
     updateBulkDeleteProductsButton();
   });
   on('btn-delete-selected-products', 'onclick', deleteSelectedProducts);
+  on('btn-export-products-csv', 'onclick', exportProductsCSV);
+  on('btn-export-orders-csv', 'onclick', exportOrdersCSV);
+  on('btn-export-clients-csv', 'onclick', exportClientsCSV);
 
   // Configuración: guardar + logo + QR + fotos de clientes
   on('btn-save-settings', 'onclick', saveSettings);
@@ -159,6 +162,7 @@ export function initAdmin(state, utils) {
   // Historial de movimientos de producto
   on('btn-close-history-modal', 'onclick', () => appUtils.safeStyle('modal-product-history', 'display', 'none'));
   on('btn-close-order-details-modal', 'onclick', () => appUtils.safeStyle('modal-order-details', 'display', 'none'));
+  on('btn-close-client-history-modal', 'onclick', () => appUtils.safeStyle('modal-client-history', 'display', 'none'));
 
   // Venta Externa
   on('btn-add-external-sale', 'onclick', openExternalSaleModal);
@@ -1124,6 +1128,86 @@ async function changeOrderStatus(orderId, newStatus) {
 // ==========================================
 // MODULE: PRODUCTOS
 // ==========================================
+// ==========================================
+// MODULE: EXPORTAR A CSV (Excel)
+// ==========================================
+function downloadCSV(filename, headers, rows) {
+  const escapeCell = (val) => {
+    const str = String(val ?? '');
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+  const csvContent = [headers, ...rows]
+    .map(row => row.map(escapeCell).join(','))
+    .join('\n');
+  // BOM al inicio para que Excel reconozca tildes/ñ correctamente
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportProductsCSV() {
+  const products = appState.products || [];
+  const salesMap = {};
+  (appState.orders || []).forEach(o => {
+    if (o.status !== 'cancelado') (o.items || []).forEach(i => { salesMap[i.id] = (salesMap[i.id] || 0) + (i.qty || 0); });
+  });
+  const rows = products.map(p => {
+    const cost = parseFloat(p.cost) || 0;
+    const price = parseFloat(p.price) || 0;
+    const stock = parseInt(p.stock) || 0;
+    return [
+      p.name, p.ref || '', p.category || '', stock, cost, price,
+      (price - cost).toFixed(2), ((price - cost) * stock).toFixed(2),
+      salesMap[p.id] || 0, p.active === false ? 'Inactivo' : 'Activo'
+    ];
+  });
+  downloadCSV(`productos_${new Date().toISOString().slice(0, 10)}.csv`,
+    ['Nombre', 'Referencia', 'Categoría', 'Inventario', 'Costo', 'Precio', 'Ganancia Neta', 'Ganancia Total', 'Rotación', 'Estado'], rows);
+  appUtils.showToast('Excel de productos descargado ✅');
+}
+
+function exportOrdersCSV() {
+  const orders = appState.orders || [];
+  const STATUS_LABELS = { borrador: 'Borrador', gestion: 'En Gestión', alistamiento: 'Alistamiento', terminado: 'Terminado', entregado: 'Entregado', cancelado: 'Cancelado' };
+  const rows = [...orders].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).map(o => [
+    o.id, o.customer?.name || '', o.customer?.phone || '',
+    o.timestamp ? new Date(o.timestamp).toLocaleDateString('es-CO') : '',
+    STATUS_LABELS[o.status] || o.status || '', (o.total || 0).toFixed(2),
+    o.paymentMethod || '', (o.paymentStatus || 'pagado') === 'pagado' ? 'Pagado' : 'Pendiente',
+    o.seller || '', o.channel === 'pos' ? 'Punto físico' : (o.channel || 'Web')
+  ]);
+  downloadCSV(`pedidos_${new Date().toISOString().slice(0, 10)}.csv`,
+    ['ID Pedido', 'Cliente', 'Teléfono', 'Fecha', 'Estado', 'Total', 'Método de Pago', 'Estado de Pago', 'Vendedor', 'Canal'], rows);
+  appUtils.showToast('Excel de pedidos descargado ✅');
+}
+
+function exportClientsCSV() {
+  const clients = appState.clients || [];
+  const orders = appState.orders || [];
+  const spentByPhone = {}, ordersByPhone = {};
+  orders.forEach(o => {
+    const phone = o.customer?.phone;
+    if (!phone || o.status === 'cancelado') return;
+    spentByPhone[phone] = (spentByPhone[phone] || 0) + (o.total || 0);
+    ordersByPhone[phone] = (ordersByPhone[phone] || 0) + 1;
+  });
+  const map = {};
+  clients.forEach(c => { if (c.phone && !map[c.phone]) map[c.phone] = c; });
+  const rows = Object.values(map).map(c => [
+    c.name, c.phone, c.city || '', c.dept || '', c.address || '',
+    ordersByPhone[c.phone] || 0, (spentByPhone[c.phone] || 0).toFixed(2)
+  ]);
+  downloadCSV(`clientes_${new Date().toISOString().slice(0, 10)}.csv`,
+    ['Nombre', 'Celular', 'Ciudad', 'Departamento', 'Dirección', 'Pedidos', 'Total Comprado'], rows);
+  appUtils.showToast('Excel de clientes descargado ✅');
+}
+
 let productsSortState = { key: null, dir: 1 };
 let productsCurrentPage = 1;
 const PRODUCTS_PER_PAGE = 20;
@@ -1418,6 +1502,46 @@ async function createSellerAccount() {
   }
 }
 
+window.viewClientHistory = function(phone) {
+  const orders = (appState.orders || []).filter(o => o.customer?.phone === phone);
+  const client = (appState.clients || []).find(c => c.phone === phone);
+  const name = client?.name || orders[0]?.customer?.name || 'Cliente';
+
+  appUtils.safeText('modal-client-history-title', `Historial — ${name}`);
+
+  const confirmed = orders.filter(o => o.status !== 'cancelado');
+  const totalSpent = confirmed.reduce((s, o) => s + (o.total || 0), 0);
+  const avgTicket = confirmed.length > 0 ? totalSpent / confirmed.length : 0;
+
+  document.getElementById('client-history-summary').innerHTML = `
+    <div class="client-history-stat"><span>Pedidos totales</span><strong>${orders.length}</strong></div>
+    <div class="client-history-stat"><span>Total comprado</span><strong style="color:var(--success)">${appUtils.formatMoney(totalSpent)}</strong></div>
+    <div class="client-history-stat"><span>Ticket promedio</span><strong>${appUtils.formatMoney(avgTicket)}</strong></div>
+  `;
+
+  const STATUS_LABELS = { borrador: 'Borrador', gestion: 'En Gestión', alistamiento: 'Alistamiento', terminado: 'Terminado', entregado: 'Entregado', cancelado: 'Cancelado' };
+  const sorted = [...orders].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+  document.getElementById('client-history-list').innerHTML = sorted.length > 0
+    ? sorted.map(o => `
+        <div class="client-history-order" onclick="window.viewOrderFromClientHistory('${o.id}')">
+          <div>
+            <strong>${o.timestamp ? new Date(o.timestamp).toLocaleDateString('es-CO') : 'Sin fecha'}</strong>
+            <div style="font-size:0.78rem; color:var(--text-muted);">${(o.items || []).length} producto(s) · ${STATUS_LABELS[o.status] || o.status}</div>
+          </div>
+          <strong style="color:var(--primary)">${appUtils.formatMoney(o.total || 0)}</strong>
+        </div>
+      `).join('')
+    : '<p style="color:var(--text-muted); text-align:center; padding:1.5rem 0;">Sin pedidos registrados todavía.</p>';
+
+  appUtils.safeStyle('modal-client-history', 'display', 'flex');
+};
+
+window.viewOrderFromClientHistory = function(orderId) {
+  appUtils.safeStyle('modal-client-history', 'display', 'none');
+  window.viewOrderDetails(orderId);
+};
+
 async function saveClient() {
   const name = document.getElementById('client-name')?.value.trim();
   const phone = document.getElementById('client-phone')?.value.trim();
@@ -1516,6 +1640,7 @@ function renderClientsTable() {
       <td>${c.orderCount}</td>
       <td><strong style="color:var(--success)">${appUtils.formatMoney(c.totalSpent)}</strong></td>
       <td>
+        <button class="action-btn" onclick="window.viewClientHistory('${c.phone}')">👁️ Historial</button>
         <button class="action-btn" onclick="window.openClientModal('${c.id || ''}')">✏️ Editar</button>
       </td>
     </tr>
