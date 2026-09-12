@@ -77,11 +77,19 @@ export function initAdmin(state, utils) {
     e.target.value = '';
   });
 
+  document.getElementById('btn-generate-barcode')?.addEventListener('click', () => {
+    const code = ensureUniqueBarcode(generateUniqueBarcode());
+    appUtils.safeValue('product-barcode', code);
+    renderProductQR(code);
+  });
+  document.getElementById('product-barcode')?.addEventListener('input', (e) => renderProductQR(e.target.value.trim()));
+
   // Carga masiva: Excel y fotos de producto
   on('btn-bulk-excel', 'onclick', () => document.getElementById('bulk-upload-excel')?.click());
   on('bulk-upload-excel', 'onchange', handleBulkExcelUpload);
   on('btn-bulk-photos', 'onclick', () => document.getElementById('bulk-upload-photos')?.click());
   on('bulk-upload-photos', 'onchange', handleBulkPhotoUpload);
+  on('btn-bulk-barcodes', 'onclick', bulkGenerateBarcodes);
 
   // Productos: búsqueda, filtros, orden, paginación y selección múltiple
   const resetToPage1AndRender = () => { productsCurrentPage = 1; renderProductsTable(); };
@@ -178,6 +186,11 @@ export function initAdmin(state, utils) {
 }
 
 function initNavigation() {
+  const NAV_LABELS = {
+    dashboard: 'Panel de control', 'create-order': 'Crear pedido', orders: 'Pedidos',
+    products: 'Productos', clients: 'Clientes', reports: 'Reportes', finance: 'Financiero', settings: 'Tienda'
+  };
+
   document.querySelectorAll('.admin-nav-btn').forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll('.admin-nav-btn').forEach(b => b.classList.remove('active'));
@@ -186,6 +199,7 @@ function initNavigation() {
       btn.classList.add('active');
       const tabId = 'tab-' + btn.dataset.tab;
       document.getElementById(tabId)?.classList.add('active');
+      appUtils.safeText('admin-mobile-topbar-title', NAV_LABELS[btn.dataset.tab] || '');
       
       // Load specific tab data
       if (btn.dataset.tab === 'dashboard') renderDashboard();
@@ -196,11 +210,27 @@ function initNavigation() {
       if (btn.dataset.tab === 'reports') renderReports();
       if (btn.dataset.tab === 'finance') renderFinance();
       if (btn.dataset.tab === 'settings') loadSettingsForm();
+
+      // En móvil, el menú lateral es un panel deslizante — se cierra solo
+      // al elegir una sección, como se espera de ese patrón.
+      closeMobileSidebar();
     };
   });
-  
+
+  // Menú móvil: abrir/cerrar el panel lateral deslizante
+  document.getElementById('admin-mobile-menu-btn')?.addEventListener('click', () => {
+    document.getElementById('admin-sidebar')?.classList.add('mobile-open');
+    document.getElementById('admin-mobile-backdrop')?.classList.add('visible');
+  });
+  document.getElementById('admin-mobile-backdrop')?.addEventListener('click', closeMobileSidebar);
+
   const closeBtn = document.getElementById('btn-close-admin');
   if (closeBtn) closeBtn.onclick = closeAdmin;
+}
+
+function closeMobileSidebar() {
+  document.getElementById('admin-sidebar')?.classList.remove('mobile-open');
+  document.getElementById('admin-mobile-backdrop')?.classList.remove('visible');
 }
 
 function openAdminActual() {
@@ -600,7 +630,8 @@ function renderPOSProducts() {
   
   const filtered = products.filter(p => p.active && 
     ((p.name && p.name.toLowerCase().includes(query)) || 
-     (p.ref && p.ref.toLowerCase().includes(query)))
+     (p.ref && p.ref.toLowerCase().includes(query)) ||
+     (p.barcode && p.barcode.includes(query)))
   ).slice(0, 50); // limit for perf
   
   grid.innerHTML = filtered.map(p => {
@@ -721,8 +752,10 @@ function startQRScanner() {
 }
 
 function onScanSuccess(decodedText, decodedResult) {
-  // Assuming QR contains product Reference or ID
-  const p = appState.products.find(x => x.ref === decodedText || x.id === decodedText);
+  // Busca primero por código de barras (el que se genera desde el modal de
+  // producto), y si no, por Referencia o ID — por compatibilidad con
+  // productos que aún no tienen un código de barras asignado.
+  const p = appState.products.find(x => x.barcode === decodedText || x.ref === decodedText || x.id === decodedText);
   if (p) {
     posAddToCart(p.id);
     appUtils.showToast('Producto agregado: ' + p.name);
@@ -1162,13 +1195,13 @@ function exportProductsCSV() {
     const price = parseFloat(p.price) || 0;
     const stock = parseInt(p.stock) || 0;
     return [
-      p.name, p.ref || '', p.category || '', stock, cost, price,
+      p.name, p.ref || '', p.barcode || '', p.category || '', stock, cost, price,
       (price - cost).toFixed(2), ((price - cost) * stock).toFixed(2),
       salesMap[p.id] || 0, p.active === false ? 'Inactivo' : 'Activo'
     ];
   });
   downloadCSV(`productos_${new Date().toISOString().slice(0, 10)}.csv`,
-    ['Nombre', 'Referencia', 'Categoría', 'Inventario', 'Costo', 'Precio', 'Ganancia Neta', 'Ganancia Total', 'Rotación', 'Estado'], rows);
+    ['Nombre', 'Referencia', 'Código de Barras', 'Categoría', 'Inventario', 'Costo', 'Precio', 'Ganancia Neta', 'Ganancia Total', 'Rotación', 'Estado'], rows);
   appUtils.showToast('Excel de productos descargado ✅');
 }
 
@@ -1206,6 +1239,64 @@ function exportClientsCSV() {
   downloadCSV(`clientes_${new Date().toISOString().slice(0, 10)}.csv`,
     ['Nombre', 'Celular', 'Ciudad', 'Departamento', 'Dirección', 'Pedidos', 'Total Comprado'], rows);
   appUtils.showToast('Excel de clientes descargado ✅');
+}
+
+// ==========================================
+// MODULE: CÓDIGO DE BARRAS Y QR
+// ==========================================
+
+// Genera un código único de 12 dígitos (timestamp + aleatorio) — no es un
+// código EAN/UPC oficial (eso requiere registro con GS1), pero es único,
+// estable, y perfecto para imprimir como QR y escanearlo con la cámara desde
+// el punto de venta, que es justo lo que ya usa esta app.
+function generateUniqueBarcode() {
+  const timePart = Date.now().toString().slice(-8);
+  const randomPart = Math.floor(1000 + Math.random() * 9000);
+  return `${timePart}${randomPart}`;
+}
+
+// Renderiza el QR (vía un servicio público de generación de imágenes QR) a
+// partir del código de barras. Si el campo está vacío, oculta la vista previa.
+function renderProductQR(barcodeValue) {
+  const preview = document.getElementById('product-qr-preview');
+  const img = document.getElementById('product-qr-image');
+  const downloadBtn = document.getElementById('btn-download-qr');
+  if (!preview || !img) return;
+
+  if (!barcodeValue) {
+    preview.style.display = 'none';
+    return;
+  }
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(barcodeValue)}`;
+  img.src = qrUrl;
+  if (downloadBtn) {
+    downloadBtn.href = qrUrl;
+    downloadBtn.download = `qr-${barcodeValue}.png`;
+  }
+  preview.style.display = 'flex';
+}
+
+function ensureUniqueBarcode(candidate) {
+  const exists = (appState.products || []).some(p => p.barcode === candidate);
+  return exists ? ensureUniqueBarcode(generateUniqueBarcode()) : candidate;
+}
+
+// Genera automáticamente el código de barras a todos los productos que
+// todavía no tengan uno — para no tener que abrir cada producto uno por uno.
+async function bulkGenerateBarcodes() {
+  const missing = (appState.products || []).filter(p => !p.barcode);
+  if (missing.length === 0) return appUtils.showToast('Todos tus productos ya tienen código de barras ✅');
+  if (!confirm(`Se generará un código de barras único para ${missing.length} producto(s) que no tienen. ¿Continuar?`)) return;
+
+  appUtils.showToast(`Generando ${missing.length} código(s)...`);
+  for (const p of missing) {
+    const code = ensureUniqueBarcode(generateUniqueBarcode());
+    p.barcode = code; // evita duplicados dentro del mismo lote
+    await update(ref(appState.db, `products/${p.id}`), { barcode: code });
+  }
+  appUtils.showToast(`${missing.length} código(s) de barras generado(s) ✅`);
+  if (window.loadCatalog) window.loadCatalog();
 }
 
 let productsSortState = { key: null, dir: 1 };
@@ -1665,6 +1756,8 @@ function openProductModal(id = null) {
   appUtils.safeText('modal-product-title', p ? 'Editar Producto' : 'Nuevo Producto');
   appUtils.safeValue('product-name', p ? p.name : '');
   appUtils.safeValue('product-ref', p ? (p.ref || '') : '');
+  appUtils.safeValue('product-barcode', p ? (p.barcode || '') : '');
+  renderProductQR(p ? (p.barcode || '') : '');
   appUtils.safeValue('product-category', p ? (p.category || '') : '');
   appUtils.safeValue('product-tags', p ? (p.tags || '') : '');
   appUtils.safeValue('product-price', p ? parseInt(p.price).toLocaleString('es-CO') : '');
@@ -1778,6 +1871,7 @@ async function saveProduct() {
   const pData = {
     name, price,
     ref: document.getElementById('product-ref')?.value || '',
+    barcode: document.getElementById('product-barcode')?.value.trim() || '',
     category: document.getElementById('product-category')?.value || '',
     tags: document.getElementById('product-tags')?.value || '',
     originalPrice: originalPrice,
@@ -2107,6 +2201,7 @@ async function handleBulkExcelUpload(e) {
         const fotoKey = findKey(row, ["foto", "imagen", "image", "url"]);
         const nombreKey = findKey(row, ["nombre", "name"]);
         const refKey = findKey(row, ["referencia", "ref", "reference"]);
+        const barcodeKey = findKey(row, ["codigo de barras", "código de barras", "barcode", "cod barras"]);
         const categoriaKey = findKey(row, ["categoria", "categoría", "category"]);
         const tagsKey = findKey(row, ["tags", "etiquetas"]);
         const stockKey = findKey(row, ["cantidad de stock", "stock", "cantidad", "existencias"]);
@@ -2126,6 +2221,7 @@ async function handleBulkExcelUpload(e) {
         if (!name || isNaN(price)) continue;
 
         const refValue = refKey ? String(row[refKey] || '').trim() : '';
+        const barcodeValue = barcodeKey ? String(row[barcodeKey] || '').trim() : '';
         const stock = stockKey ? parseInt(String(row[stockKey]).replace(/[^\d]/g, '')) || 0 : 0;
         const cost = costoKey ? parseFloat(String(row[costoKey]).replace(/[^\d]/g, '')) || null : null;
         const originalPrice = precioOriginalKey ? (parseFloat(String(row[precioOriginalKey]).replace(/[^\d]/g, '')) || null) : null;
@@ -2160,10 +2256,14 @@ async function handleBulkExcelUpload(e) {
 
         if (existingId) {
           if (fotoValid) pData.images = [foto];
+          // Igual que con las fotos: si la fila no trae código de barras, no
+          // se toca el que el producto ya tuviera (evita borrarlo sin querer).
+          if (barcodeValue) pData.barcode = barcodeValue;
           await update(ref(appState.db, `products/${existingId}`), pData);
           updatedCount++;
         } else {
           pData.images = fotoValid ? [foto] : [];
+          pData.barcode = barcodeValue || '';
           await push(ref(appState.db, 'products'), pData);
           importedCount++;
         }
