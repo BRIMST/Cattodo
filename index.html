@@ -811,6 +811,7 @@
         </button>
         <button class="admin-nav-btn" data-tab="products">
           <span>🏷️</span> Productos
+          <span class="nav-alert-badge" id="nav-low-stock-badge" style="display:none;">0</span>
         </button>
         <button class="admin-nav-btn" data-tab="clients">
           <span>👥</span> Clientes
@@ -1657,6 +1658,9 @@
           <!-- Generado por JS -->
         </div>
       </div>
+      <div class="modal-footer">
+        <button class="btn-save-product" id="btn-print-invoice">🖨️ Imprimir comprobante</button>
+      </div>
     </div>
   </div>
 
@@ -1946,6 +1950,9 @@
       <path d="M12 0C5.373 0 0 5.373 0 12c0 2.114.554 4.1 1.522 5.827L.057 23.882a.5.5 0 0 0 .614.612l6.218-1.635A11.945 11.945 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.667-.523-5.188-1.432l-.372-.22-3.853 1.013 1.03-3.727-.242-.386A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
     </svg>
   </a>
+
+  <!-- Área oculta usada solo al imprimir el comprobante interno de un pedido -->
+  <div id="print-invoice-area" class="print-only"></div>
 
   <script src="https://unpkg.com/html5-qrcode"></script>
 </body>
