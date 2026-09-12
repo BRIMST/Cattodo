@@ -170,6 +170,9 @@ export function initAdmin(state, utils) {
   // Historial de movimientos de producto
   on('btn-close-history-modal', 'onclick', () => appUtils.safeStyle('modal-product-history', 'display', 'none'));
   on('btn-close-order-details-modal', 'onclick', () => appUtils.safeStyle('modal-order-details', 'display', 'none'));
+  on('btn-print-invoice', 'onclick', () => {
+    if (window.currentViewedOrderId) printOrderInvoice(window.currentViewedOrderId);
+  });
   on('btn-close-client-history-modal', 'onclick', () => appUtils.safeStyle('modal-client-history', 'display', 'none'));
 
   // Venta Externa
@@ -269,6 +272,32 @@ function openAdminActual() {
   
   // Products are already in appState.products from app.js
   renderDashboard();
+  notifyLowStockOnLogin();
+}
+
+// Alerta de stock bajo: se revisa cada vez que se abre el panel (no hace
+// falta entrar a Reportes para enterarte), y la insignia en "Productos" se
+// mantiene actualizada mientras trabajas.
+function notifyLowStockOnLogin() {
+  const count = updateLowStockBadge();
+  if (count > 0) {
+    appUtils.showToast(`⚠️ ${count} producto(s) con stock bajo o agotado — revisa Productos`);
+  }
+}
+
+function updateLowStockBadge() {
+  const products = appState.products || [];
+  const lowStock = products.filter(p => p.active !== false && (parseInt(p.stock) || 0) <= (p.minStock || 3));
+  const badge = document.getElementById('nav-low-stock-badge');
+  if (badge) {
+    if (lowStock.length > 0) {
+      badge.textContent = lowStock.length;
+      badge.style.display = 'inline-flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+  return lowStock.length;
 }
 
 function closeAdmin() {
@@ -1101,6 +1130,7 @@ async function toggleOrderPaymentStatus(id) {
 window.viewOrderDetails = function(orderId) {
   const o = (appState.orders || []).find(x => x.id === orderId);
   if (!o) return;
+  window.currentViewedOrderId = orderId;
 
   appUtils.safeText('modal-order-details-title', `Pedido #${(o.id || '').slice(-6).toUpperCase()}`);
 
@@ -1348,6 +1378,7 @@ function renderProductsTable() {
   appUtils.safeText('kpi-inventory-value', appUtils.formatMoney(products.reduce((s, p) => s + p.cost * p.stock, 0)));
   appUtils.safeText('kpi-low-stock', products.filter(p => p.stock > 0 && p.stock <= p.minStock).length);
   appUtils.safeText('kpi-out-of-stock', products.filter(p => p.stock <= 0).length);
+  updateLowStockBadge();
 
   // Filtros
   if (query) {
@@ -1632,6 +1663,57 @@ window.viewOrderFromClientHistory = function(orderId) {
   appUtils.safeStyle('modal-client-history', 'display', 'none');
   window.viewOrderDetails(orderId);
 };
+
+// Comprobante interno imprimible (distinto al ticket que recibe el cliente
+// por WhatsApp) — pensado para tus registros, no para mandárselo al cliente.
+function printOrderInvoice(orderId) {
+  const o = (appState.orders || []).find(x => x.id === orderId);
+  if (!o) return;
+
+  const STATUS_LABELS = { borrador: 'Borrador', gestion: 'En Gestión', alistamiento: 'Alistamiento', terminado: 'Terminado', entregado: 'Entregado', cancelado: 'Cancelado' };
+  const storeName = appState.settings?.storeName || 'Panda Venta';
+  const orderDate = o.timestamp ? new Date(o.timestamp).toLocaleString('es-CO') : '';
+
+  const itemsRows = (o.items || []).map(i => `
+    <tr>
+      <td>${i.name}</td>
+      <td style="text-align:center">${i.qty}</td>
+      <td style="text-align:right">${appUtils.formatMoney(i.price || 0)}</td>
+      <td style="text-align:right">${appUtils.formatMoney((i.price || 0) * (i.qty || 0))}</td>
+    </tr>
+  `).join('');
+
+  const addressBlock = o.customer?.address
+    ? `<p><strong>Envío a:</strong> ${o.customer.address}, ${o.customer.city || ''} (${o.customer.dept || ''})</p>`
+    : '';
+
+  const area = document.getElementById('print-invoice-area');
+  if (!area) return;
+
+  area.innerHTML = `
+    <div class="print-invoice">
+      <h1>${storeName}</h1>
+      <h2>Comprobante Interno de Venta</h2>
+      <p><strong>Pedido:</strong> ${orderId} &nbsp; | &nbsp; <strong>Fecha:</strong> ${orderDate}</p>
+      <p><strong>Cliente:</strong> ${o.customer?.name || 'Desconocido'} &nbsp; | &nbsp; <strong>Celular:</strong> ${o.customer?.phone || ''}</p>
+      ${addressBlock}
+      <p><strong>Vendedor:</strong> ${o.seller || 'Web'} &nbsp; | &nbsp; <strong>Canal:</strong> ${o.channel === 'pos' ? 'Punto físico' : (o.channel || 'Web')}</p>
+      <p><strong>Estado:</strong> ${STATUS_LABELS[o.status] || o.status || ''} &nbsp; | &nbsp; <strong>Pago:</strong> ${o.paymentMethod || 'No especificado'} (${(o.paymentStatus || 'pagado') === 'pagado' ? 'Pagado' : 'Pendiente'})</p>
+      <table class="print-invoice-table">
+        <thead><tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead>
+        <tbody>${itemsRows}</tbody>
+      </table>
+      <div class="print-invoice-totals">
+        <p>Subtotal: ${appUtils.formatMoney(o.subtotal || 0)}</p>
+        ${o.shippingValue ? `<p>Envío: ${appUtils.formatMoney(o.shippingValue)}</p>` : ''}
+        <p class="print-invoice-total-line">TOTAL: ${appUtils.formatMoney(o.total || 0)}</p>
+      </div>
+      <p class="print-invoice-footer">Documento generado internamente — no válido como factura fiscal.</p>
+    </div>
+  `;
+
+  window.print();
+}
 
 async function saveClient() {
   const name = document.getElementById('client-name')?.value.trim();
