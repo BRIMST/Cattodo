@@ -1697,17 +1697,6 @@ function initCriticalApp() {
   });
 
   // ====== LISTENERS DE CIERRE (MODALES) ======
-  on('btn-close-admin', 'onclick', () => {
-    safeStyle('panel-admin', 'display', 'none');
-    safeStyle('admin-overlay', 'display', 'none');
-  });
-  
-  const overlay = document.getElementById('admin-overlay');
-  if (overlay) overlay.onclick = () => {
-    safeStyle('panel-admin', 'display', 'none');
-    safeStyle('admin-overlay', 'display', 'none');
-  };
-
   on('btn-close-login-modal', 'onclick', () => {
     safeStyle('modal-login', 'display', 'none');
     safeValue('login-password', '');
@@ -1905,7 +1894,7 @@ function initSecondaryApp() {
         
         waBtn.onclick = async () => {
           // 2. Generar y descargar ticket como imagen automáticamente
-          const ticketEl = document.getElementById('ticket');
+          const ticketEl = document.getElementById('ticket-card');
           if (ticketEl && typeof html2canvas === 'function') {
             try {
               const canvas = await html2canvas(ticketEl, { 
@@ -1947,6 +1936,37 @@ function initSecondaryApp() {
       link.click();
     } catch (err) { showToast('Error al generar imagen'); }
   });
+
+  // ====== COMPARTIR TICKET (Web Share API) ======
+  // Este botón estaba oculto y sin conectar — solo tiene sentido mostrarlo si
+  // el navegador soporta compartir archivos de forma nativa (principalmente
+  // navegadores móviles; en escritorio suele no estar disponible).
+  const shareBtn = document.getElementById('btn-share-ticket');
+  if (shareBtn && navigator.canShare && navigator.canShare({ files: [new File([], 'test.png', { type: 'image/png' })] })) {
+    shareBtn.style.display = 'flex';
+    shareBtn.onclick = async () => {
+      const ticket = document.getElementById('ticket-card');
+      if (!ticket) return;
+      try {
+        const canvas = await html2canvas(ticket, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        canvas.toBlob(async (blob) => {
+          const file = new File([blob], 'pedido.png', { type: 'image/png' });
+          try {
+            await navigator.share({
+              files: [file],
+              title: settings.storeName || 'Mi pedido',
+              text: '¡Aquí está mi pedido!'
+            });
+          } catch (shareErr) {
+            // El usuario canceló el diálogo de compartir — no es un error real
+            if (shareErr.name !== 'AbortError') console.error('Error compartiendo:', shareErr);
+          }
+        }, 'image/png');
+      } catch (err) {
+        showToast('Error al generar imagen para compartir');
+      }
+    };
+  }
 
   // ====== ADMIN ACCESS — Autenticación real con Firebase Auth ======
   // Antes: se comparaba un hash guardado en /settings del lado del cliente,
