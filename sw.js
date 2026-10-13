@@ -1,10 +1,11 @@
-const CACHE_NAME = 'catalogo-v8';
+const CACHE_NAME = 'catalogo-v9';
 const PRE_CACHE = [
   './',
   './index.html',
   './css/styles.css',
   './js/app.js',
-  './js/colombia.js'
+  './js/colombia.js',
+  './js/asistente.js'
 ];
 
 self.addEventListener('install', (e) => {
