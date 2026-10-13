@@ -597,6 +597,7 @@ function setUserLocation(locKey) {
 window.setUserLocation = setUserLocation;
 
 // ====== LÓGICA DE WHATSAPP FLOTANTE ======
+let floatingCb = null; // el asistente se registra aquí para seguir al botón de WhatsApp
 function updateWAButtonPosition() {
   const waBtn = document.getElementById('global-wa-btn');
   const cartBar = document.getElementById('cart-bar');
@@ -606,18 +607,17 @@ function updateWAButtonPosition() {
   // Evitar reflow forzado usando requestAnimationFrame para agrupar lecturas del DOM
   requestAnimationFrame(() => {
     const orderViewActive = document.getElementById('view-order')?.classList.contains('active');
+    let bottom = 24;
     if (orderViewActive && orderFooter) {
       // En la vista de "Tu pedido" la barra de envío/total tapa el botón de
       // WhatsApp si no se corre hacia arriba según la altura real de esa barra
       // (que cambia: crece cuando aparece el selector de transportadora).
-      const height = orderFooter.offsetHeight || 90;
-      waBtn.style.bottom = (height + 16) + 'px';
+      bottom = (orderFooter.offsetHeight || 90) + 16;
     } else if (cartBar && cartBar.style.display !== 'none') {
-      const height = cartBar.offsetHeight || 70;
-      waBtn.style.bottom = (height + 24) + 'px';
-    } else {
-      waBtn.style.bottom = '24px';
+      bottom = (cartBar.offsetHeight || 70) + 24;
     }
+    waBtn.style.bottom = bottom + 'px';
+    if (floatingCb) floatingCb(bottom);
   });
 }
 
@@ -1741,6 +1741,24 @@ function initCriticalApp() {
 }
 
 function initSecondaryApp() {
+  // Asistente de compras (carga diferida: no afecta la velocidad inicial)
+  import('./asistente.js').then(m => {
+    m.initAsistente({
+      getProducts: () => products,
+      getSettings: () => settings,
+      getPrice: getProductPrice,
+      getCart: () => cart,
+      updateCart,
+      navigateTo,
+      formatMoney,
+      variantLabel: getVariantLabel,
+      trackEvent,
+      registerFloating: (fn) => { floatingCb = fn; },
+      syncFloating: updateWAButtonPosition
+    });
+    updateWAButtonPosition();
+  }).catch(err => console.error('No se pudo cargar el asistente', err));
+
   const on = (id, event, fn) => {
     const el = document.getElementById(id);
     if (el) el[event] = fn;
