@@ -21,6 +21,9 @@ import {
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+import {
+  getStorage, ref as storageRef, uploadBytes, getDownloadURL
+} from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
 
 // ====== SECURITY - Password hashing ======
 const hashPassword = async (password) => {
@@ -45,6 +48,7 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getDatabase(firebaseApp);
 const auth = getAuth(firebaseApp);
+const storage = getStorage(firebaseApp);
 
 // ====== STATE ======
 let products = [];
@@ -114,6 +118,25 @@ const compressImage = (base64Str, maxWidth = 800, quality = 0.6) => {
       resolve(canvas.toDataURL('image/webp', quality));
     };
   });
+};
+
+// Sube una imagen ya comprimida (dataURL) a Firebase Storage y devuelve el
+// link público — en vez de guardar el texto base64 directo dentro de la
+// base de datos (lo que hacíamos antes, y que hace la base de datos cada vez
+// más pesada de leer a medida que crece el catálogo). Los datos existentes
+// (fotos ya guardadas como base64) se quedan igual y siguen funcionando —
+// esto solo cambia cómo se guardan las fotos NUEVAS de aquí en adelante.
+const uploadToStorage = async (dataUrl, folder = 'products') => {
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    const filename = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
+    const fileRef = storageRef(storage, filename);
+    await uploadBytes(fileRef, blob, { contentType: 'image/webp' });
+    return await getDownloadURL(fileRef);
+  } catch (err) {
+    console.error('Error subiendo a Firebase Storage, se usa base64 como respaldo:', err);
+    return dataUrl; // Respaldo: si Storage falla, al menos la foto se guarda igual que antes
+  }
 };
 
 const formatMoney = (amount) => {
@@ -1975,7 +1998,7 @@ function initSecondaryApp() {
   // tiene su propia cuenta real en Firebase Authentication.
   const openAdmin = async () => {
     const state = { db, auth, products, settings, orders, cart, currentProductImages, viewerImages, viewerIndex };
-    const utils = { formatMoney, showToast, switchView, safeSet, safeText, safeHTML, safeValue, safeStyle, compressImage, hashPassword, isBogota, getShippingCost };
+    const utils = { formatMoney, showToast, switchView, safeSet, safeText, safeHTML, safeValue, safeStyle, compressImage, uploadToStorage, hashPassword, isBogota, getShippingCost };
     const { initAdmin } = await import('./admin.js');
     initAdmin(state, utils);
   };

@@ -67,9 +67,13 @@ export function initAdmin(state, utils) {
   on('btn-trigger-upload', 'onclick', () => document.getElementById('product-file-input')?.click());
   on('product-file-input', 'onchange', async (e) => {
     const files = Array.from(e.target.files).slice(0, 5 - appState.currentProductImages.length);
+    if (files.length) appUtils.showToast(`Subiendo ${files.length} foto(s)...`);
     const newImages = await Promise.all(files.map(file => new Promise(resolve => {
       const reader = new FileReader();
-      reader.onload = async (ev) => resolve(await appUtils.compressImage(ev.target.result));
+      reader.onload = async (ev) => {
+        const c = await appUtils.compressImage(ev.target.result);
+        resolve(await appUtils.uploadToStorage(c, 'products'));
+      };
       reader.readAsDataURL(file);
     })));
     newImages.forEach(img => { if (appState.currentProductImages.length < 5) appState.currentProductImages.push(img); });
@@ -128,8 +132,9 @@ export function initAdmin(state, utils) {
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const compressed = await appUtils.compressImage(ev.target.result, 400, 0.7);
-      appState.settings.logo = compressed;
-      appUtils.safeSet('settings-logo-preview', 'src', compressed);
+      const logoUrl = await appUtils.uploadToStorage(compressed, 'branding');
+      appState.settings.logo = logoUrl;
+      appUtils.safeSet('settings-logo-preview', 'src', logoUrl);
       appUtils.safeStyle('settings-logo-preview', 'display', 'block');
       appUtils.safeStyle('logo-upload-placeholder', 'display', 'none');
     };
@@ -142,8 +147,9 @@ export function initAdmin(state, utils) {
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const compressed = await appUtils.compressImage(ev.target.result, 400, 0.8);
-      appState.settings.paymentQR = compressed;
-      appUtils.safeSet('settings-qr-preview', 'src', compressed);
+      const qrUrl = await appUtils.uploadToStorage(compressed, 'branding');
+      appState.settings.paymentQR = qrUrl;
+      appUtils.safeSet('settings-qr-preview', 'src', qrUrl);
       appUtils.safeStyle('settings-qr-preview', 'display', 'block');
       appUtils.safeStyle('qr-upload-placeholder', 'display', 'none');
     };
@@ -2141,7 +2147,8 @@ async function handleCustomerPhotosUpload(e) {
         reader.readAsDataURL(file);
       });
       const compressed = await appUtils.compressImage(dataUrl);
-      current.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, url: compressed });
+      const photoUrl = await appUtils.uploadToStorage(compressed, 'customers');
+      current.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, url: photoUrl });
     } catch (err) {
       console.error(`Error subiendo foto de cliente ${file.name}:`, err);
     }
@@ -2215,7 +2222,8 @@ async function handleBulkPhotoUpload(e) {
         reader.readAsDataURL(file);
       });
       const compressed = await appUtils.compressImage(dataUrl);
-      await update(ref(appState.db, `products/${existing.id}`), { images: [compressed] });
+      const photoUrl = await appUtils.uploadToStorage(compressed, 'products');
+      await update(ref(appState.db, `products/${existing.id}`), { images: [photoUrl] });
       matchedCount++;
     } catch (err) {
       console.error(`Error subiendo foto ${file.name}:`, err);
