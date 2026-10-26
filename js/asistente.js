@@ -221,7 +221,7 @@ export function initAsistente(api) {
     (list || []).forEach(c => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'asistente-chip'; b.textContent = c.label;
-      b.onclick = () => { if (c.fn) c.fn(); else handleUser(c.say || c.label, c.label); };
+      b.onclick = () => { if (c.fn) c.fn(); else handleUser(c.say || c.label, c.label, true); };
       chipsEl.appendChild(b);
     });
   }
@@ -272,7 +272,7 @@ export function initAsistente(api) {
       btn.textContent = '✓ Agregado al pedido'; btn.disabled = true;
       showCartChips(`¡Hecho! Agregué los ${S.lastCombo.chosen.length} productos por <strong>${money(S.lastCombo.spent)}</strong>. Aún no pagas nada: puedes revisar y cambiar cantidades en tu pedido.`);
     }
-    if (act === 'othercombo') handleUser('Otro combo', 'Armar otro combo');
+    if (act === 'othercombo') handleUser('Otro combo', 'Armar otro combo', true);
     if (act === 'gocart') goCart();
   });
 
@@ -284,7 +284,7 @@ export function initAsistente(api) {
     addBot(text);
     setChips([
       { label: '🧾 Ver mi pedido', fn: goCart },
-      { label: '➕ Seguir buscando', fn: () => handleUser('Mostrar ideas', 'Seguir buscando') }
+      { label: '➕ Seguir buscando', fn: () => handleUser('Mostrar ideas', 'Seguir buscando', true) }
     ]);
   }
 
@@ -316,9 +316,10 @@ export function initAsistente(api) {
     const newTerms = parsed.tokens;
     const newSyn = [
       ...parsed.occasions.flatMap(o => o.terms),
-      ...parsed.recipients.flatMap(r => r.terms)
+      ...parsed.recipients.flatMap(r => r.terms),
+      ...(parsed.aiTerms || [])
     ];
-    const hasNewSubject = newTerms.length || parsed.occasions.length || parsed.recipients.length;
+    const hasNewSubject = newTerms.length || parsed.occasions.length || parsed.recipients.length || (parsed.aiTerms || []).length;
     // "Quiero ver descuentos" a secas = todas las ofertas de la tienda, no solo las del tema anterior.
     if (parsed.flags.discount && !hasNewSubject) { c.terms = []; c.synonyms = []; c.label = ''; c.page = 0; }
     if (hasNewSubject) {
@@ -328,8 +329,10 @@ export function initAsistente(api) {
       const bits = [];
       if (parsed.occasions.length) bits.push(parsed.occasions.map(o => `${o.emoji} ${o.label}`).join(' / '));
       if (parsed.recipients.length) bits.push('para ' + parsed.recipients[0].label);
+      if (!bits.length && parsed.aiLabel) bits.push(parsed.aiLabel);
       if (!bits.length && newTerms.length) bits.push(newTerms.join(' '));
-      c.label = bits.join(' ');
+      if (!bits.length && (parsed.aiTerms || []).length) bits.push(parsed.aiTerms.slice(0, 3).join(' '));
+      c.label = parsed.aiLabel || bits.join(' ');
       c.page = 0; S.shownCombos = [];
     }
     if (parsed.budget) { c.budget = parsed.budget; S.shownCombos = []; c.page = 0; }
@@ -402,7 +405,7 @@ export function initAsistente(api) {
       const items = combo.chosen.map(x => x.p);
       const left = budget - combo.spent;
       const intro = [];
-      if (c.label) intro.push(`Para <strong>${esc(c.label)}</strong>`); else intro.push('Con tu presupuesto');
+      if (c.label) intro.push(/^para\b/i.test(c.label) ? `<strong>${esc(c.label.charAt(0).toUpperCase() + c.label.slice(1))}</strong>` : `Para <strong>${esc(c.label)}</strong>`); else intro.push('Con tu presupuesto');
       let html = `${intro[0]} de <strong>${money(budget)}</strong> armé este pedido con <strong>${items.length} producto${items.length > 1 ? 's' : ''}</strong>:`;
       if (usedFallback) html = `No encontré productos específicos de <em>${esc(c.label)}</em> en el catálogo, pero con tus <strong>${money(budget)}</strong> te armé este pedido con lo que sí tenemos:`;
       else if (padded) html += `<br><small>Completé el combo con otros productos para aprovechar mejor tu presupuesto.</small>`;
@@ -414,7 +417,7 @@ export function initAsistente(api) {
       addBot(html);
       api.trackEvent('asistente_combo', c.label || 'sin tema', { value: budget });
       setChips([
-        { label: '🔄 Otro combo', fn: () => handleUser('Otro combo', 'Armar otro combo') },
+        { label: '🔄 Otro combo', fn: () => handleUser('Otro combo', 'Armar otro combo', true) },
         { label: '📋 Ver productos sueltos', say: 'Quiero un producto individual' },
         { label: '💰 Cambiar presupuesto', say: 'Tengo un presupuesto' },
         { label: '🏷️ Solo descuentos', say: 'Con descuento' }
@@ -440,7 +443,7 @@ export function initAsistente(api) {
     let head;
     if (c.discountOnly) head = `🏷️ Estos son los productos en descuento${c.label && !usedFallback ? ` (${esc(c.label)})` : ''}${c.budget ? ` hasta ${money(c.budget)}` : ''}:`;
     else if (usedFallback) head = `No encontré productos específicos de <em>${esc(c.label)}</em>, pero estas opciones suelen gustar:`;
-    else if (hasSubject) head = `Claro que sí, déjame ayudarte. Para <strong>${esc(c.label)}</strong> te recomiendo:`;
+    else if (hasSubject) head = `Claro que sí, déjame ayudarte. ${/^para\b/i.test(c.label) ? '' : 'Para '}<strong>${esc(c.label)}</strong> te recomiendo:`;
     else head = 'Aquí van algunas ideas para empezar:';
     addBot(`${head}<div class="asistente-cards">${show.map(x => productCard(x.p)).join('')}</div>`);
     const chips = [];
@@ -453,17 +456,57 @@ export function initAsistente(api) {
     api.trackEvent('asistente_busqueda', c.label || (c.discountOnly ? 'descuentos' : 'general'));
   }
 
-  function handleUser(text, shown) {
+  // Interpreta con Gemini vía /api/asistente. Cualquier fallo (sin clave, cuota,
+  // red, tiempo) devuelve null y el asistente local sigue solo, sin avisar al cliente.
+  let aiCalls = 0, aiDisabled = false;
+  async function interpretAI(text) {
+    if (aiDisabled || aiCalls >= 40) return null; // tope por visita para cuidar la cuota gratuita
+    aiCalls++;
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 10000);
+      const cats = [...new Set(api.getProducts().filter(p => p.active).map(p => p.category).filter(Boolean))].slice(0, 30);
+      const r = await fetch('/api/asistente', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal,
+        body: JSON.stringify({ message: text, categories: cats })
+      });
+      clearTimeout(timer);
+      const j = await r.json();
+      if (!j.ok) { if (j.error === 'sin_clave') aiDisabled = true; // ningún proveedor configurado: no insistir return null; }
+      return j.data;
+    } catch (e) { return null; }
+  }
+
+  function applyAI(parsed, ai) {
+    if (!ai) return parsed;
+    const f = parsed.flags;
+    if (ai.keywords.length) { parsed.aiTerms = ai.keywords; parsed.tokens = []; }
+    if (ai.label) parsed.aiLabel = ai.label;
+    if (ai.budget) parsed.budget = ai.budget;
+    if (ai.count) parsed.count = ai.count;
+    if (ai.wants_discount) f.discount = true;
+    if (ai.wants_single) f.single = true;
+    if (ai.intent === 'ver_pedido') f.cart = true;
+    if (ai.intent === 'ayuda') f.help = true;
+    if (ai.intent === 'presupuesto' && !parsed.budget) f.budgetWord = true;
+    if (ai.intent === 'saludo' && !parsed.budget && !ai.keywords.length) f.greeting = true;
+    return parsed;
+  }
+
+  function handleUser(text, shown, fromChip) {
     text = String(text || '').trim();
     if (!text || S.busy) return;
     addUser(shown || text);
     setChips([]);
     S.busy = true;
     const dots = typing();
-    setTimeout(() => {
+    const minWait = new Promise(res => setTimeout(res, 380));
+    // Los chips y la respuesta al "¿cuánto quieres gastar?" ya son claros: no gastan cuota de IA.
+    const useAI = !fromChip && !S.awaitingBudget;
+    Promise.all([useAI ? interpretAI(text) : null, minWait]).then(([ai]) => {
       dots.remove();
       try {
-        const parsed = parseMessage(text, S.awaitingBudget);
+        const parsed = applyAI(parseMessage(text, S.awaitingBudget), ai);
         mergeContext(parsed);
         respond(parsed);
       } catch (err) {
@@ -473,7 +516,7 @@ export function initAsistente(api) {
       }
       S.busy = false;
       scrollDown();
-    }, 380);
+    });
   }
 
   function greet() {
