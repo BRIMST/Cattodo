@@ -472,7 +472,10 @@ export function initAsistente(api) {
       });
       clearTimeout(timer);
       const j = await r.json();
-      if (!j.ok) { if (j.error === 'sin_clave') aiDisabled = true; // ningún proveedor configurado: no insistir return null; }
+      if (!j.ok) {
+        if (j.error === 'sin_clave') aiDisabled = true; // ningún proveedor configurado: no insistir
+        return null;
+      }
       return j.data;
     } catch (e) { return null; }
   }
