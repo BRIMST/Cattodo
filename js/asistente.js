@@ -73,7 +73,7 @@ function parseMessage(raw, awaitingBudget) {
     cart: /\b(mi pedido|mi carrito|el carrito|carrito|pagar|finalizar|terminar mi compra|hacer el pedido)\b/.test(t),
     budgetWord: /\b(presupuesto|alcance|alcanza|gastar|cuento con|tengo)\b/.test(t),
     reset: /\b(reiniciar|empezar de nuevo|borrar|nueva busqueda|desde cero|cambiar de tema|otra cosa)\b/.test(t),
-    single: /\b(un|solo un|1)\s+(regalo|producto|articulo)\b/.test(t) || /\bproductos individuales\b/.test(t),
+    single: /\b(un solo|solo un|solo uno|un unico|un|1)\s+(regalo|producto|articulo)\b/.test(t) || /\b(solo|nada mas) (uno|una)\b/.test(t) || /\bproductos individuales\b/.test(t),
     more: /\b(ver mas|mas opciones|muestrame mas|otros)\b/.test(t),
     other: /\b(otro combo|otra combinacion|otro pedido|cambiar combo|cambia el combo|otra opcion de combo)\b/.test(t),
     help: /\b(ayuda|que puedes hacer|como funciona|que haces)\b/.test(t)
@@ -437,13 +437,22 @@ export function initAsistente(api) {
       setChips(homeChips()); return;
     }
     const PAGE = 4;
+    let padded2 = false;
+    if (hasSubject && !usedFallback && !c.discountOnly && list.length < PAGE) {
+      const have = new Set(list.map(x => x.p.id));
+      const extra = pool0
+        .filter(p => !have.has(p.id) && (!c.budget || priceOf(p) <= c.budget))
+        .map(p => ({ p, rel: 0 }))
+        .sort(() => Math.random() - 0.5);
+      if (extra.length) { list = list.concat(extra.slice(0, PAGE - list.length)); padded2 = true; }
+    }
     const start = (c.page * PAGE) % Math.max(list.length, 1);
     let show = list.slice(start, start + PAGE);
     if (show.length === 0) { c.page = 0; show = list.slice(0, PAGE); }
     let head;
     if (c.discountOnly) head = `🏷️ Estos son los productos en descuento${c.label && !usedFallback ? ` (${esc(c.label)})` : ''}${c.budget ? ` hasta ${money(c.budget)}` : ''}:`;
     else if (usedFallback) head = `No encontré productos específicos de <em>${esc(c.label)}</em>, pero estas opciones suelen gustar:`;
-    else if (hasSubject) head = `Claro que sí, déjame ayudarte. ${/^para\b/i.test(c.label) ? '' : 'Para '}<strong>${esc(c.label)}</strong> te recomiendo:`;
+    else if (hasSubject) head = `Claro que sí, déjame ayudarte. ${/^para\b/i.test(c.label) ? '' : 'Para '}<strong>${esc(c.label)}</strong> te recomiendo:${padded2 ? '<br><small>Encontré pocas opciones exactas, así que agregué otras que podrían gustarte.</small>' : ''}`;
     else head = 'Aquí van algunas ideas para empezar:';
     addBot(`${head}<div class="asistente-cards">${show.map(x => productCard(x.p)).join('')}</div>`);
     const chips = [];
@@ -488,7 +497,6 @@ export function initAsistente(api) {
     if (ai.budget) parsed.budget = ai.budget;
     if (ai.count) parsed.count = ai.count;
     if (ai.wants_discount) f.discount = true;
-    if (ai.wants_single) f.single = true;
     if (ai.intent === 'ver_pedido') f.cart = true;
     if (ai.intent === 'ayuda') f.help = true;
     if (ai.intent === 'presupuesto' && !parsed.budget) f.budgetWord = true;

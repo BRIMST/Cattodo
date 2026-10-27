@@ -19,13 +19,14 @@ module.exports = async function handler(req, res) {
         }
 
         const FIREBASE_URL    = "https://pandaventa-cdc06-default-rtdb.firebaseio.com";
-        const MASTERSHOP_TOKEN = process.env.MASTERSHOP_API_KEY || "laApX4jllnqGPuZ9bya748P-9o68vMDMQM5qRZSAtaKl9Q4dMM";
+        const MASTERSHOP_TOKEN = process.env.MASTERSHOP_API_KEY;
         const MASTERSHOP_URL   = process.env.MASTERSHOP_BASE_URL || "https://app.mastershop.com";
 
         const itemsMastershop = items.filter(item => item.origen === 'mastershop');
 
         // ====== BLOQUE MASTERSHOP ======
         if (itemsMastershop.length > 0) {
+            if (!MASTERSHOP_TOKEN) throw new Error('Falta configurar MASTERSHOP_API_KEY en las variables de entorno de Vercel');
             const precioTotalMS = itemsMastershop.reduce((acc, item) => acc + (item.price * item.qty), 0);
 
             const payloadMS = {

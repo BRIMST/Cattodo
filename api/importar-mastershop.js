@@ -12,7 +12,8 @@ module.exports = async function handler(req, res) {
     if (!id) return res.status(400).json({ message: 'ID de variante de Mastershop requerido' });
 
     try {
-        const MASTERSHOP_TOKEN = process.env.MASTERSHOP_API_KEY || "laApX4jllnqGPuZ9bya748P-9o68vMDMQM5qRZSAtaKl9Q4dMM";
+        const MASTERSHOP_TOKEN = process.env.MASTERSHOP_API_KEY;
+        if (!MASTERSHOP_TOKEN) return res.status(500).json({ message: 'Falta configurar MASTERSHOP_API_KEY en las variables de entorno de Vercel' });
         const MASTERSHOP_URL  = process.env.MASTERSHOP_BASE_URL || "https://app.mastershop.com";
         const FIREBASE_URL    = "https://pandaventa-cdc06-default-rtdb.firebaseio.com";
 
