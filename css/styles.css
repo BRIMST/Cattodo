@@ -5220,3 +5220,28 @@ textarea:focus {
   .asistente-form input { font-size: 16px; } /* evita el zoom de iOS */
 }
 @media (prefers-reduced-motion: reduce) { .asistente-typing span { animation: none; } }
+
+
+/* ====== CATÁLOGO MAYORISTA ====== */
+.btn-wholesale-toggle {
+  border: 1px solid var(--primary);
+  background: transparent;
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 0.78rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-wholesale-toggle:hover { background: var(--primary); color: #fff; }
+.wholesale-banner { display: none; background: #f0fdf4; border-bottom: 1px solid #86efac; }
+.wholesale-banner-inner {
+  max-width: var(--max-catalog, 1200px); margin: 0 auto; padding: 0.75rem var(--px);
+  display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: center;
+  font-size: 0.85rem; color: #166534;
+}
+.wholesale-min-note { font-size: 0.65rem; font-weight: 700; color: #16a34a; margin-top: 2px; }
+body.wholesale-mode .wholesale-banner { display: block; }
+body.wholesale-mode .hero-banner,
+body.wholesale-mode .trust-bar { display: none; }

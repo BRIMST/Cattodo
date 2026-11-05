@@ -118,6 +118,7 @@
           </div>
         </div>
         <div class="header-actions">
+          <button class="btn-wholesale-toggle" id="btn-wholesale-toggle" type="button">📦 Mayoristas</button>
           <button class="btn-admin-access" id="btn-open-admin" title="Administrar" style="display:none;" fetchpriority="low">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="8" r="4" />
@@ -147,6 +148,14 @@
           Ver productos
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
         </a>
+      </div>
+    </div>
+
+    <!-- Aviso catálogo mayorista (solo visible en /mayoristas) -->
+    <div class="wholesale-banner" id="wholesale-banner">
+      <div class="wholesale-banner-inner">
+        <b>📦 Catálogo mayorista</b>
+        <span>Precios por mayor · Compra mínima de 3 unidades por producto</span>
       </div>
     </div>
 
@@ -202,7 +211,7 @@
       </section>
 
       <div class="catalog-section-header">
-        <h2 class="catalog-section-title">Todos los productos</h2>
+        <h2 class="catalog-section-title" id="catalog-section-title">Todos los productos</h2>
         <span class="catalog-section-count" id="products-count"></span>
       </div>
       <div class="products-grid" id="products-grid">
@@ -320,6 +329,7 @@
                 <span id="detail-wholesale-tag" style="display:none; font-size:0.65rem; font-weight:800; color:#16a34a; background:#f0fdf4; border:1px solid #86efac; border-radius:999px; padding:0.2rem 0.55rem; align-self:center;">MAYORISTA</span>
               </div>
               <div id="detail-savings-tag" style="display:none; font-size:0.8rem; color:var(--success); font-weight:700; margin-top:0.2rem;"></div>
+              <div id="detail-wholesale-min" style="display:none; font-size:0.8rem; color:#16a34a; font-weight:700; margin-top:0.2rem;"></div>
             </div>
           </div>
 

@@ -12,10 +12,26 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-        const { cliente, items, ciudad_destino, departamento_destino, direccion_destino, orden_firebase_id } = req.body;
+        const { cliente, items, ciudad_destino, departamento_destino, direccion_destino, orden_firebase_id, tipo_pedido } = req.body;
 
         if (!cliente || !items || !ciudad_destino) {
             return res.status(400).json({ message: 'Faltan datos requeridos' });
+        }
+
+        // Pedidos mayoristas: mínimo 3 unidades de cada producto (sumando sus variantes)
+        const MINIMO_MAYORISTA = 3;
+        if (tipo_pedido === 'mayorista') {
+            const totalesPorProducto = {};
+            items.forEach(item => {
+                totalesPorProducto[item.id] = (totalesPorProducto[item.id] || 0) + (Number(item.qty) || 0);
+            });
+            const incumplen = Object.keys(totalesPorProducto).filter(id => totalesPorProducto[id] < MINIMO_MAYORISTA);
+            if (incumplen.length > 0) {
+                return res.status(400).json({
+                    message: `Los pedidos mayoristas requieren mínimo ${MINIMO_MAYORISTA} unidades por producto`,
+                    productos: incumplen
+                });
+            }
         }
 
         const FIREBASE_URL    = "https://pandaventa-cdc06-default-rtdb.firebaseio.com";

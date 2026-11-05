@@ -64,9 +64,52 @@ let settings = {
   }
 };
 let orders = [];
-let cart = {};
+// Cada canal (detal / mayorista) tiene su propio carrito, porque los precios
+// son distintos y no deben mezclarse en un mismo pedido.
+const carts = { retail: {}, wholesale: {} };
+let cart = carts.retail;
 let currentFilter = 'all';
 let isWholesaleMode = false;
+// En pedidos mayoristas se compran mínimo 3 unidades de cada producto
+// (se cuentan sumando todas sus variantes: colores, aromas, tamaños).
+const WHOLESALE_MIN_QTY = 3;
+
+// Total de unidades de un producto en el carrito actual, sumando variantes.
+function getProductQtyInCart(productId) {
+  return Object.entries(cart).reduce((sum, [cartId, q]) => (
+    cartId.split(':')[0] === productId ? sum + q : sum
+  ), 0);
+}
+
+// Productos del carrito mayorista que no llegan al mínimo (para validar al pedir).
+function getWholesaleShortfalls() {
+  if (!isWholesaleMode) return [];
+  const totals = {};
+  Object.entries(cart).forEach(([cartId, q]) => {
+    const id = cartId.split(':')[0];
+    totals[id] = (totals[id] || 0) + q;
+  });
+  return Object.entries(totals)
+    .filter(([, q]) => q < WHOLESALE_MIN_QTY)
+    .map(([id]) => products.find(x => x.id === id)?.name || id);
+}
+
+// Ruta del catálogo según el canal activo.
+const getCatalogPath = () => (isWholesaleMode ? '/mayoristas' : '/');
+
+function setWholesaleMode(enabled) {
+  enabled = !!enabled;
+  if (enabled === isWholesaleMode) return;
+  isWholesaleMode = enabled;
+  cart = enabled ? carts.wholesale : carts.retail;
+  document.body.classList.toggle('wholesale-mode', enabled);
+  safeText('header-store-tagline', enabled ? 'Catálogo mayorista' : (settings.tagline || 'Catálogo Digital'));
+  safeText('catalog-section-title', enabled ? 'Catálogo mayorista' : 'Todos los productos');
+  const toggleBtn = document.getElementById('btn-wholesale-toggle');
+  if (toggleBtn) toggleBtn.textContent = enabled ? '🛍️ Ver catálogo al detal' : '📦 Mayoristas';
+  updateCartUI();
+  if (isProductsLoaded) renderProducts();
+}
 
 function getProductPrice(p) {
   if (!p) return 0;
@@ -411,7 +454,7 @@ function renderCampaign() {
   if (!section || !carousel || !title) return;
 
   const camp = settings.activeCampaign;
-  if (!camp || !camp.enabled || !camp.tag) {
+  if (isWholesaleMode || !camp || !camp.enabled || !camp.tag) {
     section.style.display = 'none'; return;
   }
 
@@ -682,7 +725,7 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
   const pImages = p.images || (p.image ? [p.image] : []);
   const mainImg = pImages[0];
   const price = getProductPrice(p);
-  const hasDiscount = p.originalPrice && parseFloat(p.originalPrice) > parseFloat(price);
+  const hasDiscount = !isWholesaleMode && p.originalPrice && parseFloat(p.originalPrice) > parseFloat(price);
   const discountPct = hasDiscount ? Math.round((1 - price / p.originalPrice) * 100) : 0;
   const stats = getProductStats(p.id);
 
@@ -746,6 +789,7 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
             <span class="price-amount ${hasDiscount ? 'price-sale' : ''}">${parseFloat(price).toLocaleString('es-CO')}</span>
             ${isWholesaleMode ? '<span style="font-size:0.6rem; color:var(--success); font-weight:700; margin-left:4px;">(Por mayor)</span>' : ''}
           </div>
+          ${isWholesaleMode ? `<div class="wholesale-min-note">Mín. ${WHOLESALE_MIN_QTY} unidades</div>` : ''}
         </div>
         <div class="qty-controls">
           ${cart[cartId] ? `
@@ -764,7 +808,7 @@ function renderDiscountSection() {
   const section = document.getElementById('discount-section');
   const grid = document.getElementById('discount-grid');
   if (!section || !grid) return;
-  if (discounted.length === 0) { section.style.display = 'none'; return; }
+  if (isWholesaleMode || discounted.length === 0) { section.style.display = 'none'; return; }
   section.style.display = 'block';
   grid.innerHTML = discounted.map(p => {
     const pImages = p.images || (p.image ? [p.image] : []);
@@ -808,13 +852,21 @@ function updateCart(cartId, change) {
   }
   const current = cart[cartId] || 0;
   let next = current + change;
-  if (isWholesaleMode && change > 0 && current === 0) {
-    next = Math.max(6, change);
+  if (isWholesaleMode) {
+    // Mínimo mayorista: 3 unidades por producto (sumando sus variantes).
+    const productTotal = getProductQtyInCart(productId);
+    if (change > 0 && productTotal === 0) {
+      next = Math.max(WHOLESALE_MIN_QTY, change);
+    } else if (change < 0 && productTotal + change < WHOLESALE_MIN_QTY) {
+      // Bajar del mínimo quita el producto completo del pedido mayorista.
+      Object.keys(cart).forEach(id => { if (id.split(':')[0] === productId) delete cart[id]; });
+      updateCartUI();
+      renderProducts();
+      if (views.order && views.order.classList.contains('active')) renderOrderList();
+      return;
+    }
   }
-  if (isWholesaleMode && next < 6) {
-    next = 0;
-  }
-  
+
   // Validar stock (tratamos '', null y undefined como "sin límite definido")
   const hasStockLimit = (val) => val !== undefined && val !== null && val !== '';
   if (change > 0) {
@@ -975,12 +1027,12 @@ function injectProductStructuredData(p, price) {
 window.openProductPage = function(productId) {
   const p = products.find(x => x.id === productId);
   if (!p) {
-    navigateTo('/');
+    navigateTo(getCatalogPath());
     return;
   }
   
   currentDetailProduct = p;
-  currentDetailQty = isWholesaleMode ? 6 : 1;
+  currentDetailQty = isWholesaleMode ? WHOLESALE_MIN_QTY : 1;
   
   // Set view product active
   switchView('product');
@@ -999,9 +1051,9 @@ window.openProductPage = function(productId) {
   
   // Pricing
   const price = getProductPrice(p);
-  const hasDiscount = p.originalPrice && parseFloat(p.originalPrice) > parseFloat(price);
+  const hasDiscount = !isWholesaleMode && p.originalPrice && parseFloat(p.originalPrice) > parseFloat(price);
 
-  injectProductStructuredData(p, price);
+  injectProductStructuredData(p, parseFloat(p.price) || 0); // SEO: siempre el precio al detal
   const discountPct = hasDiscount ? Math.round((1 - price / p.originalPrice) * 100) : 0;
   
   const originalPriceEl = document.getElementById('detail-price-original');
@@ -1026,6 +1078,9 @@ window.openProductPage = function(productId) {
   
   safeText('detail-price-amount', parseFloat(price).toLocaleString('es-CO'));
   safeText('detail-price-currency', settings.currency + ' ');
+  safeStyle('detail-wholesale-tag', 'display', isWholesaleMode ? 'inline-block' : 'none');
+  safeText('detail-wholesale-min', isWholesaleMode ? `Pedido mayorista: mínimo ${WHOLESALE_MIN_QTY} unidades` : '');
+  safeStyle('detail-wholesale-min', 'display', isWholesaleMode ? 'block' : 'none');
   
   // Social Proof stats
   const stats = getProductStats(p.id);
@@ -1400,6 +1455,13 @@ window.navigateTo = navigateTo;
 
 function handleRoute() {
   const path = window.location.pathname;
+  // El canal mayorista se activa al entrar a /mayoristas y se mantiene al ver
+  // productos, el pedido y las políticas; al volver al catálogo normal se apaga.
+  if (path === '/mayoristas' || path === '/mayoristas/') {
+    setWholesaleMode(true);
+  } else if (path === '/' || path === '') {
+    setWholesaleMode(false);
+  }
   if (path.startsWith('/producto/')) {
     const productId = decodeURIComponent(path.replace('/producto/', '').replace(/\/$/, ''));
     openProductPage(productId);
@@ -1648,17 +1710,21 @@ function initCriticalApp() {
     navigateTo('/pedido');
     renderOrderList();
   });
-  on('btn-back-catalog', 'onclick', () => navigateTo('/'));
+  on('btn-back-catalog', 'onclick', () => navigateTo(getCatalogPath()));
+  on('btn-wholesale-toggle', 'onclick', () => navigateTo(isWholesaleMode ? '/' : '/mayoristas'));
   on('btn-back-order', 'onclick', () => navigateTo('/pedido'));
   
   // Product Detail Page listeners
   on('btn-back-catalog-product', 'onclick', () => {
-    navigateTo('/');
+    navigateTo(getCatalogPath());
   });
   on('btn-detail-qty-minus', 'onclick', () => {
-    if (currentDetailQty > 1) {
+    const minQty = isWholesaleMode ? WHOLESALE_MIN_QTY : 1;
+    if (currentDetailQty > minQty) {
       currentDetailQty--;
       updateDetailQtyUI();
+    } else if (isWholesaleMode) {
+      showToast(`El pedido mayorista es de mínimo ${WHOLESALE_MIN_QTY} unidades`);
     }
   });
   on('btn-detail-qty-plus', 'onclick', () => {
@@ -1711,7 +1777,7 @@ function initCriticalApp() {
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(waMessage)}`;
     window.open(waUrl, '_blank');
   });
-  on('btn-new-order', 'onclick', () => switchView('catalog'));
+  on('btn-new-order', 'onclick', () => navigateTo(getCatalogPath()));
 
   let searchTimer;
   on('search-input', 'oninput', () => {
@@ -1787,6 +1853,10 @@ function initSecondaryApp() {
     if (!selectedShippingOption) {
       return showToast('Primero cotiza y elige tu opción de envío');
     }
+    const shortfalls = getWholesaleShortfalls();
+    if (shortfalls.length > 0) {
+      return showToast(`Pedido mayorista: mínimo ${WHOLESALE_MIN_QTY} unidades de "${shortfalls[0]}"`);
+    }
 
     const customer = {
       name, phone, dept, city, address,
@@ -1824,7 +1894,7 @@ function initSecondaryApp() {
       },
       timestamp: Date.now(),
       status: 'pending',
-      channel: 'web'
+      channel: isWholesaleMode ? 'mayorista' : 'web'
     };
 
     try {
@@ -1838,6 +1908,7 @@ function initSecondaryApp() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             cliente: { nombre: customer.name, telefono: customer.phone },
+            tipo_pedido: isWholesaleMode ? 'mayorista' : 'detal',
             ciudad_destino: customer.city,
             departamento_destino: customer.dept,
             direccion_destino: customer.address + (customer.address2 ? ', ' + customer.address2 : ''),
@@ -1957,7 +2028,7 @@ function initSecondaryApp() {
       }
 
       switchView('ticket');
-      cart = {};
+      Object.keys(cart).forEach(id => delete cart[id]);
       updateCartUI();
       showToast('¡Pedido generado! Descargando ticket...');
     } catch (err) {
