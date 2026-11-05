@@ -79,21 +79,15 @@ export function initAdmin(state, utils) {
     const files = Array.from(e.target.files).slice(0, 5 - appState.currentProductImages.length);
     if (files.length) appUtils.showToast(`Subiendo ${files.length} foto(s)...`);
     let failed = 0;
-    const results = await Promise.all(files.map(file => new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onerror = () => { failed++; resolve(null); };
-      reader.onload = async (ev) => {
-        try {
-          const c = await appUtils.compressImage(ev.target.result);
-          resolve(await appUtils.uploadToStorage(c, 'products'));
-        } catch (err) {
-          console.error('Error procesando la foto:', file.name, err);
-          failed++;
-          resolve(null);
-        }
-      };
-      reader.readAsDataURL(file);
-    })));
+    const results = await Promise.all(files.map(async (file) => {
+      try {
+        return await appUtils.uploadImageFile(file, 'products');
+      } catch (err) {
+        console.error('Error procesando la foto:', file.name, err);
+        failed++;
+        return null;
+      }
+    }));
     const newImages = results.filter(Boolean);
     newImages.forEach(img => { if (appState.currentProductImages.length < 5) appState.currentProductImages.push(img); });
     renderProductImagePreview();
@@ -119,6 +113,7 @@ export function initAdmin(state, utils) {
   on('bulk-upload-stock', 'onchange', handleStockExcelUpload);
   on('btn-bulk-photos', 'onclick', () => document.getElementById('bulk-upload-photos')?.click());
   on('bulk-upload-photos', 'onchange', handleBulkPhotoUpload);
+  on('btn-optimize-photos', 'onclick', optimizeHeavyPhotos);
   on('btn-bulk-barcodes', 'onclick', bulkGenerateBarcodes);
 
   // Productos: búsqueda, filtros, orden, paginación y selección múltiple
@@ -2495,50 +2490,116 @@ function renderCustomerPhotosAdmin() {
 // ==========================================
 // MODULE: CARGA MASIVA (Excel + Fotos de producto)
 // ==========================================
+// Ejecuta `worker` sobre cada ítem con un máximo de `limit` tareas a la vez.
+async function runPool(items, limit, worker) {
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const idx = next++;
+      await worker(items[idx], idx);
+    }
+  });
+  await Promise.all(runners);
+}
+
 async function handleBulkPhotoUpload(e) {
-  const files = Array.from(e.target.files || []);
+  const input = e.target;
+  const files = Array.from(input.files || []);
   if (files.length === 0) return;
 
-  appUtils.showToast(`Procesando ${files.length} foto(s)...`);
-
-  let matchedCount = 0;
   const unmatchedNames = [];
-
-  for (const file of files) {
+  const jobs = [];
+  files.forEach(file => {
     const baseName = file.name.replace(/\.[^/.]+$/, '').trim();
     const existing = appState.products.find(p => p.ref && String(p.ref).trim().toLowerCase() === baseName.toLowerCase());
+    if (existing) jobs.push({ file, existing }); else unmatchedNames.push(file.name);
+  });
+  if (jobs.length === 0) {
+    appUtils.showToast(`⚠️ Ninguna foto coincide con una referencia (el nombre del archivo debe ser igual a la Referencia)`);
+    input.value = '';
+    return;
+  }
 
-    if (!existing) {
-      unmatchedNames.push(file.name);
-      continue;
-    }
+  appUtils.showToast(`Subiendo ${jobs.length} foto(s)...`);
+  const updates = {};
+  let done = 0;
 
+  // 4 fotos a la vez en lugar de una por una
+  await runPool(jobs, 4, async ({ file, existing }) => {
     try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => resolve(ev.target.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const compressed = await appUtils.compressImage(dataUrl);
-      const photoUrl = await appUtils.uploadToStorage(compressed, 'products');
-      await update(ref(appState.db, `products/${existing.id}`), { images: [photoUrl] });
-      matchedCount++;
+      const photoUrl = await appUtils.uploadImageFile(file, 'products');
+      updates[`products/${existing.id}/images`] = [photoUrl];
     } catch (err) {
       console.error(`Error subiendo foto ${file.name}:`, err);
       unmatchedNames.push(file.name + ' (error al procesar)');
     }
+    done++;
+    if (done % 5 === 0 && done < jobs.length) appUtils.showToast(`Subiendo fotos ${done}/${jobs.length}...`);
+  });
+
+  const matchedCount = Object.keys(updates).length;
+  try {
+    // Una sola escritura para todos los productos
+    if (matchedCount > 0) await update(ref(appState.db), updates);
+  } catch (err) {
+    console.error(err);
+    appUtils.showToast('No se pudieron guardar las fotos: ' + err.message);
+    input.value = '';
+    return;
   }
 
   let summary = `${matchedCount} foto(s) subida(s) y vinculada(s) ✅`;
   if (unmatchedNames.length > 0) {
-    summary += ` — ⚠️ ${unmatchedNames.length} sin producto coincidente (revisa que el nombre del archivo sea igual a la Referencia)`;
+    summary += ` — ⚠️ ${unmatchedNames.length} sin producto coincidente o con error (revisa que el nombre del archivo sea igual a la Referencia)`;
     console.warn('Fotos sin producto coincidente:', unmatchedNames);
   }
   appUtils.showToast(summary);
   if (window.loadCatalog) window.loadCatalog();
   renderProductsTable();
-  e.target.value = '';
+  input.value = '';
+}
+
+// Mueve a Firebase Storage las fotos que quedaron guardadas como base64 dentro de los
+// productos (pasa cuando Storage falló al subirlas). Hacen pesado todo el catálogo.
+async function optimizeHeavyPhotos() {
+  const heavy = (appState.products || []).filter(p => (p.images || []).some(i => typeof i === 'string' && i.startsWith('data:')));
+  if (heavy.length === 0) return appUtils.showToast('Todas tus fotos ya están optimizadas ✅');
+  const chars = heavy.reduce((a, p) => a + p.images.reduce((x, i) => x + (String(i).startsWith('data:') ? i.length : 0), 0), 0);
+  if (!confirm(`${heavy.length} producto(s) tienen fotos guardadas dentro de la base de datos (≈ ${(chars / 1e6).toFixed(1)} MB), lo que vuelve lento el panel y la tienda.\n\nSe moverán a Firebase Storage. ¿Continuar?`)) return;
+
+  appUtils.showToast(`Optimizando fotos de ${heavy.length} producto(s)...`);
+  const updates = {};
+  let failed = 0, done = 0;
+  await runPool(heavy, 3, async (p) => {
+    try {
+      const images = [];
+      for (const img of p.images) {
+        if (typeof img === 'string' && img.startsWith('data:')) {
+          const blob = await (await fetch(img)).blob();
+          images.push(await appUtils.uploadBlobToStorage(blob, 'products'));
+        } else {
+          images.push(img);
+        }
+      }
+      updates[`products/${p.id}/images`] = images;
+    } catch (err) {
+      failed++;
+      console.error('No se pudo optimizar', p.name, err);
+    }
+    done++;
+    if (done % 5 === 0 && done < heavy.length) appUtils.showToast(`Optimizando ${done}/${heavy.length}...`);
+  });
+
+  const ok = Object.keys(updates).length;
+  if (ok > 0) {
+    try { await update(ref(appState.db), updates); }
+    catch (err) { return appUtils.showToast('No se pudieron guardar los cambios: ' + err.message); }
+  }
+  appUtils.showToast(ok
+    ? `⚡ ${ok} producto(s) optimizados${failed ? ` — ⚠️ ${failed} fallaron (revisa Firebase Storage)` : ''}`
+    : '⚠️ No se pudo subir a Firebase Storage. Revisa que Storage esté habilitado y sus reglas permitan escribir.');
+  if (window.loadCatalog) window.loadCatalog();
+  renderProductsTable();
 }
 
 async function handleBulkExcelUpload(e) {
@@ -2585,6 +2646,10 @@ async function handleBulkExcelUpload(e) {
       let updatedCount = 0;
       let missingPhotoCount = 0;
       const missingPhotoNames = [];
+      // Todo se acumula y se guarda en UNA sola escritura (antes: una espera por cada fila)
+      const updates = {};
+      const newProducts = {};      // key -> datos del producto nuevo
+      const newKeyByRef = {};      // referencia -> key (para filas repetidas del mismo archivo)
 
       for (const row of jsonData) {
         const fotoKey = findKey(row, ["foto", "imagen", "image", "url"]);
@@ -2649,18 +2714,36 @@ async function handleBulkExcelUpload(e) {
           // Igual que con las fotos: si la fila no trae código de barras, no
           // se toca el que el producto ya tuviera (evita borrarlo sin querer).
           if (barcodeValue) pData.barcode = barcodeValue;
-          await update(ref(appState.db, `products/${existingId}`), pData);
+          Object.entries(pData).forEach(([k, v]) => { updates[`products/${existingId}/${k}`] = v; });
           savedProductId = existingId;
           updatedCount++;
+        } else if (refValue && newKeyByRef[refValue]) {
+          // Misma referencia repetida en el archivo: se completa el producto ya creado
+          savedProductId = newKeyByRef[refValue];
+          if (fotoValid) pData.images = [foto];
+          if (barcodeValue) pData.barcode = barcodeValue;
+          Object.assign(newProducts[savedProductId], pData);
         } else {
           pData.images = fotoValid ? [foto] : [];
           pData.barcode = barcodeValue || '';
-          const newProductRef = await push(ref(appState.db, 'products'), pData);
-          savedProductId = newProductRef.key;
+          savedProductId = push(ref(appState.db, 'products')).key;
+          newProducts[savedProductId] = pData;
+          if (refValue) newKeyByRef[refValue] = savedProductId;
           importedCount++;
         }
         // El precio mayorista va a la zona privada (solo si la fila trae uno)
-        if (wholesalePrice) await saveWholesalePrice(savedProductId, wholesalePrice);
+        if (wholesalePrice) updates[`wholesalePrices/${savedProductId}`] = wholesalePrice;
+      }
+
+      Object.entries(newProducts).forEach(([key, data]) => { updates[`products/${key}`] = data; });
+      if (Object.keys(updates).length > 0) {
+        await update(ref(appState.db), updates);
+        const prices = {};
+        Object.entries(updates).forEach(([path, v]) => {
+          const m = path.match(/^wholesalePrices\/(.+)$/);
+          if (m) prices[m[1]] = v;
+        });
+        appState.wholesalePrices = { ...(appState.wholesalePrices || {}), ...prices };
       }
 
       let summary = `Excel procesado: ${importedCount} creados, ${updatedCount} actualizados ✅`;

@@ -343,26 +343,107 @@ const compressImage = (base64Str, maxWidth = 800, quality = 0.6) => {
 // más pesada de leer a medida que crece el catálogo). Los datos existentes
 // (fotos ya guardadas como base64) se quedan igual y siguen funcionando —
 // esto solo cambia cómo se guardan las fotos NUEVAS de aquí en adelante.
-const uploadToStorage = async (dataUrl, folder = 'products') => {
-  try {
-    const blob = await (await fetch(dataUrl)).blob();
-    const filename = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
-    const fileRef = storageRef(storage, filename);
-    // Con límite de tiempo: si Storage no responde (bucket sin habilitar, reglas,
-    // CORS...) la subida se queda esperando minutos sin dar error y el respaldo
-    // nunca se activaba. A los 25 s se cancela y se usa el respaldo.
-    const task = uploadBytesResumable(fileRef, blob, { contentType: 'image/webp' });
-    await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { task.cancel(); reject(new Error('Tiempo de espera agotado subiendo a Storage')); }, 25000);
-      task.on('state_changed', null,
-        (err) => { clearTimeout(timer); reject(err); },
-        () => { clearTimeout(timer); resolve(); });
-    });
-    return await getDownloadURL(fileRef);
-  } catch (err) {
-    console.error('Error subiendo a Firebase Storage, se usa base64 como respaldo:', err);
-    return dataUrl; // Respaldo: si Storage falla, al menos la foto se guarda igual que antes
+// ====== SUBIDA DE IMÁGENES (rápida) ======
+// Antes: archivo → base64 → imagen → canvas → base64 → blob → subir (4 conversiones y mucha memoria).
+// Ahora: archivo → canvas → blob WebP → subir. Además la subida espera por INACTIVIDAD
+// (10 s sin avance) en vez de un tiempo total, y si Storage falla no se reintenta en cada
+// foto del mismo lote (antes cada foto esperaba su propio tiempo de espera completo).
+const STORAGE_STALL_MS = 10000;
+const STORAGE_COOLDOWN_MS = 90000;
+let storageFailedAt = 0;
+const isStorageCoolingDown = () => Date.now() - storageFailedAt < STORAGE_COOLDOWN_MS;
+
+const blobToDataUrl = (blob) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(r.result);
+  r.onerror = reject;
+  r.readAsDataURL(blob);
+});
+
+// Archivo de imagen -> Blob WebP reducido (JPEG si el navegador no sabe codificar WebP)
+const fileToImageBlob = async (file, maxWidth = 800, quality = 0.6) => {
+  let source = null, w = 0, h = 0, cleanup = () => {};
+  if (typeof createImageBitmap === 'function') {
+    try {
+      source = await createImageBitmap(file);
+      w = source.width; h = source.height;
+      cleanup = () => { try { source.close(); } catch (e) { /* ya cerrada */ } };
+    } catch (e) { source = null; }
   }
+  if (!source) {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.src = url;
+    try { await img.decode(); } catch (e) {
+      URL.revokeObjectURL(url);
+      throw new Error('No se pudo leer la imagen (usa JPG, PNG o WEBP)');
+    }
+    source = img; w = img.naturalWidth; h = img.naturalHeight;
+    cleanup = () => URL.revokeObjectURL(url);
+  }
+  try {
+    const scale = Math.min(maxWidth / w, 1); // no ampliar imágenes pequeñas
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(w * scale));
+    canvas.height = Math.max(1, Math.round(h * scale));
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+    const toBlob = (type) => new Promise(res => canvas.toBlob(res, type, quality));
+    let blob = await toBlob('image/webp');
+    if (!blob || blob.type !== 'image/webp') blob = await toBlob('image/jpeg');
+    if (!blob) throw new Error('No se pudo comprimir la imagen');
+    return blob;
+  } finally {
+    cleanup();
+  }
+};
+
+// Sube un Blob a Storage y devuelve su URL; lanza error si falla (sin respaldo).
+const uploadBlobToStorage = async (blob, folder = 'products') => {
+  const ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/jpeg' ? 'jpg' : 'webp';
+  const filename = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const fileRef = storageRef(storage, filename);
+  const task = uploadBytesResumable(fileRef, blob, { contentType: blob.type || 'image/webp' });
+  await new Promise((resolve, reject) => {
+    let timer;
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { task.cancel(); reject(new Error('Firebase Storage no responde')); }, STORAGE_STALL_MS);
+    };
+    arm();
+    task.on('state_changed', arm,
+      (err) => { clearTimeout(timer); reject(err); },
+      () => { clearTimeout(timer); resolve(); });
+  });
+  return await getDownloadURL(fileRef);
+};
+
+// Igual, pero si Storage falla devuelve la foto como base64 para no perderla.
+const uploadWithFallback = async (blob, folder) => {
+  if (!isStorageCoolingDown()) {
+    try {
+      return await uploadBlobToStorage(blob, folder);
+    } catch (err) {
+      storageFailedAt = Date.now();
+      console.error('Error subiendo a Firebase Storage, se usa base64 como respaldo:', err);
+      showToast('⚠️ Firebase Storage no responde: las fotos se guardan dentro del producto (más lento). Revisa Storage en Firebase.');
+    }
+  }
+  return await blobToDataUrl(blob);
+};
+
+// Camino rápido: archivo de imagen -> URL (para fotos de productos)
+const uploadImageFile = async (file, folder = 'products', maxWidth = 800, quality = 0.6) => {
+  const blob = await fileToImageBlob(file, maxWidth, quality);
+  return uploadWithFallback(blob, folder);
+};
+
+// Compatibilidad: quien ya tiene la imagen como dataURL
+const uploadToStorage = async (dataUrl, folder = 'products') => {
+  const blob = await (await fetch(dataUrl)).blob();
+  return uploadWithFallback(blob, folder);
 };
 
 const formatMoney = (amount) => {
@@ -2397,7 +2478,7 @@ function initSecondaryApp() {
   // tiene su propia cuenta real en Firebase Authentication.
   const openAdmin = async () => {
     const state = { db, auth, products, settings, orders, cart, currentProductImages, viewerImages, viewerIndex };
-    const utils = { formatMoney, showToast, switchView, safeSet, safeText, safeHTML, safeValue, safeStyle, compressImage, uploadToStorage, hashPassword, isBogota, getShippingCost };
+    const utils = { formatMoney, showToast, switchView, safeSet, safeText, safeHTML, safeValue, safeStyle, compressImage, uploadToStorage, uploadImageFile, uploadBlobToStorage, hashPassword, isBogota, getShippingCost };
     const { initAdmin } = await import('./admin.js');
     initAdmin(state, utils);
   };
