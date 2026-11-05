@@ -157,6 +157,10 @@
         <b>📦 Portal mayorista</b>
         <span id="wholesale-welcome"></span>
         <span>Precios por mayor · Compra mínima de 3 unidades por producto</span>
+        <span class="wholesale-banner-actions">
+          <button type="button" class="wholesale-chip" id="btn-view-toggle" aria-pressed="false">☰ Vista lista</button>
+          <button type="button" class="wholesale-chip" id="btn-repeat-order" style="display:none;">🔁 Repetir último pedido</button>
+        </span>
       </div>
     </div>
 
@@ -181,7 +185,18 @@
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
-        <input type="text" id="search-input" placeholder="Buscar producto…" autocomplete="off" />
+        <input type="text" id="search-input" placeholder="Buscar producto…" autocomplete="off" aria-label="Buscar producto" list="search-suggestions" />
+        <datalist id="search-suggestions"></datalist>
+      </div>
+      <div class="sort-box">
+        <label for="sort-select" class="sr-only">Ordenar por</label>
+        <select id="sort-select" class="sort-select" aria-label="Ordenar productos">
+          <option value="default">Ordenar: Recomendados</option>
+          <option value="newest">Más nuevos</option>
+          <option value="price-asc">Precio: menor a mayor</option>
+          <option value="price-desc">Precio: mayor a menor</option>
+          <option value="name">Nombre (A–Z)</option>
+        </select>
       </div>
       <div class="category-toolbar">
         <input type="checkbox" id="category-menu-toggle" class="category-menu-toggle" hidden />
@@ -240,7 +255,8 @@
       </p>
       <div class="empty-state" id="empty-state" style="display:none">
         <span>🍃</span>
-        <p>No hay productos disponibles</p>
+        <p id="empty-state-text">No hay productos disponibles</p>
+        <button type="button" class="btn-clear-filters" id="btn-clear-filters" style="display:none;">Limpiar búsqueda y filtros</button>
       </div>
 
       <!-- Galería de clientes satisfechos -->
@@ -266,6 +282,8 @@
         <a href="/envios" onclick="navigateTo('/envios'); return false;">Envíos</a>
         <a href="/devoluciones" onclick="navigateTo('/devoluciones'); return false;">Devoluciones</a>
         <a href="/contacto" onclick="navigateTo('/contacto'); return false;">Contacto</a>
+        <a href="#" id="footer-wa-link" target="_blank" rel="noopener" style="display:none;">WhatsApp</a>
+        <a href="/mayoristas" onclick="navigateTo('/mayoristas'); return false;">Mayoristas</a>
       </div>
       <div class="footer-bottom">
         © <span id="footer-year"></span> <span id="footer-store-name-2">Panda Venta</span>. Todos los derechos reservados.
@@ -354,9 +372,9 @@
             <div class="detail-qty-wrapper">
               <label class="detail-section-label">Cantidad:</label>
               <div class="qty-controls" style="max-width: 140px;">
-                <button class="btn-qty" id="btn-detail-qty-minus">-</button>
+                <button class="btn-qty" id="btn-detail-qty-minus" aria-label="Quitar una unidad">-</button>
                 <span class="qty-display" id="detail-qty-display">1</span>
-                <button class="btn-qty" id="btn-detail-qty-plus">+</button>
+                <button class="btn-qty" id="btn-detail-qty-plus" aria-label="Agregar una unidad">+</button>
               </div>
             </div>
 
@@ -529,7 +547,14 @@
         <div></div>
       </header>
 
+      <ol class="order-steps" id="order-steps" aria-label="Progreso del pedido">
+        <li class="order-step active" data-step="1"><span class="order-step-num">1</span><span class="order-step-label">Tu pedido</span></li>
+        <li class="order-step" data-step="2"><span class="order-step-num">2</span><span class="order-step-label">Envío</span></li>
+        <li class="order-step" data-step="3"><span class="order-step-num">3</span><span class="order-step-label">Confirmar</span></li>
+      </ol>
+
       <p class="order-intro">Ya casi terminas 🎉 Revisa tu pedido y completa tus datos de envío.</p>
+      <p class="order-shipping-note" id="order-shipping-note">🚚 Envío gratis en Bogotá. Para el resto del país, el costo se calcula al elegir tu ciudad, antes de confirmar.</p>
 
       <div class="order-content">
         <!-- Order items list -->
@@ -668,6 +693,14 @@
         <h2>Ticket</h2>
         <div></div>
       </header>
+
+      <div class="order-thanks" id="order-thanks">
+        <div class="order-thanks-icon">🎉</div>
+        <h3>¡Gracias por tu pedido!</h3>
+        <p>Tu pedido <b id="thanks-ticket-number">—</b> quedó registrado.</p>
+        <p id="thanks-delivery" class="order-thanks-delivery"></p>
+        <p class="order-thanks-next">Siguiente paso: envíanos el ticket por WhatsApp para confirmar tu pedido.</p>
+      </div>
 
       <div class="ticket-wrapper">
         <div class="ticket" id="ticket-card">
@@ -1976,7 +2009,7 @@
   </div>
 
   <!-- Toast notification -->
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 
 

@@ -142,10 +142,40 @@ async function enterWholesalePortal() {
   if (!document.getElementById('customer-name')?.value) safeValue('customer-name', wholesaleSession.name);
   if (!document.getElementById('customer-phone')?.value && wholesaleSession.phone) safeValue('customer-phone', wholesaleSession.phone);
   switchView('catalog');
+  refreshWholesaleToolbar();
   if (isProductsLoaded) {
     renderProducts();
     updateCartUI();
   }
+}
+
+function refreshWholesaleToolbar() {
+  const toggle = document.getElementById('btn-view-toggle');
+  if (toggle) {
+    toggle.textContent = wholesaleListView ? '▦ Vista cuadrícula' : '☰ Vista lista';
+    toggle.setAttribute('aria-pressed', wholesaleListView ? 'true' : 'false');
+  }
+  let hasLast = false;
+  try { hasLast = !!(wholesaleSession && localStorage.getItem('ws_last_order_' + wholesaleSession.uid)); } catch (e) { /* sin almacenamiento */ }
+  safeStyle('btn-repeat-order', 'display', hasLast ? 'inline-block' : 'none');
+}
+
+// Vuelve a cargar en el carrito el último pedido del mayorista (respeta stock y mínimo).
+function repeatLastWholesaleOrder() {
+  if (!wholesaleSession) return;
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem('ws_last_order_' + wholesaleSession.uid) || '[]'); } catch (e) { /* ignorar */ }
+  let added = 0, skipped = 0;
+  saved.forEach(({ cartId, qty }) => {
+    const p = products.find(x => x.id === String(cartId).split(':')[0]);
+    if (!p || !p.active || isOutOfStock(p)) { skipped++; return; }
+    updateCart(cartId, qty);
+    if (cart[cartId]) added++; else skipped++;
+  });
+  showToast(added
+    ? `Pedido anterior cargado (${added} producto${added !== 1 ? 's' : ''})${skipped ? `. ${skipped} no disponible${skipped !== 1 ? 's' : ''}` : ''}`
+    : 'Ningún producto del pedido anterior está disponible');
+  if (added) navigateTo('/pedido');
 }
 
 async function wholesaleLogin(email, password) {
@@ -202,6 +232,43 @@ function setWholesaleMode(enabled) {
   if (toggleBtn) toggleBtn.textContent = enabled ? 'Salir del portal' : '🔐 Acceso mayoristas';
   updateCartUI();
   if (isProductsLoaded) renderProducts();
+}
+
+// ====== MEJORAS DE EXPERIENCIA ======
+let currentSort = 'default';
+let wholesaleListView = false;
+try { wholesaleListView = localStorage.getItem('ws_list_view') === '1'; } catch (e) { /* sin almacenamiento */ }
+
+// Un producto está agotado cuando tiene un stock definido y es 0 (o todas sus variantes lo son).
+function isOutOfStock(p) {
+  const has = (v) => v !== undefined && v !== null && v !== '';
+  if (p.variants && p.variants.length > 0) {
+    return p.variants.every(v => has(v.stock) && Number(v.stock) <= 0);
+  }
+  return has(p.stock) && Number(p.stock) <= 0;
+}
+
+function sortProducts(list) {
+  const arr = [...list];
+  if (currentSort === 'price-asc') arr.sort((a, b) => getProductPrice(a) - getProductPrice(b));
+  else if (currentSort === 'price-desc') arr.sort((a, b) => getProductPrice(b) - getProductPrice(a));
+  else if (currentSort === 'name') arr.sort((a, b) => String(a.name).localeCompare(String(b.name), 'es'));
+  else if (currentSort === 'newest') arr.reverse(); // las claves de Firebase son cronológicas
+  return arr;
+}
+
+// Indicador de pasos del pedido: 1 pedido, 2 envío (ciudad elegida), 3 confirmar (envío cotizado).
+function updateOrderSteps() {
+  const steps = document.querySelectorAll('#order-steps .order-step');
+  if (!steps.length) return;
+  const cityChosen = !!(document.getElementById('customer-city')?.value);
+  const shippingReady = !!selectedShippingOption;
+  const current = shippingReady ? 3 : (cityChosen ? 2 : 1);
+  steps.forEach(li => {
+    const n = Number(li.dataset.step);
+    li.classList.toggle('active', n === current);
+    li.classList.toggle('done', n < current);
+  });
 }
 
 function getProductPrice(p) {
@@ -299,7 +366,7 @@ const showToast = (msg) => {
   if (toast) {
     toast.textContent = msg;
     toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 3000);
+    setTimeout(() => toast.classList.remove('show'), Math.min(7000, Math.max(3000, String(msg).length * 55)));
   }
 };
 
@@ -371,6 +438,7 @@ window.loadCatalog = async function() {
     }
     
     isProductsLoaded = true;
+    renderSearchSuggestions();
     renderFilters();
     renderProducts();
     renderDiscountSection();
@@ -437,6 +505,12 @@ function applySettings() {
   safeText('footer-store-name', settings.storeName || 'Panda Venta');
   safeText('footer-store-name-2', settings.storeName || 'Panda Venta');
   safeText('footer-year', new Date().getFullYear());
+  const footerWa = document.getElementById('footer-wa-link');
+  const waDigits = String(settings.whatsapp || '').replace(/\D/g, '');
+  if (footerWa) {
+    footerWa.style.display = waDigits.length >= 10 ? 'inline' : 'none';
+    footerWa.href = `https://wa.me/${waDigits}`;
+  }
 
   const social = settings.social || {};
   const SOCIAL_ICONS = {
@@ -537,6 +611,14 @@ window.openCustomerPhotoViewer = function(idx) {
 };
 
 // ====== CATALOG ======
+// Sugerencias de búsqueda: nombres de productos activos (el navegador las muestra al escribir).
+function renderSearchSuggestions() {
+  const dl = document.getElementById('search-suggestions');
+  if (!dl) return;
+  const names = [...new Set(products.filter(p => p.active).map(p => p.name).filter(Boolean))].slice(0, 80);
+  dl.innerHTML = names.map(n => `<option value="${String(n).replace(/"/g, '&quot;')}"></option>`).join('');
+}
+
 function renderFilters() {
   const categories = ['all', ...new Set(products.map(p => p.category).filter(c => c))];
   els.categoryFilters.innerHTML = categories.map(cat =>
@@ -602,10 +684,18 @@ function renderProducts() {
     });
   }
 
+  filtered = sortProducts(filtered);
+  container.classList.toggle('list-view', isWholesaleMode && wholesaleListView);
+
   if (filtered.length === 0) {
     if (isProductsLoaded) {
       container.style.display = 'none';
       if (emptyState) emptyState.style.display = 'flex';
+      const hasFilters = !!searchQuery || currentFilter !== 'all';
+      safeText('empty-state-text', hasFilters
+        ? (searchQuery ? `No encontramos resultados para "${searchQuery}". Revisa la ortografía o prueba con otra palabra.` : 'No hay productos en esta categoría por ahora.')
+        : 'No hay productos disponibles');
+      safeStyle('btn-clear-filters', 'display', hasFilters ? 'inline-block' : 'none');
     }
     return;
   }
@@ -636,7 +726,7 @@ function renderProducts() {
     
     batch.forEach((p, idx) => {
       const card = document.createElement('div');
-      card.className = 'product-card';
+      card.className = 'product-card' + (isOutOfStock(p) ? ' is-soldout' : '');
       // Prioridad alta para las primeras 4 imágenes (above the fold)
       const isCritical = currentIndex === 0 && idx < 4;
       card.innerHTML = getProductHTML(p, null, isCritical);
@@ -867,9 +957,11 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
     </div>`;
   }
 
+  const soldOut = isOutOfStock(p);
   return `
-    <div class="product-image-container" onclick="navigateTo('/producto/${p.id}')" style="cursor:pointer;">
-      ${badgeText ? `<div class="badge-campaign">${badgeText}</div>` : ''}
+    <div class="product-image-container ${soldOut ? 'is-soldout-img' : ''}" onclick="navigateTo('/producto/${p.id}')" style="cursor:pointer;">
+      ${soldOut ? '<div class="badge-soldout">AGOTADO</div>' : ''}
+      ${badgeText && !soldOut ? `<div class="badge-campaign">${badgeText}</div>` : ''}
       ${mainImg ? `<img src="${mainImg}" alt="Comprar ${p.name} - Panda Venta" 
         ${isCritical ? 'fetchpriority="high"' : 'loading="lazy"'} 
         decoding="async" width="300" height="300" />` : '<span style="font-size:2rem">📦</span>'}
@@ -901,10 +993,12 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
         </div>
         <div class="qty-controls">
           ${cart[cartId] ? `
-            <button class="btn-qty" onclick="updateCart('${cartId}', -1)">-</button>
+            <button class="btn-qty" aria-label="Quitar una unidad" onclick="updateCart('${cartId}', -1)">-</button>
             <span class="qty-display">${cart[cartId]}</span>
-            <button class="btn-qty" onclick="updateCart('${cartId}', 1)">+</button>
-          ` : `<button class="btn-add ${hasDiscount ? 'btn-add-sale' : ''}" onclick="navigateTo('/producto/${p.id}')">VER DETALLES</button>`}
+            <button class="btn-qty" aria-label="Agregar una unidad" onclick="updateCart('${cartId}', 1)">+</button>
+          ` : (soldOut
+              ? `<button class="btn-add is-soldout" disabled>AGOTADO</button>`
+              : `<button class="btn-add ${hasDiscount ? 'btn-add-sale' : ''}" onclick="navigateTo('/producto/${p.id}')">VER DETALLES</button>`)}
         </div>
       </div>
     </div>
@@ -1048,9 +1142,9 @@ function renderOrderList() {
         </div>
         <div class="order-item-actions">
           <div class="qty-controls small">
-            <button class="btn-qty" onclick="updateCart('${cartId}', -1)">-</button>
+            <button class="btn-qty" aria-label="Quitar una unidad" onclick="updateCart('${cartId}', -1)">-</button>
             <span class="qty-display">${q}</span>
-            <button class="btn-qty" onclick="updateCart('${cartId}', 1)">+</button>
+            <button class="btn-qty" aria-label="Agregar una unidad" onclick="updateCart('${cartId}', 1)">+</button>
           </div>
           <div class="order-item-subtotal">${formatMoney(itemPrice * q)}</div>
         </div>
@@ -1058,6 +1152,7 @@ function renderOrderList() {
     `;
   }).join('');
   els.orderTotalAmount.textContent = formatMoney(total);
+  updateOrderSteps();
   if (Object.keys(cart).length === 0) switchView('catalog');
   
   // Si el pedido cambió DESPUÉS de haber cotizado un envío pagado (no Bogotá),
@@ -1186,6 +1281,13 @@ window.openProductPage = function(productId) {
   
   safeText('detail-price-amount', parseFloat(price).toLocaleString('es-CO'));
   safeText('detail-price-currency', settings.currency + ' ');
+  const soldOutDetail = isOutOfStock(p);
+  const stockBadge = document.getElementById('detail-stock-badge');
+  if (stockBadge) stockBadge.textContent = soldOutDetail ? '✖ AGOTADO' : '✔ EN STOCK';
+  ['btn-detail-add-cart', 'btn-detail-wa-buy'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.disabled = soldOutDetail; b.style.opacity = soldOutDetail ? '0.5' : ''; }
+  });
   safeStyle('detail-wholesale-tag', 'display', isWholesaleMode ? 'inline-block' : 'none');
   safeText('detail-wholesale-min', isWholesaleMode ? `Pedido mayorista: mínimo ${WHOLESALE_MIN_QTY} unidades` : '');
   safeStyle('detail-wholesale-min', 'display', isWholesaleMode ? 'block' : 'none');
@@ -1655,7 +1757,7 @@ function resetShippingState(dept, city) {
   }
 
   if (esBogota) {
-    selectedShippingOption = { price: 0, carrier: 'local', service: 'Envío Local', days: 'Hoy' };
+    selectedShippingOption = { price: 0, carrier: 'local', service: 'Envío Local', days: 'Hoy' }; updateOrderSteps();
     currentCalculatedShipping = 0;
     if (display) { display.textContent = 'GRATIS'; display.style.color = 'var(--success)'; }
     if (freeMsg) freeMsg.style.display = 'block';
@@ -1722,7 +1824,7 @@ window.quoteShipping = async function quoteShipping() {
     const data = await response.json();
 
     if (data.es_gratis) {
-      selectedShippingOption = { price: 0, carrier: 'local', service: data.metodo_entrega || 'Envío Local', days: 'Hoy' };
+      selectedShippingOption = { price: 0, carrier: 'local', service: data.metodo_entrega || 'Envío Local', days: 'Hoy' }; updateOrderSteps();
       currentCalculatedShipping = 0;
       if (display) { display.textContent = 'GRATIS'; display.style.color = 'var(--success)'; }
       if (quoteBtn) quoteBtn.style.display = 'none';
@@ -1752,7 +1854,7 @@ window.quoteShipping = async function quoteShipping() {
     }
 
     // Ni gratis ni opciones: usamos el respaldo que vino del backend
-    selectedShippingOption = { price: data.costo_envio || 0, carrier: 'respaldo', service: data.mensaje || 'Tarifa de respaldo', days: '3-7' };
+    selectedShippingOption = { price: data.costo_envio || 0, carrier: 'respaldo', service: data.mensaje || 'Tarifa de respaldo', days: '3-7' }; updateOrderSteps();
     currentCalculatedShipping = selectedShippingOption.price;
     if (display) { display.textContent = formatMoney(selectedShippingOption.price) + ' (estimado)'; display.style.color = 'var(--text-main)'; }
     if (quoteBtn) quoteBtn.style.display = 'none';
@@ -1769,7 +1871,7 @@ window.quoteShipping = async function quoteShipping() {
 window.selectShippingOption = function(idx) {
   const op = lastShippingOptions[idx];
   if (!op) return;
-  selectedShippingOption = { price: op.price, carrier: op.carrier, service: op.carrier_label || op.carrier, days: op.days };
+  selectedShippingOption = { price: op.price, carrier: op.carrier, service: op.carrier_label || op.carrier, days: op.days }; updateOrderSteps();
   currentCalculatedShipping = op.price;
 
   document.querySelectorAll('.shipping-option-card').forEach((card, i) => {
@@ -1827,6 +1929,23 @@ function initCriticalApp() {
     else navigateTo('/mayoristas');
   });
   on('btn-wholesale-back-store', 'onclick', () => navigateTo('/'));
+
+  on('sort-select', 'onchange', (e) => { currentSort = e.target.value; renderProducts(); });
+  on('btn-clear-filters', 'onclick', () => {
+    currentFilter = 'all';
+    safeValue('search-input', '');
+    renderFilters();
+    renderProducts();
+  });
+  on('btn-view-toggle', 'onclick', () => {
+    wholesaleListView = !wholesaleListView;
+    try { localStorage.setItem('ws_list_view', wholesaleListView ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
+    refreshWholesaleToolbar();
+    renderProducts();
+  });
+  on('btn-repeat-order', 'onclick', () => repeatLastWholesaleOrder());
+  // Cualquier cambio en el formulario de envío actualiza los pasos del pedido
+  ['input', 'change'].forEach(evt => document.getElementById('view-order')?.addEventListener(evt, updateOrderSteps));
   on('btn-wholesale-login-submit', 'onclick', async () => {
     const email = document.getElementById('wholesale-email')?.value.trim();
     const pass = document.getElementById('wholesale-password')?.value;
@@ -1984,8 +2103,34 @@ function initSecondaryApp() {
     const city = document.getElementById('customer-city')?.value;
     const address = document.getElementById('customer-address')?.value.trim();
     
-    if (!name || !phone || !dept || !city || !address) {
-      return showToast('Por favor completa los datos de envío');
+    // Limpia errores anteriores y resalta lo que falta, en vez de solo avisar con un mensaje que desaparece.
+    document.querySelectorAll('.field-input.field-error').forEach(el => el.classList.remove('field-error'));
+    document.querySelectorAll('.field-error-msg').forEach(el => el.remove());
+    const markError = (id, msg) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.add('field-error');
+      const note = document.createElement('div');
+      note.className = 'field-error-msg';
+      note.textContent = msg;
+      el.insertAdjacentElement('afterend', note);
+      const clear = () => { el.classList.remove('field-error'); note.remove(); el.removeEventListener('input', clear); el.removeEventListener('change', clear); };
+      el.addEventListener('input', clear);
+      el.addEventListener('change', clear);
+    };
+    const missing = [];
+    if (!name) missing.push(['customer-name', 'Escribe tu nombre']);
+    if (!phone) missing.push(['customer-phone', 'Escribe tu celular']);
+    else if (!/^\d{10}$/.test(phone.replace(/\s/g, ''))) missing.push(['customer-phone', 'El celular debe tener 10 dígitos']);
+    if (!dept) missing.push(['customer-dept', 'Elige tu departamento']);
+    if (!city) missing.push(['customer-city', 'Elige tu ciudad']);
+    if (!address) missing.push(['customer-address', 'Escribe tu dirección']);
+    if (missing.length) {
+      missing.forEach(([id, msg]) => markError(id, msg));
+      const first = document.getElementById(missing[0][0]);
+      first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      first?.focus({ preventScroll: true });
+      return showToast('Revisa los campos marcados en rojo');
     }
     if (!selectedShippingOption) {
       return showToast('Primero cotiza y elige tu opción de envío');
@@ -2062,6 +2207,18 @@ function initSecondaryApp() {
 
       safeText('ticket-store-name', settings.storeName || 'Panda Venta');
       safeText('ticket-number', ticketNum);
+      safeText('thanks-ticket-number', ticketNum);
+      const days = selectedShippingOption?.days;
+      safeText('thanks-delivery', days === undefined || days === null || days === ''
+        ? ''
+        : (String(days).toLowerCase() === 'hoy' ? '🚚 Entrega estimada: hoy mismo.' : `🚚 Entrega estimada: ${days} días hábiles.`));
+      if (isWholesaleMode && wholesaleSession) {
+        try {
+          localStorage.setItem('ws_last_order_' + wholesaleSession.uid, JSON.stringify(
+            items.map(i => ({ cartId: i.variantColor ? `${i.id}:${i.variantColor}` : i.id, qty: i.qty }))
+          ));
+        } catch (e) { /* sin almacenamiento */ }
+      }
       safeText('ticket-date', new Date().toLocaleString('es-CO'));
       safeText('ticket-customer-name', customer.name);
       safeText('ticket-customer-phone', customer.phone);
