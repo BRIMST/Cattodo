@@ -118,7 +118,7 @@
           </div>
         </div>
         <div class="header-actions">
-          <button class="btn-wholesale-toggle" id="btn-wholesale-toggle" type="button">📦 Mayoristas</button>
+          <button class="btn-wholesale-toggle" id="btn-wholesale-toggle" type="button">🔐 Acceso mayoristas</button>
           <button class="btn-admin-access" id="btn-open-admin" title="Administrar" style="display:none;" fetchpriority="low">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="8" r="4" />
@@ -154,7 +154,8 @@
     <!-- Aviso catálogo mayorista (solo visible en /mayoristas) -->
     <div class="wholesale-banner" id="wholesale-banner">
       <div class="wholesale-banner-inner">
-        <b>📦 Catálogo mayorista</b>
+        <b>📦 Portal mayorista</b>
+        <span id="wholesale-welcome"></span>
         <span>Precios por mayor · Compra mínima de 3 unidades por producto</span>
       </div>
     </div>
@@ -488,6 +489,33 @@
   <!-- ═══════════════════════════════════════════════════════ -->
   <!--  VISTA: PEDIDO (resumen + nombre del cliente)          -->
   <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!--  VISTA: LOGIN PORTAL MAYORISTA                          -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="view-wholesale-login" class="view" data-noindex="true">
+    <div class="wholesale-login-wrap">
+      <div class="wholesale-login-card">
+        <div class="wholesale-login-icon">📦</div>
+        <h2>Portal mayorista</h2>
+        <p class="wholesale-login-sub">Ingresa con el usuario y contraseña que te entregamos para ver el catálogo con precios por mayor.</p>
+        <div id="wholesale-login-checking" style="display:none; text-align:center; color:var(--text-muted);">Verificando acceso…</div>
+        <form id="wholesale-login-form" style="display:none;" onsubmit="document.getElementById('btn-wholesale-login-submit').click(); return false;">
+          <div class="field-group">
+            <label class="field-label">Correo</label>
+            <input type="email" id="wholesale-email" class="field-input" placeholder="tu@correo.com" autocomplete="username" />
+          </div>
+          <div class="field-group">
+            <label class="field-label">Contraseña</label>
+            <input type="password" id="wholesale-password" class="field-input" placeholder="••••••" autocomplete="current-password" />
+          </div>
+          <button type="button" class="btn-save-product" id="btn-wholesale-login-submit" style="width:100%">Entrar al portal</button>
+        </form>
+        <div class="login-error" id="wholesale-login-error" style="display:none"></div>
+        <button type="button" class="wholesale-login-back" id="btn-wholesale-back-store">← Volver a la tienda</button>
+      </div>
+    </div>
+  </div>
+
   <div id="view-order" class="view" data-noindex="true">
     <div class="page-wrapper">
       <header class="page-header">
@@ -826,6 +854,9 @@
         <button class="admin-nav-btn" data-tab="clients">
           <span>👥</span> Clientes
         </button>
+        <button class="admin-nav-btn" data-tab="wholesalers">
+          <span>📦</span> Mayoristas
+        </button>
         <button class="admin-nav-btn" data-tab="reports">
           <span>📈</span> Reportes
         </button>
@@ -1161,6 +1192,40 @@
         </div>
       </div>
 
+      <!-- TAB: MAYORISTAS -->
+      <div class="admin-tab-content" id="tab-wholesalers">
+        <div class="admin-page-header">
+          <h2>Mayoristas</h2>
+        </div>
+        <p class="settings-hint" style="margin-bottom:1rem;">Estas cuentas entran al portal mayorista en <b>/mayoristas</b> y son las únicas que ven los precios por mayor. Los precios se configuran en cada producto ("Precio Mayorista") y el descuento por defecto en Tienda.</p>
+
+        <div class="settings-group" id="wholesaler-create-box" style="margin-bottom:1.25rem;">
+          <label class="settings-label">Crear cuenta de mayorista</label>
+          <input type="text" id="new-wholesaler-name" class="settings-input" placeholder="Nombre o negocio" style="margin-bottom:0.5rem;" />
+          <input type="email" id="new-wholesaler-email" class="settings-input" placeholder="Correo (será su usuario)" autocomplete="off" style="margin-bottom:0.5rem;" />
+          <input type="text" id="new-wholesaler-phone" class="settings-input" placeholder="Celular (opcional)" style="margin-bottom:0.5rem;" />
+          <input type="text" id="new-wholesaler-password" class="settings-input" placeholder="Contraseña (mínimo 6 caracteres)" autocomplete="off" />
+          <button type="button" class="btn-add-variant" id="btn-add-wholesaler" style="margin-top:0.6rem;">+ Crear mayorista</button>
+        </div>
+
+        <div class="clients-table-wrapper">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Celular</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="wholesalers-table-body">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- TAB: REPORTES -->
       <div class="admin-tab-content" id="tab-reports">
         <div class="admin-page-header">
@@ -1404,7 +1469,7 @@
           <div class="settings-group">
             <label class="settings-label">Descuento Mayorista por Defecto (%) 📦</label>
             <input type="number" id="settings-wholesale-discount" class="settings-input" placeholder="Ej: 20" min="0" max="100" />
-            <small class="settings-hint">El porcentaje de descuento que se aplicará automáticamente a los precios al detal si el producto no tiene un "Precio Mayorista" asignado. Por defecto es 20%.</small>
+            <small class="settings-hint">El porcentaje de descuento que se aplicará automáticamente a los precios al detal si el producto no tiene un "Precio Mayorista" asignado. Por defecto es 20%. Solo lo ven los mayoristas con sesión iniciada.</small>
           </div>
 
           <div class="settings-group">

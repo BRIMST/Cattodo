@@ -1,6 +1,6 @@
 ﻿import { ref, set, update, remove, push, onValue, get } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 import { initializeApp, getApps, deleteApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
-import { getAuth, signOut, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
+import { getAuth, signOut, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
 let appState = {};
 let appUtils = {};
@@ -28,6 +28,9 @@ export function initAdmin(state, utils) {
   window.confirmDeleteProduct = confirmDeleteProduct;
   window.openClientModal = openClientModal;
   window.confirmDeleteOrder = confirmDeleteOrder;
+  window.toggleWholesalerActive = toggleWholesalerActive;
+  window.resetWholesalerPassword = resetWholesalerPassword;
+  window.removeWholesalerAccess = removeWholesalerAccess;
   window.toggleOrderPaymentStatus = toggleOrderPaymentStatus;
 
   // Sesión: mostrar el usuario real conectado y permitir cerrar sesión
@@ -52,6 +55,7 @@ export function initAdmin(state, utils) {
   on('btn-add-product', 'onclick', () => openProductModal(null));
   on('btn-close-product-modal', 'onclick', () => appUtils.safeStyle('modal-product', 'display', 'none'));
   on('btn-save-product', 'onclick', saveProduct);
+  on('btn-add-wholesaler', 'onclick', createWholesalerAccount);
   on('btn-delete-product', 'onclick', () => {
     if (!window.currentEditId) return;
     if (confirm('¿Eliminar este producto? Esta acción no se puede deshacer.')) {
@@ -197,7 +201,7 @@ export function initAdmin(state, utils) {
 function initNavigation() {
   const NAV_LABELS = {
     dashboard: 'Panel de control', 'create-order': 'Crear pedido', orders: 'Pedidos',
-    products: 'Productos', clients: 'Clientes', reports: 'Reportes', finance: 'Financiero', settings: 'Tienda'
+    products: 'Productos', clients: 'Clientes', reports: 'Reportes', finance: 'Financiero', settings: 'Tienda', wholesalers: 'Mayoristas'
   };
 
   document.querySelectorAll('.admin-nav-btn').forEach(btn => {
@@ -216,6 +220,7 @@ function initNavigation() {
       if (btn.dataset.tab === 'orders') renderOrdersTable();
       if (btn.dataset.tab === 'products') renderProductsTable();
       if (btn.dataset.tab === 'clients') renderClientsTable();
+      if (btn.dataset.tab === 'wholesalers') renderWholesalersTable();
       if (btn.dataset.tab === 'reports') renderReports();
       if (btn.dataset.tab === 'finance') renderFinance();
       if (btn.dataset.tab === 'settings') loadSettingsForm();
@@ -274,11 +279,25 @@ function openAdminActual() {
       appState.clients = val ? Object.entries(val).map(([k, v]) => ({ id: k, ...v })) : [];
       renderClientsTable();
     });
+
+    // Mayoristas, sus precios y la configuración (zona privada de la base de datos)
+    onValue(ref(appState.db, 'wholesalers'), snap => {
+      const val = snap.val();
+      appState.wholesalers = val ? Object.entries(val).map(([k, v]) => ({ id: k, ...v })) : [];
+      renderWholesalersTable();
+    }, err => console.warn('Sin acceso a wholesalers (revisa las reglas de Firebase):', err.code));
+    onValue(ref(appState.db, 'wholesalePrices'), snap => {
+      appState.wholesalePrices = snap.val() || {};
+    }, err => console.warn('Sin acceso a wholesalePrices:', err.code));
+    onValue(ref(appState.db, 'wholesaleConfig'), snap => {
+      appState.wholesaleConfig = snap.val() || {};
+    }, err => console.warn('Sin acceso a wholesaleConfig:', err.code));
   }
   
   // Products are already in appState.products from app.js
   renderDashboard();
   notifyLowStockOnLogin();
+  migrateWholesalePrices();
 }
 
 // Alerta de stock bajo: se revisa cada vez que se abre el panel (no hace
@@ -1630,6 +1649,153 @@ async function createSellerAccount() {
   }
 }
 
+// ==========================================
+// MODULE: MAYORISTAS (portal con cuenta)
+// ==========================================
+// Guarda (o borra, si viene vacío) el precio mayorista de un producto en la
+// zona privada "wholesalePrices", fuera del producto que ve todo el público.
+async function saveWholesalePrice(productId, price) {
+  if (!productId) return;
+  const path = ref(appState.db, `wholesalePrices/${productId}`);
+  if (price) await set(path, price); else await remove(path);
+  appState.wholesalePrices = { ...(appState.wholesalePrices || {}) };
+  if (price) appState.wholesalePrices[productId] = price; else delete appState.wholesalePrices[productId];
+}
+
+// Mueve a la zona privada los precios mayoristas que antes se guardaban dentro
+// de cada producto (donde cualquier visitante podía leerlos). Corre sola al abrir el panel.
+let wholesaleMigrationRunning = false;
+async function migrateWholesalePrices() {
+  if (wholesaleMigrationRunning) return;
+  const pending = (appState.products || []).filter(p => p.wholesalePrice !== undefined && p.wholesalePrice !== null && p.wholesalePrice !== '' && p.wholesalePrice !== 0);
+  if (pending.length === 0) return;
+  wholesaleMigrationRunning = true;
+  try {
+    const updates = {};
+    pending.forEach(p => {
+      updates[`wholesalePrices/${p.id}`] = parseFloat(p.wholesalePrice);
+      updates[`products/${p.id}/wholesalePrice`] = null;
+    });
+    // Un solo update atómico: o se mueven todos o ninguno
+    await update(ref(appState.db), updates);
+    appState.wholesalePrices = { ...(appState.wholesalePrices || {}) };
+    pending.forEach(p => { appState.wholesalePrices[p.id] = parseFloat(p.wholesalePrice); delete p.wholesalePrice; });
+    appUtils.showToast(`🔒 ${pending.length} precio(s) mayorista movidos a la zona privada`);
+    if (window.loadCatalog) window.loadCatalog();
+  } catch (err) {
+    console.error('No se pudo migrar los precios mayoristas:', err);
+    appUtils.showToast('No se pudieron proteger los precios mayoristas: revisa las reglas de Firebase');
+  } finally {
+    wholesaleMigrationRunning = false;
+  }
+}
+
+function renderWholesalersTable() {
+  const tbody = document.getElementById('wholesalers-table-body');
+  if (!tbody) return;
+  const list = [...(appState.wholesalers || [])].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:1rem;">Aún no hay mayoristas</td></tr>';
+    return;
+  }
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  tbody.innerHTML = list.map(w => `
+    <tr>
+      <td>${esc(w.name)}</td>
+      <td>${esc(w.email)}</td>
+      <td>${esc(w.phone || '—')}</td>
+      <td>${w.active ? '✅ Activo' : '⛔ Desactivado'}</td>
+      <td>
+        <button class="action-btn" onclick="toggleWholesalerActive('${esc(w.id)}')">${w.active ? 'Desactivar' : 'Activar'}</button>
+        <button class="action-btn" onclick="resetWholesalerPassword('${esc(w.id)}')">Restablecer clave</button>
+        <button class="action-btn" style="color:var(--danger);" onclick="removeWholesalerAccess('${esc(w.id)}')">Quitar acceso</button>
+      </td>
+    </tr>`).join('');
+}
+
+// Crea la cuenta (Firebase Authentication) y su registro de mayorista autorizado.
+// Igual que con los vendedores, se usa una instancia secundaria de Firebase para
+// que crear la cuenta no cierre la sesión del administrador.
+async function createWholesalerAccount() {
+  const name = document.getElementById('new-wholesaler-name')?.value.trim();
+  const email = document.getElementById('new-wholesaler-email')?.value.trim();
+  const phone = document.getElementById('new-wholesaler-phone')?.value.trim() || '';
+  const password = document.getElementById('new-wholesaler-password')?.value;
+
+  if (!name || !email || !password) return appUtils.showToast('Completa nombre, correo y contraseña');
+  if (password.length < 6) return appUtils.showToast('La contraseña debe tener al menos 6 caracteres');
+
+  const btn = document.getElementById('btn-add-wholesaler');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creando...'; }
+
+  const SECONDARY_APP_NAME = 'wholesaler-creation';
+  let secondaryApp = getApps().find(a => a.name === SECONDARY_APP_NAME);
+  if (!secondaryApp) secondaryApp = initializeApp(appState.auth.app.options, SECONDARY_APP_NAME);
+  const secondaryAuth = getAuth(secondaryApp);
+
+  try {
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    await updateProfile(cred.user, { displayName: name });
+    const uid = cred.user.uid;
+    await signOut(secondaryAuth);
+    // El registro se escribe con la sesión del administrador (la principal)
+    await set(ref(appState.db, `wholesalers/${uid}`), {
+      name, email, phone, active: true, createdAt: Date.now()
+    });
+    appUtils.showToast(`Mayorista creado ✅ — ${name} ya puede entrar en /mayoristas con ${email}`);
+    ['new-wholesaler-name', 'new-wholesaler-email', 'new-wholesaler-phone', 'new-wholesaler-password'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+  } catch (err) {
+    console.error('Error creando mayorista:', err);
+    const msg = err.code === 'auth/email-already-in-use' ? 'Ese correo ya tiene una cuenta'
+      : err.code === 'PERMISSION_DENIED' || /permission/i.test(err.message || '') ? 'La cuenta se creó pero no se pudo registrar: revisa las reglas de Firebase'
+      : 'Error al crear la cuenta: ' + err.message;
+    appUtils.showToast(msg);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '+ Crear mayorista'; }
+    await deleteApp(secondaryApp);
+  }
+}
+
+async function toggleWholesalerActive(id) {
+  const w = (appState.wholesalers || []).find(x => x.id === id);
+  if (!w) return;
+  try {
+    await update(ref(appState.db, `wholesalers/${id}`), { active: !w.active });
+    appUtils.showToast(w.active ? 'Mayorista desactivado' : 'Mayorista activado');
+  } catch (err) {
+    appUtils.showToast('No se pudo actualizar: ' + err.message);
+  }
+}
+
+async function resetWholesalerPassword(id) {
+  const w = (appState.wholesalers || []).find(x => x.id === id);
+  if (!w || !w.email) return;
+  if (!confirm(`¿Enviar a ${w.email} un correo para restablecer su contraseña?`)) return;
+  try {
+    await sendPasswordResetEmail(appState.auth, w.email);
+    appUtils.showToast('Correo de restablecimiento enviado ✅');
+  } catch (err) {
+    appUtils.showToast('No se pudo enviar el correo: ' + err.message);
+  }
+}
+
+// Quita el registro: la cuenta ya no pasa la verificación del portal. (La cuenta
+// de acceso en Firebase Authentication se puede borrar desde la consola de Firebase.)
+async function removeWholesalerAccess(id) {
+  const w = (appState.wholesalers || []).find(x => x.id === id);
+  if (!w) return;
+  if (!confirm(`¿Quitar el acceso mayorista a ${w.name}?`)) return;
+  try {
+    await remove(ref(appState.db, `wholesalers/${id}`));
+    appUtils.showToast('Acceso mayorista eliminado');
+  } catch (err) {
+    appUtils.showToast('No se pudo eliminar: ' + err.message);
+  }
+}
+
 window.viewClientHistory = function(phone) {
   const orders = (appState.orders || []).filter(o => o.customer?.phone === phone);
   const client = (appState.clients || []).find(c => c.phone === phone);
@@ -1851,7 +2017,7 @@ function openProductModal(id = null) {
   appUtils.safeValue('product-price', p ? parseInt(p.price).toLocaleString('es-CO') : '');
   appUtils.safeValue('product-original-price', p && p.originalPrice ? parseInt(p.originalPrice).toLocaleString('es-CO') : '');
   appUtils.safeValue('product-cost', p && p.cost ? parseInt(p.cost).toLocaleString('es-CO') : '');
-  appUtils.safeValue('product-wholesale-price', p && p.wholesalePrice ? parseInt(p.wholesalePrice).toLocaleString('es-CO') : '');
+  appUtils.safeValue('product-wholesale-price', p && (appState.wholesalePrices || {})[p.id] ? parseInt(appState.wholesalePrices[p.id]).toLocaleString('es-CO') : '');
   appUtils.safeValue('product-weight', p && p.weight ? p.weight : '');
   appUtils.safeValue('product-stock', p ? (p.stock || '') : '');
   appUtils.safeValue('product-unit', p ? (p.unit || 'und') : 'und');
@@ -1964,7 +2130,7 @@ async function saveProduct() {
     tags: document.getElementById('product-tags')?.value || '',
     originalPrice: originalPrice,
     cost: cost,
-    wholesalePrice: wholesalePrice,
+    wholesalePrice: null, // el precio mayorista ya no vive en el producto (es público): va a wholesalePrices/{id}
     weight: weight,
     stock: parseInt(document.getElementById('product-stock')?.value) || 0,
     unit: document.getElementById('product-unit')?.value || 'und',
@@ -1994,11 +2160,15 @@ async function saveProduct() {
   pData.origen = (window.currentProductOrigen === 'mastershop') ? 'mastershop' : 'propio';
 
   try {
+    let savedId;
     if (window.currentEditId && window.currentEditId !== "undefined") {
-      await update(ref(appState.db, `products/${window.currentEditId}`), pData);
+      savedId = window.currentEditId;
+      await update(ref(appState.db, `products/${savedId}`), pData);
     } else {
-      await push(ref(appState.db, 'products'), pData);
+      const newRef = await push(ref(appState.db, 'products'), pData);
+      savedId = newRef.key;
     }
+    await saveWholesalePrice(savedId, wholesalePrice);
     appUtils.safeStyle('modal-product', 'display', 'none');
     appUtils.showToast('Guardado ✅');
     if (window.loadCatalog) window.loadCatalog();
@@ -2011,6 +2181,7 @@ async function saveProduct() {
 
 async function deleteProduct(id) {
   await remove(ref(appState.db, `products/${id}`));
+  try { await remove(ref(appState.db, `wholesalePrices/${id}`)); } catch (e) { console.warn(e); }
   if (window.loadCatalog) window.loadCatalog();
   renderProductsTable();
 }
@@ -2035,7 +2206,7 @@ function loadSettingsForm() {
   appUtils.safeValue('settings-currency', appState.settings.currency || 'COP');
   appUtils.safeValue('settings-payment-info', appState.settings.paymentInfo || '');
   appUtils.safeValue('settings-shipping-cost', appState.settings.shippingCost || 0);
-  appUtils.safeValue('settings-wholesale-discount', appState.settings.wholesaleDiscount !== undefined ? appState.settings.wholesaleDiscount : 20);
+  appUtils.safeValue('settings-wholesale-discount', (appState.wholesaleConfig || {}).discount !== undefined ? appState.wholesaleConfig.discount : 20);
 
   const social = appState.settings.social || {};
   appUtils.safeValue('settings-social-instagram', social.instagram || '');
@@ -2086,7 +2257,6 @@ async function saveSettings() {
     currency: document.getElementById('settings-currency')?.value || 'COP',
     paymentInfo: document.getElementById('settings-payment-info')?.value || '',
     shippingCost: parseFloat(document.getElementById('settings-shipping-cost')?.value) || 0,
-    wholesaleDiscount: parseInt(document.getElementById('settings-wholesale-discount')?.value) >= 0 ? parseInt(document.getElementById('settings-wholesale-discount')?.value) : 20,
     originAddress: {
       name: document.getElementById('settings-origin-name')?.value || '',
       phone: document.getElementById('settings-origin-phone')?.value || '',
@@ -2116,8 +2286,14 @@ async function saveSettings() {
   const newPass = document.getElementById('settings-admin-password')?.value || '';
   if (newPass) newSettings.adminPasswordHash = await appUtils.hashPassword(newPass);
 
+  // El descuento mayorista por defecto es privado: se guarda aparte de los ajustes públicos
+  delete newSettings.wholesaleDiscount;
+  const discountInput = parseInt(document.getElementById('settings-wholesale-discount')?.value);
+  const wholesaleDiscount = discountInput >= 0 ? discountInput : 20;
+
   try {
     await set(ref(appState.db, 'settings'), newSettings);
+    await set(ref(appState.db, 'wholesaleConfig/discount'), wholesaleDiscount);
     appState.settings = newSettings;
     appUtils.showToast('Configuración guardada ✅');
     if (window.loadCatalog) window.loadCatalog();
@@ -2334,9 +2510,10 @@ async function handleBulkExcelUpload(e) {
 
         const pData = {
           name, price, ref: refValue, category, tags, stock, cost,
-          originalPrice, wholesalePrice, weight, unit, description, clipUrl, active,
+          originalPrice, weight, unit, description, clipUrl, active,
           origen: 'propio'
         };
+        let savedProductId;
 
         let existingId = null;
         if (refValue) {
@@ -2350,13 +2527,17 @@ async function handleBulkExcelUpload(e) {
           // se toca el que el producto ya tuviera (evita borrarlo sin querer).
           if (barcodeValue) pData.barcode = barcodeValue;
           await update(ref(appState.db, `products/${existingId}`), pData);
+          savedProductId = existingId;
           updatedCount++;
         } else {
           pData.images = fotoValid ? [foto] : [];
           pData.barcode = barcodeValue || '';
-          await push(ref(appState.db, 'products'), pData);
+          const newProductRef = await push(ref(appState.db, 'products'), pData);
+          savedProductId = newProductRef.key;
           importedCount++;
         }
+        // El precio mayorista va a la zona privada (solo si la fila trae uno)
+        if (wholesalePrice) await saveWholesalePrice(savedProductId, wholesalePrice);
       }
 
       let summary = `Excel procesado: ${importedCount} creados, ${updatedCount} actualizados ✅`;

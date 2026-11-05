@@ -16,7 +16,7 @@ const trackEvent = (eventName, label, extraParams = {}) => {
 // ====== FIREBASE MODULAR SDK ======
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import {
-  getDatabase, ref, onValue, push
+  getDatabase, ref, onValue, push, get
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword, updateProfile
@@ -74,6 +74,99 @@ let isWholesaleMode = false;
 // (se cuentan sumando todas sus variantes: colores, aromas, tamaños).
 const WHOLESALE_MIN_QTY = 3;
 
+// ====== PORTAL MAYORISTA (acceso con cuenta) ======
+// Cada mayorista tiene una cuenta de Firebase Authentication y un registro en
+// "wholesalers/{uid}" que el administrador activa o desactiva. Los precios
+// mayoristas ("wholesalePrices") y el descuento por defecto ("wholesaleConfig")
+// están en nodos que las reglas de Firebase solo dejan leer a mayoristas
+// activos y al personal, así que nadie más puede verlos.
+let wholesaleSession = null;   // { uid, name, email, phone } cuando hay mayorista autorizado
+let wholesalePrices = {};      // { productId: precio }
+let wholesaleConfig = {};      // { discount }
+
+// Se resuelve cuando Firebase termina de restaurar la sesión guardada (si existe).
+const authReady = new Promise(resolve => {
+  const unsub = onAuthStateChanged(auth, () => { unsub(); resolve(); });
+});
+
+// Comprueba que el usuario sea un mayorista activo y carga sus precios.
+async function verifyWholesaler(user) {
+  try {
+    const snap = await get(ref(db, `wholesalers/${user.uid}`));
+    const info = snap.val();
+    if (!info || info.active !== true) return false;
+    const [pricesSnap, configSnap] = await Promise.all([
+      get(ref(db, 'wholesalePrices')),
+      get(ref(db, 'wholesaleConfig'))
+    ]);
+    wholesalePrices = pricesSnap.val() || {};
+    wholesaleConfig = configSnap.val() || {};
+    wholesaleSession = {
+      uid: user.uid,
+      name: info.name || user.displayName || user.email,
+      email: user.email,
+      phone: info.phone || ''
+    };
+    return true;
+  } catch (err) {
+    console.error('No se pudo verificar la cuenta mayorista:', err.code || err);
+    return false;
+  }
+}
+
+function showWholesaleLoginState(state, message) {
+  safeStyle('wholesale-login-checking', 'display', state === 'checking' ? 'block' : 'none');
+  safeStyle('wholesale-login-form', 'display', state === 'form' ? 'block' : 'none');
+  const err = document.getElementById('wholesale-login-error');
+  if (err) {
+    err.textContent = message || '';
+    err.style.display = message ? 'block' : 'none';
+  }
+}
+
+async function enterWholesalePortal() {
+  switchView('wholesale-login');
+  showWholesaleLoginState('checking');
+  await authReady;
+  if (!wholesaleSession && auth.currentUser) await verifyWholesaler(auth.currentUser);
+  // Si el usuario ya navegó a otra página mientras verificábamos, no tocamos nada.
+  if (window.location.pathname.replace(/\/$/, '') !== '/mayoristas') return;
+
+  if (!wholesaleSession) {
+    showWholesaleLoginState('form');
+    return;
+  }
+  setWholesaleMode(true);
+  safeText('wholesale-welcome', `Hola, ${wholesaleSession.name}`);
+  // Adelantamos los datos del cliente en el checkout
+  if (!document.getElementById('customer-name')?.value) safeValue('customer-name', wholesaleSession.name);
+  if (!document.getElementById('customer-phone')?.value && wholesaleSession.phone) safeValue('customer-phone', wholesaleSession.phone);
+  switchView('catalog');
+  if (isProductsLoaded) {
+    renderProducts();
+    updateCartUI();
+  }
+}
+
+async function wholesaleLogin(email, password) {
+  await signInWithEmailAndPassword(auth, email, password);
+  if (!(await verifyWholesaler(auth.currentUser))) {
+    // La cuenta existe pero no es de un mayorista activo (o fue desactivada).
+    await signOut(auth);
+    throw Object.assign(new Error('no-wholesaler'), { code: 'app/no-wholesaler' });
+  }
+}
+
+async function wholesaleLogout() {
+  const wasWholesaler = !!wholesaleSession;
+  wholesaleSession = null;
+  wholesalePrices = {};
+  wholesaleConfig = {};
+  Object.keys(carts.wholesale).forEach(id => delete carts.wholesale[id]);
+  setWholesaleMode(false);
+  if (wasWholesaler) { try { await signOut(auth); } catch (e) { console.error(e); } }
+}
+
 // Total de unidades de un producto en el carrito actual, sumando variantes.
 function getProductQtyInCart(productId) {
   return Object.entries(cart).reduce((sum, [cartId, q]) => (
@@ -106,7 +199,7 @@ function setWholesaleMode(enabled) {
   safeText('header-store-tagline', enabled ? 'Catálogo mayorista' : (settings.tagline || 'Catálogo Digital'));
   safeText('catalog-section-title', enabled ? 'Catálogo mayorista' : 'Todos los productos');
   const toggleBtn = document.getElementById('btn-wholesale-toggle');
-  if (toggleBtn) toggleBtn.textContent = enabled ? '🛍️ Ver catálogo al detal' : '📦 Mayoristas';
+  if (toggleBtn) toggleBtn.textContent = enabled ? 'Salir del portal' : '🔐 Acceso mayoristas';
   updateCartUI();
   if (isProductsLoaded) renderProducts();
 }
@@ -114,10 +207,13 @@ function setWholesaleMode(enabled) {
 function getProductPrice(p) {
   if (!p) return 0;
   if (isWholesaleMode) {
-    if (p.wholesalePrice !== undefined && p.wholesalePrice !== null && p.wholesalePrice !== '' && p.wholesalePrice !== 0) {
-      return parseFloat(p.wholesalePrice);
+    // Los precios mayoristas viven en una zona privada de la base de datos
+    // (solo se cargan después de iniciar sesión como mayorista autorizado).
+    const own = wholesalePrices[p.id];
+    if (own !== undefined && own !== null && own !== '' && own !== 0) {
+      return parseFloat(own);
     }
-    const discount = settings.wholesaleDiscount !== undefined ? parseFloat(settings.wholesaleDiscount) : 20;
+    const discount = wholesaleConfig.discount !== undefined ? parseFloat(wholesaleConfig.discount) : 20;
     const factor = (100 - discount) / 100;
     const price = parseFloat(p.price) || 0;
     return Math.round((price * factor) / 100) * 100;
@@ -204,14 +300,14 @@ const switchView = (viewName) => {
   if (typeof updateWAButtonPosition === 'function') updateWAButtonPosition();
   // SEO: noindex en vistas privadas — envuelto en try/catch para no romper nada
   try {
-    const privateViews = ['order', 'ticket', 'admin', 'login'];
+    const privateViews = ['order', 'ticket', 'admin', 'login', 'wholesale-login'];
     let metaRobots = document.querySelector('meta[name="robots"]');
     if (!metaRobots) {
       metaRobots = document.createElement('meta');
       metaRobots.name = 'robots';
       document.head.appendChild(metaRobots);
     }
-    metaRobots.content = privateViews.includes(viewName) ? 'noindex, nofollow' : 'index, follow';
+    metaRobots.content = (privateViews.includes(viewName) || isWholesaleMode) ? 'noindex, nofollow' : 'index, follow';
   } catch(e) {}
 };
 
@@ -1458,7 +1554,9 @@ function handleRoute() {
   // El canal mayorista se activa al entrar a /mayoristas y se mantiene al ver
   // productos, el pedido y las políticas; al volver al catálogo normal se apaga.
   if (path === '/mayoristas' || path === '/mayoristas/') {
-    setWholesaleMode(true);
+    // El portal exige iniciar sesión: enterWholesalePortal muestra el login o el catálogo.
+    enterWholesalePortal();
+    return;
   } else if (path === '/' || path === '') {
     setWholesaleMode(false);
   }
@@ -1686,7 +1784,8 @@ function initCriticalApp() {
     product: document.getElementById('view-product'),
     'shipping-policy': document.getElementById('view-shipping-policy'),
     'returns-policy': document.getElementById('view-returns-policy'),
-    contact: document.getElementById('view-contact')
+    contact: document.getElementById('view-contact'),
+    'wholesale-login': document.getElementById('view-wholesale-login')
   };
   els = {
     productsGrid: document.getElementById('products-grid'),
@@ -1711,7 +1810,33 @@ function initCriticalApp() {
     renderOrderList();
   });
   on('btn-back-catalog', 'onclick', () => navigateTo(getCatalogPath()));
-  on('btn-wholesale-toggle', 'onclick', () => navigateTo(isWholesaleMode ? '/' : '/mayoristas'));
+  on('btn-wholesale-toggle', 'onclick', async () => {
+    if (isWholesaleMode) { await wholesaleLogout(); navigateTo('/'); }
+    else navigateTo('/mayoristas');
+  });
+  on('btn-wholesale-back-store', 'onclick', () => navigateTo('/'));
+  on('btn-wholesale-login-submit', 'onclick', async () => {
+    const email = document.getElementById('wholesale-email')?.value.trim();
+    const pass = document.getElementById('wholesale-password')?.value;
+    if (!email || !pass) return showWholesaleLoginState('form', 'Escribe tu correo y contraseña');
+    const btn = document.getElementById('btn-wholesale-login-submit');
+    if (btn) { btn.disabled = true; btn.textContent = 'Entrando...'; }
+    try {
+      await wholesaleLogin(email, pass);
+      safeValue('wholesale-password', '');
+      showWholesaleLoginState('checking');
+      handleRoute();
+    } catch (err) {
+      console.error('Login mayorista:', err.code);
+      const bad = ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found', 'auth/invalid-email'].includes(err.code);
+      showWholesaleLoginState('form', err.code === 'app/no-wholesaler'
+        ? 'Tu cuenta no tiene acceso mayorista activo. Escríbenos por WhatsApp para solicitarlo.'
+        : bad ? 'Correo o contraseña incorrectos' : 'No pudimos iniciar sesión. Intenta de nuevo.');
+      safeValue('wholesale-password', '');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Entrar al portal'; }
+    }
+  });
   on('btn-back-order', 'onclick', () => navigateTo('/pedido'));
   
   // Product Detail Page listeners
@@ -1853,6 +1978,9 @@ function initSecondaryApp() {
     if (!selectedShippingOption) {
       return showToast('Primero cotiza y elige tu opción de envío');
     }
+    if (isWholesaleMode && !wholesaleSession) {
+      return showToast('Inicia sesión en el portal mayorista para hacer pedidos');
+    }
     const shortfalls = getWholesaleShortfalls();
     if (shortfalls.length > 0) {
       return showToast(`Pedido mayorista: mínimo ${WHOLESALE_MIN_QTY} unidades de "${shortfalls[0]}"`);
@@ -1896,6 +2024,9 @@ function initSecondaryApp() {
       status: 'pending',
       channel: isWholesaleMode ? 'mayorista' : 'web'
     };
+    if (isWholesaleMode && wholesaleSession) {
+      orderData.wholesaler = { uid: wholesaleSession.uid, name: wholesaleSession.name, email: wholesaleSession.email };
+    }
 
     try {
       const newRef = await push(ref(db, 'orders'), orderData);
@@ -2108,7 +2239,14 @@ function initSecondaryApp() {
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Entrando...'; }
 
     try {
-      await signInWithEmailAndPassword(auth, emailInput.value.trim(), passInput.value);
+      const cred = await signInWithEmailAndPassword(auth, emailInput.value.trim(), passInput.value);
+      // Las cuentas de mayoristas son solo para el portal mayorista, nunca para el panel.
+      let isWholesalerAccount = false;
+      try { isWholesalerAccount = (await get(ref(db, `wholesalers/${cred.user.uid}`))).exists(); } catch (e) { /* sin acceso a ese nodo = personal */ }
+      if (isWholesalerAccount) {
+        await signOut(auth);
+        throw Object.assign(new Error('wholesaler'), { code: 'app/wholesaler-account' });
+      }
       safeStyle('modal-login', 'display', 'none');
       if (errorMsg) errorMsg.style.display = 'none';
       passInput.value = '';
@@ -2118,7 +2256,9 @@ function initSecondaryApp() {
       if (errorMsg) {
         errorMsg.textContent = (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found')
           ? 'Correo o contraseña incorrectos'
-          : 'Error al iniciar sesión. Intenta de nuevo.';
+          : err.code === 'app/wholesaler-account'
+            ? 'Esta cuenta es de mayorista: ingresa por el portal mayorista'
+            : 'Error al iniciar sesión. Intenta de nuevo.';
         errorMsg.style.display = 'block';
       }
       passInput.value = '';
