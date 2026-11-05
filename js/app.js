@@ -22,7 +22,7 @@ import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 import {
-  getStorage, ref as storageRef, uploadBytes, getDownloadURL
+  getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
 
 // ====== SECURITY - Password hashing ======
@@ -240,8 +240,11 @@ function getVariantLabel(p) {
 
 // ====== UTILS ======
 const compressImage = (base64Str, maxWidth = 800, quality = 0.6) => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
+    // Si el navegador no puede leer la imagen (p. ej. HEIC de iPhone) antes se
+    // quedaba esperando para siempre; ahora falla con un error claro.
+    img.onerror = () => reject(new Error('No se pudo leer la imagen (usa JPG, PNG o WEBP)'));
     img.src = base64Str;
     img.onload = () => {
       const canvas = document.createElement('canvas');
@@ -270,7 +273,16 @@ const uploadToStorage = async (dataUrl, folder = 'products') => {
     const blob = await (await fetch(dataUrl)).blob();
     const filename = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
     const fileRef = storageRef(storage, filename);
-    await uploadBytes(fileRef, blob, { contentType: 'image/webp' });
+    // Con límite de tiempo: si Storage no responde (bucket sin habilitar, reglas,
+    // CORS...) la subida se queda esperando minutos sin dar error y el respaldo
+    // nunca se activaba. A los 25 s se cancela y se usa el respaldo.
+    const task = uploadBytesResumable(fileRef, blob, { contentType: 'image/webp' });
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { task.cancel(); reject(new Error('Tiempo de espera agotado subiendo a Storage')); }, 25000);
+      task.on('state_changed', null,
+        (err) => { clearTimeout(timer); reject(err); },
+        () => { clearTimeout(timer); resolve(); });
+    });
     return await getDownloadURL(fileRef);
   } catch (err) {
     console.error('Error subiendo a Firebase Storage, se usa base64 como respaldo:', err);

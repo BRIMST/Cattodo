@@ -72,17 +72,31 @@ export function initAdmin(state, utils) {
   on('product-file-input', 'onchange', async (e) => {
     const files = Array.from(e.target.files).slice(0, 5 - appState.currentProductImages.length);
     if (files.length) appUtils.showToast(`Subiendo ${files.length} foto(s)...`);
-    const newImages = await Promise.all(files.map(file => new Promise(resolve => {
+    let failed = 0;
+    const results = await Promise.all(files.map(file => new Promise(resolve => {
       const reader = new FileReader();
+      reader.onerror = () => { failed++; resolve(null); };
       reader.onload = async (ev) => {
-        const c = await appUtils.compressImage(ev.target.result);
-        resolve(await appUtils.uploadToStorage(c, 'products'));
+        try {
+          const c = await appUtils.compressImage(ev.target.result);
+          resolve(await appUtils.uploadToStorage(c, 'products'));
+        } catch (err) {
+          console.error('Error procesando la foto:', file.name, err);
+          failed++;
+          resolve(null);
+        }
       };
       reader.readAsDataURL(file);
     })));
+    const newImages = results.filter(Boolean);
     newImages.forEach(img => { if (appState.currentProductImages.length < 5) appState.currentProductImages.push(img); });
     renderProductImagePreview();
     e.target.value = '';
+    if (failed > 0) appUtils.showToast(`⚠️ ${failed} foto(s) no se pudieron procesar. Usa JPG, PNG o WEBP.`);
+    else if (newImages.some(u => String(u).startsWith('data:'))) {
+      // La foto se guardó, pero dentro del producto en vez de en Firebase Storage
+      appUtils.showToast('Foto agregada, pero Firebase Storage no respondió: revisa Storage en la consola de Firebase');
+    }
   });
 
   document.getElementById('btn-generate-barcode')?.addEventListener('click', () => {
