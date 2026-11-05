@@ -1199,6 +1199,16 @@
         </div>
         <p class="settings-hint" style="margin-bottom:1rem;">Estas cuentas entran al portal mayorista en <b>/mayoristas</b> y son las únicas que ven los precios por mayor. Los precios se configuran en cada producto ("Precio Mayorista") y el descuento por defecto en Tienda.</p>
 
+        <div class="settings-group" id="wholesale-bulk-box" style="margin-bottom:1.25rem;">
+          <label class="settings-label">Recalcular todos los precios mayoristas</label>
+          <small class="settings-hint">Calcula el precio mayorista de TODOS los productos restando este porcentaje al precio al detal (se redondea a la centena más cercana). Reemplaza los precios mayoristas que ya tengan.</small>
+          <div style="display:flex; gap:0.5rem; align-items:center; margin-top:0.5rem;">
+            <input type="number" id="wholesale-bulk-pct" class="settings-input" value="41" min="0" max="100" step="0.1" style="max-width:110px;" />
+            <span>% de descuento</span>
+            <button type="button" class="btn-add-variant" id="btn-apply-wholesale-pct">Aplicar a todos los productos</button>
+          </div>
+        </div>
+
         <div class="settings-group" id="wholesaler-create-box" style="margin-bottom:1.25rem;">
           <label class="settings-label">Crear cuenta de mayorista</label>
           <input type="text" id="new-wholesaler-name" class="settings-input" placeholder="Nombre o negocio" style="margin-bottom:0.5rem;" />

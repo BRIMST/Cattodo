@@ -56,6 +56,7 @@ export function initAdmin(state, utils) {
   on('btn-close-product-modal', 'onclick', () => appUtils.safeStyle('modal-product', 'display', 'none'));
   on('btn-save-product', 'onclick', saveProduct);
   on('btn-add-wholesaler', 'onclick', createWholesalerAccount);
+  on('btn-apply-wholesale-pct', 'onclick', applyWholesalePercentToAll);
   on('btn-delete-product', 'onclick', () => {
     if (!window.currentEditId) return;
     if (confirm('¿Eliminar este producto? Esta acción no se puede deshacer.')) {
@@ -1701,6 +1702,38 @@ async function migrateWholesalePrices() {
     appUtils.showToast('No se pudieron proteger los precios mayoristas: revisa las reglas de Firebase');
   } finally {
     wholesaleMigrationRunning = false;
+  }
+}
+
+// Calcula el precio mayorista de todos los productos restando un porcentaje al
+// precio al detal, y deja ese porcentaje como descuento por defecto.
+async function applyWholesalePercentToAll() {
+  const pct = parseFloat(document.getElementById('wholesale-bulk-pct')?.value);
+  if (isNaN(pct) || pct < 0 || pct >= 100) return appUtils.showToast('Escribe un porcentaje entre 0 y 99');
+  const list = (appState.products || []).filter(p => parseFloat(p.price) > 0);
+  if (list.length === 0) return appUtils.showToast('No hay productos para calcular');
+  if (!confirm(`¿Calcular el precio mayorista de ${list.length} producto(s) con ${pct}% menos que el precio al detal?\n\nEsto reemplaza los precios mayoristas actuales.`)) return;
+
+  const btn = document.getElementById('btn-apply-wholesale-pct');
+  if (btn) { btn.disabled = true; btn.textContent = 'Calculando...'; }
+  try {
+    const updates = { 'wholesaleConfig/discount': pct };
+    const newPrices = {};
+    list.forEach(p => {
+      const value = Math.round((parseFloat(p.price) * (100 - pct) / 100) / 100) * 100;
+      newPrices[p.id] = value;
+      updates[`wholesalePrices/${p.id}`] = value;
+    });
+    // Un solo update atómico: se aplican todos o ninguno
+    await update(ref(appState.db), updates);
+    appState.wholesalePrices = { ...(appState.wholesalePrices || {}), ...newPrices };
+    appState.wholesaleConfig = { ...(appState.wholesaleConfig || {}), discount: pct };
+    appUtils.showToast(`✅ ${list.length} precio(s) mayorista calculados con ${pct}% menos`);
+  } catch (err) {
+    console.error('Error calculando precios mayoristas:', err);
+    appUtils.showToast('No se pudieron calcular los precios: ' + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Aplicar a todos los productos'; }
   }
 }
 
