@@ -1,5 +1,6 @@
 ﻿import { ref, set, update, remove, push, onValue, get } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 import { initializeApp, getApps, deleteApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+import { parseMercanciaRows, planMercancia } from "./mercancia.js";
 import { getAuth, signOut, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
 let appState = {};
@@ -110,6 +111,8 @@ export function initAdmin(state, utils) {
   // Carga masiva: Excel y fotos de producto
   on('btn-bulk-excel', 'onclick', () => document.getElementById('bulk-upload-excel')?.click());
   on('bulk-upload-excel', 'onchange', handleBulkExcelUpload);
+  on('btn-bulk-stock', 'onclick', () => document.getElementById('bulk-upload-stock')?.click());
+  on('bulk-upload-stock', 'onchange', handleStockExcelUpload);
   on('btn-bulk-photos', 'onclick', () => document.getElementById('bulk-upload-photos')?.click());
   on('bulk-upload-photos', 'onchange', handleBulkPhotoUpload);
   on('btn-bulk-barcodes', 'onclick', bulkGenerateBarcodes);
@@ -2600,6 +2603,94 @@ async function handleBulkExcelUpload(e) {
       appUtils.showToast("Error al procesar Excel: " + err.message);
     } finally {
       e.target.value = '';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Carga de mercancía (plantilla "Pedido"): crea productos nuevos y reabastece los existentes.
+async function handleStockExcelUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const input = e.target;
+  appUtils.showToast('Leyendo mercancía...');
+
+  const reader = new FileReader();
+  reader.onerror = () => { appUtils.showToast('No se pudo leer el archivo'); input.value = ''; };
+  reader.onload = async (evt) => {
+    try {
+      const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      if (rows.length === 0) return appUtils.showToast('El archivo está vacío.');
+
+      const { items, skipped: parseSkipped, columnsOk } = parseMercanciaRows(rows);
+      if (!columnsOk) {
+        return appUtils.showToast('No encontré las columnas "Referencia" o "Cód. Barras". Usa la plantilla Pedido.');
+      }
+      const { create, restock, skipped: planSkipped } = planMercancia(items, appState.products || []);
+      const skipped = [...parseSkipped, ...planSkipped];
+
+      if (create.length === 0 && restock.length === 0) {
+        console.warn('Mercancía omitida:', skipped);
+        return appUtils.showToast(skipped.length
+          ? `No se cargó nada. Primer problema (fila ${skipped[0].row}): ${skipped[0].reason}`
+          : 'No hay filas para cargar.');
+      }
+
+      // Vista previa antes de tocar la base de datos
+      const units = (n) => `${n} unidad${n !== 1 ? 'es' : ''}`;
+      const lines = ['Esto es lo que se va a cargar:', ''];
+      if (create.length) {
+        lines.push(`🆕 ${create.length} producto(s) NUEVO(S):`);
+        create.slice(0, 8).forEach(c => lines.push(`   • ${c.data.ref || c.data.barcode} — ${c.data.name} (${units(c.data.stock)})`));
+        if (create.length > 8) lines.push(`   … y ${create.length - 8} más`);
+        lines.push('');
+      }
+      if (restock.length) {
+        lines.push(`📦 ${restock.length} producto(s) a REABASTECER:`);
+        restock.slice(0, 8).forEach(r => lines.push(`   • ${r.ref} — ${r.name}: ${r.stockBefore} → ${r.stockAfter} (+${r.add})`));
+        if (restock.length > 8) lines.push(`   … y ${restock.length - 8} más`);
+        lines.push('');
+      }
+      if (skipped.length) {
+        lines.push(`⚠️ ${skipped.length} fila(s) se OMITEN:`);
+        skipped.slice(0, 6).forEach(s => lines.push(`   • Fila ${s.row} (${s.name || 'sin nombre'}): ${s.reason}`));
+        if (skipped.length > 6) lines.push(`   … y ${skipped.length - 6} más`);
+        lines.push('');
+      }
+      lines.push('Los productos existentes solo reciben stock y costo; sus precios no se tocan.', '', '¿Continuar?');
+      if (!confirm(lines.join('\n'))) return appUtils.showToast('Carga cancelada');
+
+      // Todo en una sola escritura atómica: se guarda completo o no se guarda nada
+      const updates = {};
+      const newPrices = {};
+      create.forEach(c => {
+        const key = push(ref(appState.db, 'products')).key;
+        updates[`products/${key}`] = c.data;
+        if (c.wholesale) { updates[`wholesalePrices/${key}`] = c.wholesale; newPrices[key] = c.wholesale; }
+      });
+      restock.forEach(r => {
+        updates[`products/${r.id}/stock`] = r.stockAfter;
+        if (r.cost !== null) updates[`products/${r.id}/cost`] = r.cost;
+        if (r.barcode) updates[`products/${r.id}/barcode`] = r.barcode;
+      });
+      await update(ref(appState.db), updates);
+
+      appState.wholesalePrices = { ...(appState.wholesalePrices || {}), ...newPrices };
+      const totalUnits = create.reduce((a, c) => a + c.data.stock, 0) + restock.reduce((a, r) => a + r.add, 0);
+      let summary = `Mercancía cargada ✅ ${create.length} nuevo(s), ${restock.length} reabastecido(s), ${units(totalUnits)} en total`;
+      if (skipped.length) summary += ` — ⚠️ ${skipped.length} omitida(s)`;
+      if (create.length) summary += `. Los nuevos no tienen foto: usa "Subir Fotos" con el nombre del archivo igual a la referencia`;
+      appUtils.showToast(summary);
+      if (skipped.length) console.warn('Mercancía omitida:', skipped);
+      if (window.loadCatalog) window.loadCatalog();
+      renderProductsTable();
+    } catch (err) {
+      console.error(err);
+      appUtils.showToast('Error al cargar la mercancía: ' + err.message);
+    } finally {
+      input.value = '';
     }
   };
   reader.readAsArrayBuffer(file);
