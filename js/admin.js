@@ -107,8 +107,6 @@ export function initAdmin(state, utils) {
   document.getElementById('product-barcode')?.addEventListener('input', (e) => renderProductQR(e.target.value.trim()));
 
   // Carga masiva: Excel y fotos de producto
-  on('btn-bulk-excel', 'onclick', () => document.getElementById('bulk-upload-excel')?.click());
-  on('bulk-upload-excel', 'onchange', handleBulkExcelUpload);
   on('btn-bulk-stock', 'onclick', () => document.getElementById('bulk-upload-stock')?.click());
   on('bulk-upload-stock', 'onchange', handleStockExcelUpload);
   on('btn-bulk-photos', 'onclick', () => document.getElementById('bulk-upload-photos')?.click());
@@ -140,7 +138,7 @@ export function initAdmin(state, utils) {
     updateBulkDeleteProductsButton();
   });
   on('btn-delete-selected-products', 'onclick', deleteSelectedProducts);
-  on('btn-export-products-csv', 'onclick', exportProductsCSV);
+  on('btn-export-products-csv', 'onclick', downloadMercanciaTemplate);
   on('btn-export-orders-csv', 'onclick', exportOrdersCSV);
   on('btn-export-clients-csv', 'onclick', exportClientsCSV);
 
@@ -1257,25 +1255,16 @@ function downloadCSV(filename, headers, rows) {
   URL.revokeObjectURL(url);
 }
 
-function exportProductsCSV() {
-  const products = appState.products || [];
-  const salesMap = {};
-  (appState.orders || []).forEach(o => {
-    if (o.status !== 'cancelado') (o.items || []).forEach(i => { salesMap[i.id] = (salesMap[i.id] || 0) + (i.qty || 0); });
-  });
-  const rows = products.map(p => {
-    const cost = parseFloat(p.cost) || 0;
-    const price = parseFloat(p.price) || 0;
-    const stock = parseInt(p.stock) || 0;
-    return [
-      p.name, p.ref || '', p.barcode || '', p.category || '', stock, cost, price,
-      (price - cost).toFixed(2), ((price - cost) * stock).toFixed(2),
-      salesMap[p.id] || 0, p.active === false ? 'Inactivo' : 'Activo'
-    ];
-  });
-  downloadCSV(`productos_${new Date().toISOString().slice(0, 10)}.csv`,
-    ['Nombre', 'Referencia', 'Código de Barras', 'Categoría', 'Inventario', 'Costo', 'Precio', 'Ganancia Neta', 'Ganancia Total', 'Rotación', 'Estado'], rows);
-  appUtils.showToast('Excel de productos descargado ✅');
+// Descarga la plantilla de mercancía tal cual (hoja "Pedido", tabla, fórmulas y columnas),
+// lista para llenar y subir con "Cargar mercancía".
+function downloadMercanciaTemplate() {
+  const a = document.createElement('a');
+  a.href = '/plantillas/Mercancia.xlsx';
+  a.download = 'Mercancia.xlsx';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  appUtils.showToast('Descargando plantilla de mercancía…');
 }
 
 function exportOrdersCSV() {
@@ -2600,168 +2589,6 @@ async function optimizeHeavyPhotos() {
     : '⚠️ No se pudo subir a Firebase Storage. Revisa que Storage esté habilitado y sus reglas permitan escribir.');
   if (window.loadCatalog) window.loadCatalog();
   renderProductsTable();
-}
-
-async function handleBulkExcelUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  appUtils.showToast("Leyendo Excel...");
-
-  const reader = new FileReader();
-  reader.onload = async (evt) => {
-    try {
-      const data = new Uint8Array(evt.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-      if (jsonData.length === 0) {
-        appUtils.showToast("El archivo de Excel está vacío.");
-        return;
-      }
-
-      const findKey = (row, possibleNames) => {
-        const rowKeys = Object.keys(row);
-        for (const name of possibleNames) {
-          const matched = rowKeys.find(k => k.trim().toLowerCase() === name.toLowerCase());
-          if (matched !== undefined) return matched;
-        }
-        return null;
-      };
-
-      const resolvePhotoUrl = (rawValue) => {
-        let url = String(rawValue || '').trim();
-        if (!url) return { url: '', valid: false };
-        const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-        if (driveMatch) {
-          url = `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
-        }
-        const looksLikeUrl = /^https?:\/\//i.test(url);
-        return { url, valid: looksLikeUrl };
-      };
-
-      let importedCount = 0;
-      let updatedCount = 0;
-      let missingPhotoCount = 0;
-      const missingPhotoNames = [];
-      // Todo se acumula y se guarda en UNA sola escritura (antes: una espera por cada fila)
-      const updates = {};
-      const newProducts = {};      // key -> datos del producto nuevo
-      const newKeyByRef = {};      // referencia -> key (para filas repetidas del mismo archivo)
-
-      for (const row of jsonData) {
-        const fotoKey = findKey(row, ["foto", "imagen", "image", "url"]);
-        const nombreKey = findKey(row, ["nombre", "name"]);
-        const refKey = findKey(row, ["referencia", "ref", "reference"]);
-        const barcodeKey = findKey(row, ["codigo de barras", "código de barras", "barcode", "cod barras"]);
-        const categoriaKey = findKey(row, ["categoria", "categoría", "category"]);
-        const tagsKey = findKey(row, ["tags", "etiquetas"]);
-        const stockKey = findKey(row, ["cantidad de stock", "stock", "cantidad", "existencias"]);
-        const costoKey = findKey(row, ["precio de compra", "costo", "cost", "compra"]);
-        const precioKey = findKey(row, ["precio de venta", "precio", "price", "venta"]);
-        const precioOriginalKey = findKey(row, ["precio original", "precio antes de descuento", "original price"]);
-        const precioMayoristaKey = findKey(row, ["precio mayorista", "wholesale price", "precio al por mayor"]);
-        const pesoKey = findKey(row, ["peso", "peso (kg)", "weight"]);
-        const unidadKey = findKey(row, ["unidad", "unit"]);
-        const descripcionKey = findKey(row, ["descripcion", "descripción", "description"]);
-        const videoKey = findKey(row, ["video", "clip", "clip url", "video url", "tiktok"]);
-        const activoKey = findKey(row, ["activo", "active", "visible"]);
-
-        const name = nombreKey ? String(row[nombreKey] || '').trim() : '';
-        const price = precioKey ? parseFloat(String(row[precioKey]).replace(/[^\d]/g, '')) : NaN;
-
-        if (!name || isNaN(price)) continue;
-
-        const refValue = refKey ? String(row[refKey] || '').trim() : '';
-        const barcodeValue = barcodeKey ? String(row[barcodeKey] || '').trim() : '';
-        const stock = stockKey ? parseInt(String(row[stockKey]).replace(/[^\d]/g, '')) || 0 : 0;
-        const cost = costoKey ? parseFloat(String(row[costoKey]).replace(/[^\d]/g, '')) || null : null;
-        const originalPrice = precioOriginalKey ? (parseFloat(String(row[precioOriginalKey]).replace(/[^\d]/g, '')) || null) : null;
-        const wholesalePrice = precioMayoristaKey ? (parseFloat(String(row[precioMayoristaKey]).replace(/[^\d]/g, '')) || null) : null;
-        const weight = pesoKey ? (parseFloat(String(row[pesoKey]).replace(',', '.')) || 0.3) : 0.3;
-        const unit = unidadKey ? (String(row[unidadKey] || '').trim() || 'und') : 'und';
-        const category = categoriaKey ? String(row[categoriaKey] || '').trim() : '';
-        const tags = tagsKey ? String(row[tagsKey] || '').trim() : '';
-        const description = descripcionKey ? String(row[descripcionKey] || '').trim() : '';
-        const clipUrl = videoKey ? (String(row[videoKey] || '').trim() || null) : null;
-        const activoRaw = activoKey ? String(row[activoKey] || '').trim().toLowerCase() : '';
-        const active = activoRaw ? !['no', 'false', '0', 'inactivo'].includes(activoRaw) : true;
-
-        const rawFoto = fotoKey ? row[fotoKey] : '';
-        const { url: foto, valid: fotoValid } = resolvePhotoUrl(rawFoto);
-        if (!fotoValid) {
-          missingPhotoCount++;
-          missingPhotoNames.push(name);
-        }
-
-        const pData = {
-          name, price, ref: refValue, category, tags, stock, cost,
-          originalPrice, weight, unit, description, clipUrl, active,
-          origen: 'propio'
-        };
-        let savedProductId;
-
-        let existingId = null;
-        if (refValue) {
-          const existing = appState.products.find(p => p.ref && String(p.ref).trim() === refValue);
-          if (existing) existingId = existing.id;
-        }
-
-        if (existingId) {
-          if (fotoValid) pData.images = [foto];
-          // Igual que con las fotos: si la fila no trae código de barras, no
-          // se toca el que el producto ya tuviera (evita borrarlo sin querer).
-          if (barcodeValue) pData.barcode = barcodeValue;
-          Object.entries(pData).forEach(([k, v]) => { updates[`products/${existingId}/${k}`] = v; });
-          savedProductId = existingId;
-          updatedCount++;
-        } else if (refValue && newKeyByRef[refValue]) {
-          // Misma referencia repetida en el archivo: se completa el producto ya creado
-          savedProductId = newKeyByRef[refValue];
-          if (fotoValid) pData.images = [foto];
-          if (barcodeValue) pData.barcode = barcodeValue;
-          Object.assign(newProducts[savedProductId], pData);
-        } else {
-          pData.images = fotoValid ? [foto] : [];
-          pData.barcode = barcodeValue || '';
-          savedProductId = push(ref(appState.db, 'products')).key;
-          newProducts[savedProductId] = pData;
-          if (refValue) newKeyByRef[refValue] = savedProductId;
-          importedCount++;
-        }
-        // El precio mayorista va a la zona privada (solo si la fila trae uno)
-        if (wholesalePrice) updates[`wholesalePrices/${savedProductId}`] = wholesalePrice;
-      }
-
-      Object.entries(newProducts).forEach(([key, data]) => { updates[`products/${key}`] = data; });
-      if (Object.keys(updates).length > 0) {
-        await update(ref(appState.db), updates);
-        const prices = {};
-        Object.entries(updates).forEach(([path, v]) => {
-          const m = path.match(/^wholesalePrices\/(.+)$/);
-          if (m) prices[m[1]] = v;
-        });
-        appState.wholesalePrices = { ...(appState.wholesalePrices || {}), ...prices };
-      }
-
-      let summary = `Excel procesado: ${importedCount} creados, ${updatedCount} actualizados ✅`;
-      if (missingPhotoCount > 0) {
-        summary += ` — ⚠️ ${missingPhotoCount} sin foto válida (revisa que la columna "foto" tenga un link http(s), no una imagen pegada)`;
-        console.warn('Productos importados sin foto válida:', missingPhotoNames);
-      }
-      appUtils.showToast(summary);
-      if (window.loadCatalog) window.loadCatalog();
-      renderProductsTable();
-    } catch (err) {
-      console.error(err);
-      appUtils.showToast("Error al procesar Excel: " + err.message);
-    } finally {
-      e.target.value = '';
-    }
-  };
-  reader.readAsArrayBuffer(file);
 }
 
 // Carga de mercancía (plantilla "Pedido"): crea productos nuevos y reabastece los existentes.
