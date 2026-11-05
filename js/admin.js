@@ -1,6 +1,7 @@
 ﻿import { ref, set, update, remove, push, onValue, get } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 import { initializeApp, getApps, deleteApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import { parseMercanciaRows, planMercancia } from "./mercancia.js";
+import { wholesaleVisibility } from "./wholesale-visibility.js";
 import { getAuth, signOut, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
 let appState = {};
@@ -29,6 +30,7 @@ export function initAdmin(state, utils) {
   window.confirmDeleteProduct = confirmDeleteProduct;
   window.openClientModal = openClientModal;
   window.confirmDeleteOrder = confirmDeleteOrder;
+  window.toggleWholesaleProduct = toggleWholesaleProduct;
   window.toggleWholesalerActive = toggleWholesalerActive;
   window.resetWholesalerPassword = resetWholesalerPassword;
   window.removeWholesalerAccess = removeWholesalerAccess;
@@ -58,6 +60,8 @@ export function initAdmin(state, utils) {
   on('btn-save-product', 'onclick', saveProduct);
   on('btn-add-wholesaler', 'onclick', createWholesalerAccount);
   on('btn-apply-wholesale-pct', 'onclick', applyWholesalePercentToAll);
+  on('wholesale-autohide', 'onchange', (e) => setWholesaleAutoHide(e.target.checked));
+  on('wholesale-products-search', 'oninput', () => renderWholesaleProductsTable());
   on('btn-delete-product', 'onclick', () => {
     if (!window.currentEditId) return;
     if (confirm('¿Eliminar este producto? Esta acción no se puede deshacer.')) {
@@ -238,7 +242,7 @@ function initNavigation() {
       if (btn.dataset.tab === 'orders') renderOrdersTable();
       if (btn.dataset.tab === 'products') renderProductsTable();
       if (btn.dataset.tab === 'clients') renderClientsTable();
-      if (btn.dataset.tab === 'wholesalers') renderWholesalersTable();
+      if (btn.dataset.tab === 'wholesalers') { renderWholesalersTable(); renderWholesaleProductsTable(); }
       if (btn.dataset.tab === 'reports') renderReports();
       if (btn.dataset.tab === 'finance') renderFinance();
       if (btn.dataset.tab === 'settings') loadSettingsForm();
@@ -309,6 +313,7 @@ function openAdminActual() {
     }, err => console.warn('Sin acceso a wholesalePrices:', err.code));
     onValue(ref(appState.db, 'wholesaleConfig'), snap => {
       appState.wholesaleConfig = snap.val() || {};
+      renderWholesaleProductsTable();
     }, err => console.warn('Sin acceso a wholesaleConfig:', err.code));
   }
   
@@ -1737,6 +1742,74 @@ async function applyWholesalePercentToAll() {
     appUtils.showToast('No se pudieron calcular los precios: ' + err.message);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Aplicar a todos los productos'; }
+  }
+}
+
+// Lista de productos con el control de cuáles se ven en el portal mayorista.
+function renderWholesaleProductsTable() {
+  const tbody = document.getElementById('wholesale-products-body');
+  if (!tbody) return;
+  const autoHide = (appState.wholesaleConfig || {}).autoHideLowStock !== false;
+  const box = document.getElementById('wholesale-autohide');
+  if (box) box.checked = autoHide;
+
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const q = (document.getElementById('wholesale-products-search')?.value || '').trim().toLowerCase();
+  const prices = appState.wholesalePrices || {};
+  const active = (appState.products || []).filter(p => p.active);
+
+  let shown = 0, byStock = 0, manual = 0;
+  const rows = active.map(p => ({ p, v: wholesaleVisibility(p, { autoHide }) }));
+  rows.forEach(({ v }) => { if (v.visible) shown++; else if (v.reason === 'manual') manual++; else byStock++; });
+  const summary = document.getElementById('wholesale-visibility-summary');
+  if (summary) summary.textContent = `${shown} visibles · ${byStock} ocultos por poco stock · ${manual} ocultos por ti (de ${active.length} productos activos)`;
+
+  const filtered = rows
+    .filter(({ p }) => !q || String(p.name).toLowerCase().includes(q) || String(p.ref || '').toLowerCase().includes(q))
+    .sort((a, b) => String(a.p.name).localeCompare(String(b.p.name), 'es'));
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:1rem;">Sin productos</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(({ p, v }) => {
+    const status = v.visible ? '✅ Visible'
+      : v.reason === 'manual' ? '🙈 Oculto por ti'
+      : `📉 Oculto: ${v.available} unidad${v.available !== 1 ? 'es' : ''}`;
+    const wp = prices[p.id];
+    return `<tr>
+      <td>${esc(p.name)}${p.ref ? ` <small style="color:var(--text-muted)">[${esc(p.ref)}]</small>` : ''}</td>
+      <td>${v.available === null ? '∞' : v.available}</td>
+      <td>${wp ? 'COP ' + Number(wp).toLocaleString('es-CO') : '<small style="color:var(--text-muted)">descuento por defecto</small>'}</td>
+      <td>${status}</td>
+      <td><input type="checkbox" aria-label="Mostrar ${esc(p.name)} en el portal mayorista" ${p.wholesaleHidden ? '' : 'checked'} onchange="toggleWholesaleProduct('${esc(p.id)}', this.checked)" /></td>
+    </tr>`;
+  }).join('');
+}
+
+async function toggleWholesaleProduct(id, show) {
+  const p = (appState.products || []).find(x => x.id === id);
+  if (!p) return;
+  try {
+    await update(ref(appState.db, `products/${id}`), { wholesaleHidden: show ? null : true });
+    if (show) delete p.wholesaleHidden; else p.wholesaleHidden = true;
+    renderWholesaleProductsTable();
+    appUtils.showToast(show ? 'Se mostrará en el portal mayorista' : 'Oculto del portal mayorista');
+    if (window.loadCatalog) window.loadCatalog();
+  } catch (err) {
+    appUtils.showToast('No se pudo actualizar: ' + err.message);
+    renderWholesaleProductsTable();
+  }
+}
+
+async function setWholesaleAutoHide(enabled) {
+  try {
+    await set(ref(appState.db, 'wholesaleConfig/autoHideLowStock'), !!enabled);
+    appState.wholesaleConfig = { ...(appState.wholesaleConfig || {}), autoHideLowStock: !!enabled };
+    renderWholesaleProductsTable();
+    appUtils.showToast(enabled ? 'Se ocultan los productos con menos de 3 unidades' : 'Se muestran también los productos con poco stock');
+  } catch (err) {
+    appUtils.showToast('No se pudo guardar: ' + err.message);
+    renderWholesaleProductsTable();
   }
 }
 

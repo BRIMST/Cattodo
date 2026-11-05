@@ -24,6 +24,7 @@ import {
 import {
   getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
+import { WHOLESALE_MIN_QTY, wholesaleVisibility } from "./wholesale-visibility.js";
 
 // ====== SECURITY - Password hashing ======
 const hashPassword = async (password) => {
@@ -72,7 +73,6 @@ let currentFilter = 'all';
 let isWholesaleMode = false;
 // En pedidos mayoristas se compran mínimo 3 unidades de cada producto
 // (se cuentan sumando todas sus variantes: colores, aromas, tamaños).
-const WHOLESALE_MIN_QTY = 3;
 
 // ====== PORTAL MAYORISTA (acceso con cuenta) ======
 // Cada mayorista tiene una cuenta de Firebase Authentication y un registro en
@@ -197,6 +197,13 @@ async function wholesaleLogout() {
   if (wasWholesaler) { try { await signOut(auth); } catch (e) { console.error(e); } }
 }
 
+// ¿Se muestra este producto en el portal mayorista? (ocultos a mano o sin stock para el mínimo)
+function isVisibleInWholesale(p) {
+  return wholesaleVisibility(p, { autoHide: wholesaleConfig.autoHideLowStock !== false, min: WHOLESALE_MIN_QTY }).visible;
+}
+// Productos activos que el canal actual puede mostrar
+const getShownProducts = () => products.filter(p => p.active && (!isWholesaleMode || isVisibleInWholesale(p)));
+
 // Total de unidades de un producto en el carrito actual, sumando variantes.
 function getProductQtyInCart(productId) {
   return Object.entries(cart).reduce((sum, [cartId, q]) => (
@@ -230,8 +237,9 @@ function setWholesaleMode(enabled) {
   safeText('catalog-section-title', enabled ? 'Catálogo mayorista' : 'Todos los productos');
   const toggleBtn = document.getElementById('btn-wholesale-toggle');
   if (toggleBtn) toggleBtn.textContent = enabled ? 'Salir del portal' : '🔐 Acceso mayoristas';
+  currentFilter = 'all'; // la categoría elegida puede no existir en el otro canal
   updateCartUI();
-  if (isProductsLoaded) renderProducts();
+  if (isProductsLoaded) { renderSearchSuggestions(); renderFilters(); renderProducts(); }
 }
 
 // ====== MEJORAS DE EXPERIENCIA ======
@@ -615,12 +623,12 @@ window.openCustomerPhotoViewer = function(idx) {
 function renderSearchSuggestions() {
   const dl = document.getElementById('search-suggestions');
   if (!dl) return;
-  const names = [...new Set(products.filter(p => p.active).map(p => p.name).filter(Boolean))].slice(0, 80);
+  const names = [...new Set(getShownProducts().map(p => p.name).filter(Boolean))].slice(0, 80);
   dl.innerHTML = names.map(n => `<option value="${String(n).replace(/"/g, '&quot;')}"></option>`).join('');
 }
 
 function renderFilters() {
-  const categories = ['all', ...new Set(products.map(p => p.category).filter(c => c))];
+  const categories = ['all', ...new Set(getShownProducts().map(p => p.category).filter(c => c))];
   els.categoryFilters.innerHTML = categories.map(cat =>
     `<button class="btn-category ${currentFilter === cat ? 'active' : ''}" data-cat="${cat}">
       ${cat === 'all' ? 'Todos' : cat}
@@ -671,7 +679,7 @@ function renderProducts() {
   const searchQuery = (els.searchInput.value || '').toLowerCase().trim();
   const searchTerms = searchQuery ? searchQuery.split(' ').filter(t => t) : [];
 
-  let filtered = products.filter(p => p.active);
+  let filtered = getShownProducts();
 
   if (currentFilter !== 'all') {
     filtered = filtered.filter(p => p.category === currentFilter);
@@ -1229,7 +1237,9 @@ function injectProductStructuredData(p, price) {
 
 window.openProductPage = function(productId) {
   const p = products.find(x => x.id === productId);
-  if (!p) {
+  if (!p || (isWholesaleMode && !isVisibleInWholesale(p))) {
+    // En el portal mayorista un producto oculto tampoco se abre por enlace directo
+    if (p) showToast('Ese producto no está disponible en el portal mayorista');
     navigateTo(getCatalogPath());
     return;
   }
@@ -1568,7 +1578,7 @@ function renderRelatedProducts(currentProduct) {
   const grid = document.getElementById('related-products-grid');
   if (!grid) return;
   
-  let related = products.filter(p => p.active && p.id !== currentProduct.id);
+  let related = getShownProducts().filter(p => p.id !== currentProduct.id);
   if (currentProduct.category) {
     related = related.filter(p => p.category === currentProduct.category);
   }
@@ -1576,7 +1586,7 @@ function renderRelatedProducts(currentProduct) {
   related = related.slice(0, 4);
   
   if (related.length === 0) {
-    related = products.filter(p => p.active && p.id !== currentProduct.id).slice(0, 4);
+    related = getShownProducts().filter(p => p.id !== currentProduct.id).slice(0, 4);
   }
   
   if (related.length === 0) {

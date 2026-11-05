@@ -1234,6 +1234,24 @@
         </div>
         <p class="settings-hint" style="margin-bottom:1rem;">Estas cuentas entran al portal mayorista en <b>/mayoristas</b> y son las únicas que ven los precios por mayor. Los precios se configuran en cada producto ("Precio Mayorista") y el descuento por defecto en Tienda.</p>
 
+        <div class="settings-group" id="wholesale-visibility-box" style="margin-bottom:1.25rem;">
+          <label class="settings-label">Productos visibles en el portal mayorista</label>
+          <label style="display:flex; gap:0.5rem; align-items:flex-start; margin:0.4rem 0; font-size:0.9rem;">
+            <input type="checkbox" id="wholesale-autohide" checked style="margin-top:0.2rem;" />
+            <span>Ocultar automáticamente los productos con menos de 3 unidades disponibles (el pedido mínimo mayorista)</span>
+          </label>
+          <small class="settings-hint" id="wholesale-visibility-summary"></small>
+          <input type="search" id="wholesale-products-search" class="settings-input" placeholder="Buscar producto o referencia…" style="margin:0.6rem 0;" />
+          <div class="clients-table-wrapper" style="max-height:420px; overflow:auto;">
+            <table class="admin-table">
+              <thead>
+                <tr><th>Producto</th><th>Stock</th><th>Precio mayorista</th><th>Estado</th><th>Mostrar</th></tr>
+              </thead>
+              <tbody id="wholesale-products-body"></tbody>
+            </table>
+          </div>
+        </div>
+
         <div class="settings-group" id="wholesale-bulk-box" style="margin-bottom:1.25rem;">
           <label class="settings-label">Recalcular todos los precios mayoristas</label>
           <small class="settings-hint">Calcula el precio mayorista de TODOS los productos restando este porcentaje al precio al detal (se redondea a la centena más cercana). Reemplaza los precios mayoristas que ya tengan.</small>
