@@ -270,3 +270,48 @@ body.theme-navidad .tb-ico {
   body.theme-navidad .trust-bar-inner b { font-size: 0.72rem; }
   body.theme-navidad .tb-ico { width: 1.8rem; height: 1.8rem; font-size: 0.9rem; }
 }
+
+/* ── Tarjetas de vidrio esmerilado ───────────────────────────────────────────
+   El vidrio solo se nota si detrás hay algo con color: el catálogo lleva un
+   fondo con manchas suaves (verde, dorado y rojo) que las tarjetas desenfocan. */
+body.theme-navidad .catalog-main {
+  background:
+    radial-gradient(420px 420px at 8% 140px, rgba(31, 90, 67, 0.30), transparent 70%),
+    radial-gradient(380px 380px at 92% 380px, rgba(226, 176, 74, 0.38), transparent 70%),
+    radial-gradient(400px 400px at 22% 760px, rgba(178, 38, 46, 0.20), transparent 70%),
+    radial-gradient(420px 420px at 85% 1100px, rgba(31, 90, 67, 0.26), transparent 70%),
+    #F6F1E4;
+  background-size: 100% 1300px, 100% 1300px, 100% 1300px, 100% 1300px, auto;
+  background-repeat: repeat-y, repeat-y, repeat-y, repeat-y, no-repeat;
+}
+
+body.theme-navidad .product-card {
+  background: rgba(255, 255, 255, 0.46);
+  -webkit-backdrop-filter: blur(16px) saturate(165%);
+  backdrop-filter: blur(16px) saturate(165%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 16px;
+  box-shadow:
+    0 8px 28px rgba(20, 57, 44, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+body.theme-navidad .product-card:hover {
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(226, 176, 74, 0.85);
+  box-shadow:
+    0 18px 40px rgba(20, 57, 44, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+/* La foto queda enmarcada dentro del vidrio (solo en cuadrícula) */
+body.theme-navidad .products-grid:not(.list-view) .product-card { padding: 0.45rem; }
+body.theme-navidad .products-grid:not(.list-view) .product-image-container {
+  border-radius: 11px;
+  overflow: hidden;
+}
+body.theme-navidad .products-grid:not(.list-view) .product-info { padding: 0.8rem 0.45rem 0.35rem; }
+body.theme-navidad .product-image-container { background: rgba(244, 238, 223, 0.7); }
+
+/* Sin soporte de desenfoque: fondo casi opaco para que siga leyéndose bien */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  body.theme-navidad .product-card { background: rgba(255, 255, 255, 0.92); }
+}
