@@ -58,7 +58,8 @@ export function parseMercanciaRows(rows) {
   let columnsOk = false;
 
   rows.forEach((row, idx) => {
-    const rowNum = idx + 2; // fila 1 son los encabezados
+    // __rowNum__ (SheetJS) es la fila real de la hoja; así las filas vacías no descuadran fotos ni avisos
+    const rowNum = Number.isInteger(row.__rowNum__) ? row.__rowNum__ + 1 : idx + 2;
     const cols = {};
     Object.keys(row).forEach(k => {
       const nk = norm(k);
@@ -138,6 +139,7 @@ export function planMercancia(items, products) {
       const currentStock = Number(existing.stock) > 0 ? Number(existing.stock) : 0;
       restock.push({
         id: existing.id,
+        rows: it.rows,
         name: existing.name,
         ref: existing.ref || it.ref,
         add: it.qty,
@@ -159,6 +161,7 @@ export function planMercancia(items, products) {
       return;
     }
     create.push({
+      rows: it.rows,
       wholesale: Number.isNaN(it.wholesale) || it.wholesale <= 0 ? null : it.wholesale,
       data: {
         name: it.name,

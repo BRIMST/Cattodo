@@ -2,6 +2,7 @@
 import { initializeApp, getApps, deleteApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import { parseMercanciaRows, planMercancia } from "./mercancia.js";
 import { wholesaleVisibility, getAvailableStock } from "./wholesale-visibility.js";
+import { extractSheetImages, loadJSZip } from "./excel-images.js";
 import { getAuth, signOut, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
 let appState = {};
@@ -2890,6 +2891,15 @@ async function handleStockExcelUpload(e) {
       const { create, restock, skipped: planSkipped } = planMercancia(items, appState.products || []);
       const skipped = [...parseSkipped, ...planSkipped];
 
+      // Fotos puestas en el Excel (una por fila, junto a la Referencia)
+      let imageMap = new Map();
+      try { imageMap = await extractSheetImages(evt.target.result, await loadJSZip()); }
+      catch (imgErr) { console.warn('No se pudieron leer las fotos del Excel:', imgErr); }
+      const photoFor = (entry) => { for (const r of entry.rows || []) if (imageMap.has(r)) return imageMap.get(r); return null; };
+      create.forEach(c => { c.photo = photoFor(c); });
+      restock.forEach(r => { r.photo = photoFor(r); });
+      const photoCount = create.filter(c => c.photo).length + restock.filter(r => r.photo).length;
+
       if (create.length === 0 && restock.length === 0) {
         console.warn('Mercancía omitida:', skipped);
         return mercanciaDialog({ title: 'No se cargó nada', body: skipped.length
@@ -2918,24 +2928,48 @@ async function handleStockExcelUpload(e) {
         if (skipped.length > 6) lines.push(`   … y ${skipped.length - 6} más`);
         lines.push('');
       }
+      if (photoCount) lines.push(`📷 ${photoCount} producto(s) con foto en el Excel: se subirá como foto principal.`, '');
+      else if (imageMap.size === 0) lines.push('📷 No encontré fotos dentro del Excel (si las pusiste, deben estar dentro de la celda de su fila).', '');
       lines.push('Los productos existentes solo reciben stock y costo; sus precios no se tocan.', '', '¿Continuar?');
       lines.pop(); lines.pop(); // quita la pregunta "¿Continuar?": ahora la hacen los botones
       const go = await mercanciaDialog({ title: 'Vista previa de la carga', body: lines.join('\n'), confirmText: 'Cargar mercancía', cancelText: 'Cancelar' });
       if (!go) return appUtils.showToast('Carga cancelada');
       mercanciaDialog({ title: 'Guardando…', body: `Guardando ${create.length + restock.length} producto(s). No cierres la página.`, busy: true });
 
+      // Fotos del Excel: se comprimen y suben primero (4 a la vez); si una falla, el producto se carga igual
+      const photoUrls = new Map();
+      const photoErrors = [];
+      if (photoCount) {
+        const jobs = [...create, ...restock].filter(x => x.photo);
+        let doneP = 0;
+        await runPool(jobs, 4, async (x) => {
+          const label = x.ref || x.data?.ref || x.name || x.data?.name || 'producto';
+          try {
+            const file = new File([x.photo.bytes], `${String(label).replace(/[^\w.-]+/g, '_')}.${x.photo.ext}`, { type: x.photo.mime });
+            photoUrls.set(x, await appUtils.uploadImageFile(file, 'products'));
+          } catch (pe) { console.error('Foto del Excel:', label, pe); photoErrors.push(label); }
+          doneP++;
+          if (doneP % 5 === 0) appUtils.showToast(`Subiendo fotos ${doneP}/${jobs.length}...`);
+        });
+      }
+
       // Todo en una sola escritura atómica: se guarda completo o no se guarda nada
       const updates = {};
       const newPrices = {};
       create.forEach(c => {
         const key = push(ref(appState.db, 'products')).key;
-        updates[`products/${key}`] = { ...c.data, createdAt: Date.now() };
+        updates[`products/${key}`] = { ...c.data, images: photoUrls.has(c) ? [photoUrls.get(c)] : c.data.images, createdAt: Date.now() };
         if (c.wholesale) { updates[`wholesalePrices/${key}`] = c.wholesale; newPrices[key] = c.wholesale; }
       });
       restock.forEach(r => {
         updates[`products/${r.id}/stock`] = r.stockAfter;
         if (r.cost !== null) updates[`products/${r.id}/cost`] = r.cost;
         if (r.barcode) updates[`products/${r.id}/barcode`] = r.barcode;
+        if (photoUrls.has(r)) {
+          // la foto del Excel pasa a ser la principal; las demás del producto se conservan
+          const prev = ((appState.products || []).find(p => p.id === r.id)?.images || []).slice(1);
+          updates[`products/${r.id}/images`] = [photoUrls.get(r), ...prev];
+        }
       });
       // Firebase no avisa si no hay conexión: espera la confirmación y, si tarda, lo dice
       await Promise.race([
@@ -2947,7 +2981,10 @@ async function handleStockExcelUpload(e) {
       const totalUnits = create.reduce((a, c) => a + c.data.stock, 0) + restock.reduce((a, r) => a + r.add, 0);
       let summary = `Mercancía cargada ✅ ${create.length} nuevo(s), ${restock.length} reabastecido(s), ${units(totalUnits)} en total`;
       if (skipped.length) summary += ` — ⚠️ ${skipped.length} omitida(s)`;
-      if (create.length) summary += `. Los nuevos no tienen foto: usa "Subir Fotos" con el nombre del archivo igual a la referencia`;
+      if (photoUrls.size) summary += `. ${photoUrls.size} foto(s) subida(s) desde el Excel`;
+      if (photoErrors.length) summary += `. ⚠️ Sin foto (error): ${photoErrors.join(', ')}`;
+      const noPhotoNew = create.filter(c => !photoUrls.has(c)).length;
+      if (noPhotoNew) summary += `. ${noPhotoNew} nuevo(s) sin foto: usa "Subir Fotos" con el nombre del archivo igual a la referencia`;
       appUtils.showToast(summary);
       await mercanciaDialog({ title: 'Mercancía cargada ✅', body: summary.replace('Mercancía cargada ✅ ', '').replace(/\. /g, '.\n') + (skipped.length ? '\n\nOmitidas:\n' + skipped.slice(0, 8).map(s => `Fila ${s.row} (${s.name || 'sin nombre'}): ${s.reason}`).join('\n') : ''), cancelText: 'Cerrar' });
       if (skipped.length) console.warn('Mercancía omitida:', skipped);
