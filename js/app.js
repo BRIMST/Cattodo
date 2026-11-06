@@ -238,7 +238,7 @@ function setWholesaleMode(enabled) {
   safeText('header-store-tagline', enabled ? 'Catálogo mayorista' : (settings.tagline || 'Catálogo Digital'));
   safeText('catalog-section-title', enabled ? 'Catálogo mayorista' : 'Todos los productos');
   const toggleBtn = document.getElementById('btn-wholesale-toggle');
-  if (toggleBtn) toggleBtn.textContent = enabled ? 'Salir del portal' : '🔐 Acceso mayoristas';
+  if (toggleBtn) toggleBtn.textContent = enabled ? 'Salir del portal' : '🔐 Mayoristas';
   currentFilter = 'all'; // la categoría elegida puede no existir en el otro canal
   currentQuickView = null;
   updateCartUI();
@@ -945,9 +945,9 @@ function setUserLocation(locKey) {
     if (heroSub) heroSub.textContent = loc.bgtSub || 'Pide antes de las 12 PM y recibe hoy mismo.';
     if (trustBar) {
       trustBar.innerHTML = `
-        <span>🚀 <b>Llega HOY</b> en Bogotá</span>
-        <span>✅ <b>Envío GRATIS</b></span>
-        <span>🛡️ Compra <b>100% segura</b></span>
+        <span><i class="tb-ico">🚀</i><em><b>Llega HOY</b> en Bogotá</em></span>
+        <span><i class="tb-ico">✅</i><em><b>Envío GRATIS</b></em></span>
+        <span><i class="tb-ico">🛡️</i><em>Compra <b>100% segura</b></em></span>
       `;
     }
   } else {
@@ -955,9 +955,9 @@ function setUserLocation(locKey) {
     if (heroSub) heroSub.textContent = loc.natSub || 'Compra fácil y rápido — envíos a toda Colombia';
     if (trustBar) {
       trustBar.innerHTML = `
-        <span>🚛 Envíos <b>a todo el país</b></span>
-        <span>🛡️ Compra <b>100% segura</b></span>
-        <span>⭐ <b>+10,000</b> clientes felices</span>
+        <span><i class="tb-ico">🚛</i><em>Envíos <b>a todo el país</b></em></span>
+        <span><i class="tb-ico">🛡️</i><em>Compra <b>100% segura</b></em></span>
+        <span><i class="tb-ico">⭐</i><em><b>+10,000</b> clientes felices</em></span>
       `;
     }
   }
