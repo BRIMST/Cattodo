@@ -1,0 +1,227 @@
+/* ═════════════════════════════════════════════════════════════════════════════
+   TEMA NAVIDEÑO — tienda al detal y portal mayorista
+   Se activa con la clase  body.theme-navidad  (ajuste "Tema navideño" en el panel).
+   Todo está acotado a esa clase: quitándola, el sitio vuelve a su diseño normal.
+   El panel de administración y sus ventanas conservan siempre los colores de marca.
+
+   Paleta
+     Pino noche  #14392C  encabezado, pie y fondos oscuros
+     Acebo       #1F5A43  verde de apoyo
+     Cardenal    #B2262E  acciones principales (flor de pascua)
+     Oro velita  #E2B04A  detalles, bordes y luces
+     Papel       fondo cálido que ya tenía el sitio
+   Tipografía: Young Serif en títulos; Poppins y la fuente del sistema en el resto.
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+body.theme-navidad {
+  --pino: #14392C;
+  --pino-2: #1F5A43;
+  --pino-3: #0E2A20;
+  --oro: #E2B04A;
+  --oro-oscuro: #B98A25;
+  --crema-texto: #FBF4E4;
+  --font-navidad: 'Young Serif', Georgia, 'Times New Roman', serif;
+
+  --primary: #B2262E;
+  --primary-dark: #8E1B22;
+  --primary-light: #FBEAEA;
+  --primary-rgb: 178, 38, 46;
+  --accent: #E2B04A;
+  --accent-dark: #B98A25;
+}
+
+/* El panel de administración y las ventanas de gestión mantienen los colores de marca */
+body.theme-navidad #view-admin,
+body.theme-navidad .modal-overlay {
+  --primary: #2B5F8E;
+  --primary-dark: #1E4568;
+  --primary-light: #E8F0F7;
+  --primary-rgb: 43, 95, 142;
+  --accent: #C99552;
+  --accent-dark: #A87738;
+}
+
+/* ── Títulos con serif de cartel ─────────────────────────────────────────── */
+body.theme-navidad .view:not(#view-admin) :is(h1, h2),
+body.theme-navidad .store-name,
+body.theme-navidad .footer-store-name {
+  font-family: var(--font-navidad);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* ── Encabezado y guirnalda ──────────────────────────────────────────────── */
+body.theme-navidad .catalog-header {
+  background: var(--pino);
+  border-bottom: 2px solid var(--oro);
+  box-shadow: none;
+}
+body.theme-navidad .store-name { color: var(--crema-texto); font-size: 1.25rem; }
+body.theme-navidad .store-tagline { color: rgba(251, 244, 228, 0.7); }
+body.theme-navidad.wholesale-mode .store-tagline { color: var(--oro); }
+body.theme-navidad .store-logo { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); }
+
+body.theme-navidad .btn-wholesale-toggle {
+  color: var(--oro);
+  border-color: var(--oro);
+  background: transparent;
+}
+body.theme-navidad .btn-wholesale-toggle:hover { background: var(--oro); color: var(--pino); }
+body.theme-navidad .btn-admin-access { background: transparent; border-color: rgba(251, 244, 228, 0.35); color: var(--crema-texto); }
+
+/* Guirnalda: cuelga del encabezado y se enciende una sola vez, de izquierda a derecha */
+.luces { display: none; }
+body.theme-navidad .luces {
+  display: flex;
+  position: absolute;
+  left: 0; right: 0; top: 100%;
+  height: 30px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 0.3s ease;
+}
+body.theme-navidad .catalog-header.luces-off .luces { opacity: 0; }
+body.theme-navidad .luces i {
+  flex: 0 0 56px;
+  height: 30px;
+  position: relative;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='30' viewBox='0 0 56 30'%3E%3Cpath d='M0 1 Q28 15 56 1' fill='none' stroke='%23c99a3c' stroke-width='1.4'/%3E%3C/svg%3E") center top / 56px 30px no-repeat;
+}
+body.theme-navidad .luces i::before {          /* casquillo */
+  content: '';
+  position: absolute;
+  left: 50%; top: 5px;
+  width: 6px; height: 4px;
+  transform: translateX(-50%);
+  background: #6b5320;
+  border-radius: 1px;
+}
+body.theme-navidad .luces i::after {           /* bombillo */
+  content: '';
+  position: absolute;
+  left: 50%; top: 8px;
+  width: 10px; height: 15px;
+  transform: translateX(-50%);
+  border-radius: 50% 50% 46% 46%;
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.85) 0 10%, var(--c) 42%, color-mix(in srgb, var(--c) 65%, #000) 100%);
+  box-shadow: 0 0 12px 3px var(--g);
+  animation: luz-encender 0.55s ease-out both;
+  animation-delay: calc(var(--i, 0) * 45ms + 0.25s);
+}
+body.theme-navidad .luces i:nth-child(4n+1) { --c: #F0525B; --g: rgba(240, 82, 91, 0.65); }
+body.theme-navidad .luces i:nth-child(4n+2) { --c: #F6C85F; --g: rgba(246, 200, 95, 0.65); }
+body.theme-navidad .luces i:nth-child(4n+3) { --c: #58C795; --g: rgba(88, 199, 149, 0.6); }
+body.theme-navidad .luces i:nth-child(4n+4) { --c: #FFE9B0; --g: rgba(255, 233, 176, 0.6); }
+@keyframes luz-encender {
+  from { opacity: 0.28; box-shadow: 0 0 0 0 transparent; }
+  to   { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.theme-navidad .luces i::after { animation: none; }
+}
+
+/* ── Franja de confianza ─────────────────────────────────────────────────── */
+body.theme-navidad .trust-bar {
+  background: var(--pino-3);
+  border-bottom: 0;
+  padding-top: 2.15rem;            /* deja libre la guirnalda */
+}
+body.theme-navidad .trust-bar-inner { color: rgba(251, 244, 228, 0.85); }
+body.theme-navidad .trust-bar-inner b { color: var(--oro); }
+
+/* ── Portada ─────────────────────────────────────────────────────────────── */
+body.theme-navidad .hero-banner {
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.11) 0 1.5px, transparent 2px) 0 0 / 90px 90px,
+    radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.08) 0 1px, transparent 1.5px) 0 0 / 61px 61px,
+    linear-gradient(160deg, var(--pino-2) 0%, var(--pino) 55%, var(--pino-3) 100%);
+  padding-top: 2.5rem;
+}
+body.theme-navidad .hero-banner::before { background: radial-gradient(ellipse at 88% 20%, rgba(226, 176, 74, 0.18) 0%, transparent 60%); }
+body.theme-navidad .hero-tag {
+  background: rgba(226, 176, 74, 0.12);
+  border-color: rgba(226, 176, 74, 0.55);
+  color: var(--oro);
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+body.theme-navidad .hero-title { color: var(--crema-texto); font-size: 2.4rem; line-height: 1.1; letter-spacing: -0.01em; }
+body.theme-navidad .hero-sub { color: var(--crema-texto); opacity: 0.88; }
+body.theme-navidad .hero-cta {
+  background: var(--primary);
+  color: var(--crema-texto);
+  border: 1.5px solid var(--oro);
+}
+body.theme-navidad .hero-cta:hover { background: var(--oro); color: var(--pino); }
+
+/* ── Buscador, orden y categorías ────────────────────────────────────────── */
+body.theme-navidad .search-box input {
+  background: #fff;
+  border-color: rgba(20, 57, 44, 0.25);
+}
+body.theme-navidad .search-box input:focus { border-color: var(--oro-oscuro); box-shadow: 0 0 0 3px rgba(226, 176, 74, 0.3); }
+body.theme-navidad .search-box svg { color: var(--pino-2); }
+body.theme-navidad .sort-select { border-color: rgba(20, 57, 44, 0.25); color: var(--pino); }
+body.theme-navidad .category-filters { background: rgba(20, 57, 44, 0.04); border-color: rgba(20, 57, 44, 0.12); }
+body.theme-navidad .btn-category { background: #fff; border-color: rgba(20, 57, 44, 0.25); color: var(--pino); }
+body.theme-navidad .btn-category:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+body.theme-navidad .btn-category.active { background: var(--pino); border-color: var(--pino); color: var(--oro); }
+body.theme-navidad .catalog-section-title { font-size: 1.35rem; color: var(--pino); }
+body.theme-navidad .catalog-section-count { background: rgba(226, 176, 74, 0.22); color: var(--pino); }
+
+/* ── Tarjetas de producto ────────────────────────────────────────────────── */
+body.theme-navidad .product-card {
+  background: #fff;
+  border: 1px solid rgba(20, 57, 44, 0.13);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(20, 57, 44, 0.07);
+}
+body.theme-navidad .product-card:hover {
+  border-color: var(--oro);
+  box-shadow: 0 16px 34px rgba(20, 57, 44, 0.14);
+}
+body.theme-navidad .product-image-container { background: #F4EEDF; }
+body.theme-navidad .price-amount { color: var(--pino); }
+body.theme-navidad .price-amount.price-sale { color: var(--primary); }
+body.theme-navidad .btn-add { background: var(--primary); color: var(--crema-texto); }
+body.theme-navidad .btn-add:hover { background: var(--primary-dark); }
+body.theme-navidad .btn-add.btn-add-sale { background: var(--pino); }
+body.theme-navidad .btn-add.btn-add-sale:hover { background: var(--pino-2); }
+body.theme-navidad .btn-add.is-soldout,
+body.theme-navidad .btn-add:disabled { background: #e5e1d6; color: #7b7466; }
+body.theme-navidad .badge-campaign { background: var(--oro); color: var(--pino); }
+
+/* ── Portal mayorista ────────────────────────────────────────────────────── */
+body.theme-navidad .wholesale-banner { background: #FFF5D9; border-bottom: 1px solid var(--oro); }
+body.theme-navidad .wholesale-banner-inner { color: var(--pino); }
+body.theme-navidad .wholesale-chip { border-color: var(--pino); color: var(--pino); background: #fff; }
+body.theme-navidad .wholesale-chip:hover { background: var(--pino); color: var(--oro); }
+body.theme-navidad .wholesale-min-note { color: var(--pino-2); }
+body.theme-navidad .wholesale-login-card { border-top: 4px solid var(--oro); }
+
+/* ── Barra del pedido ────────────────────────────────────────────────────── */
+body.theme-navidad .cart-bar { border: 1.5px solid var(--oro); }
+body.theme-navidad .cart-count { background: var(--oro); color: var(--pino); }
+
+/* ── Pasos y confirmación del pedido ─────────────────────────────────────── */
+body.theme-navidad .order-step.active .order-step-num { background: var(--primary); }
+body.theme-navidad .order-step.done .order-step-num { background: var(--pino-2); }
+body.theme-navidad .order-shipping-note,
+body.theme-navidad .order-thanks { background: #FFF5D9; border-color: var(--oro); }
+body.theme-navidad .order-shipping-note,
+body.theme-navidad .order-thanks p { color: var(--pino); }
+
+/* ── Pie de página ───────────────────────────────────────────────────────── */
+body.theme-navidad .site-footer { background: var(--pino-3); border-top: 3px solid var(--oro); }
+body.theme-navidad .footer-store-name { color: var(--crema-texto); }
+body.theme-navidad .site-footer a { color: var(--oro); }
+body.theme-navidad .site-footer a:hover { color: var(--crema-texto); }
+
+/* ── Móvil ───────────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  body.theme-navidad .hero-title { font-size: 1.9rem; }
+  body.theme-navidad .trust-bar-inner { gap: 1rem; justify-content: flex-start; overflow-x: auto; }
+}

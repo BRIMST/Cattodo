@@ -2313,6 +2313,7 @@ function loadSettingsForm() {
   appUtils.safeValue('settings-currency', appState.settings.currency || 'COP');
   appUtils.safeValue('settings-payment-info', appState.settings.paymentInfo || '');
   appUtils.safeValue('settings-shipping-cost', appState.settings.shippingCost || 0);
+  { const t = document.getElementById('settings-theme-navidad'); if (t) t.checked = appState.settings.themeNavidad !== false; }
   appUtils.safeValue('settings-wholesale-discount', (appState.wholesaleConfig || {}).discount !== undefined ? appState.wholesaleConfig.discount : 20);
 
   const social = appState.settings.social || {};
@@ -2360,6 +2361,7 @@ async function saveSettings() {
     storeName: document.getElementById('settings-store-name')?.value || '',
     tagline: document.getElementById('settings-tagline')?.value || '',
     whatsapp: document.getElementById('settings-whatsapp')?.value || '',
+    themeNavidad: document.getElementById('settings-theme-navidad')?.checked !== false,
     color: document.getElementById('settings-color')?.value || '#6c63ff',
     currency: document.getElementById('settings-currency')?.value || 'COP',
     paymentInfo: document.getElementById('settings-payment-info')?.value || '',

@@ -1,8 +1,9 @@
-const CACHE_NAME = 'catalogo-v22';
+const CACHE_NAME = 'catalogo-v23';
 const PRE_CACHE = [
   './',
   './index.html',
   './css/styles.css',
+  './css/navidad.css',
   './js/app.js',
   './js/colombia.js',
   './js/asistente.js'

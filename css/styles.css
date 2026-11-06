@@ -5303,7 +5303,7 @@ body.wholesale-mode .trust-bar { display: none; }
 .wholesale-chip:hover { background: #16a34a; color: #fff; }
 .products-grid.list-view { grid-template-columns: 1fr; gap: 0.75rem; }
 .products-grid.list-view .product-card { flex-direction: row; align-items: stretch; min-height: 0; }
-.products-grid.list-view .product-image-container { width: 96px; min-width: 96px; aspect-ratio: 1 / 1; flex-shrink: 0; }
+.products-grid.list-view .product-image-container { width: 112px; min-width: 112px; height: 112px; aspect-ratio: 1 / 1; flex-shrink: 0; align-self: flex-start; margin: 0.6rem 0 0.6rem 0.6rem; border-radius: 8px; }
 .products-grid.list-view .product-info { flex: 1; padding: 0.6rem 0.8rem; min-width: 0; }
 .products-grid.list-view .product-social-proof,
 .products-grid.list-view .microcopy-badge,

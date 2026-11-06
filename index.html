@@ -13,9 +13,9 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js" />
   <link rel="modulepreload" href="js/app.js?v=11" />
   
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
-  <noscript><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" /></noscript>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Young+Serif&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Young+Serif&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Young+Serif&display=swap" rel="stylesheet" /></noscript>
   <style>
     :root {
       --primary: #1A1C2E; --primary-dark: #0F101A; --primary-light: #F0F2FF;
@@ -39,6 +39,8 @@
   </style>
   <link rel="stylesheet" href="css/styles.css" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="css/styles.css"></noscript>
+  <link rel="stylesheet" href="css/navidad.css?v=1" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="css/navidad.css?v=1"></noscript>
   <meta name="theme-color" content="#2B5F8E">
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
@@ -99,7 +101,7 @@
   }
   </script>
 </head>
-<body>
+<body class="theme-navidad">
   <!-- ═══════════════════════════════════════════════════════ -->
   <!--  VISTA: CATÁLOGO (pantalla principal del cliente)      -->
   <!-- ═══════════════════════════════════════════════════════ -->
@@ -127,6 +129,7 @@
           </button>
         </div>
       </div>
+      <div class="luces" id="luces" aria-hidden="true"></div>
     </header>
 
     <!-- Trust bar -->
@@ -141,7 +144,7 @@
     <!-- Hero banner -->
     <div class="hero-banner" id="hero-banner">
       <div class="hero-inner">
-        <div class="hero-tag">🔥 Productos en tendencia</div>
+        <div class="hero-tag" id="hero-tag">🎄 Productos en tendencia</div>
         <h2 class="hero-title">Lo que buscas,<br>al mejor precio</h2>
         <p class="hero-sub">Compra fácil y rápido — pedidos por WhatsApp</p>
         <a class="hero-cta" href="#catalog-toolbar" onclick="document.getElementById('search-input').scrollIntoView({behavior:'smooth'});event.preventDefault()">
@@ -1532,6 +1535,14 @@
             <label class="settings-label">Descuento Mayorista por Defecto (%) 📦</label>
             <input type="number" id="settings-wholesale-discount" class="settings-input" placeholder="Ej: 20" min="0" max="100" />
             <small class="settings-hint">El porcentaje de descuento que se aplicará automáticamente a los precios al detal si el producto no tiene un "Precio Mayorista" asignado. Por defecto es 20%. Solo lo ven los mayoristas con sesión iniciada.</small>
+          </div>
+
+          <div class="settings-group">
+            <label style="display:flex; gap:0.5rem; align-items:flex-start; font-size:0.9rem;">
+              <input type="checkbox" id="settings-theme-navidad" checked style="margin-top:0.2rem;" />
+              <span>Tema navideño 🎄 (guirnalda de luces, colores y conteo de días para Navidad)</span>
+            </label>
+            <small class="settings-hint">Desactívalo cuando termine la temporada para volver al diseño normal de la tienda y del portal mayorista.</small>
           </div>
 
           <div class="settings-group">

@@ -242,6 +242,34 @@ function setWholesaleMode(enabled) {
   if (isProductsLoaded) { renderSearchSuggestions(); renderFilters(); renderProducts(); }
 }
 
+// ====== TEMA NAVIDEÑO ======
+// Guirnalda de luces (se enciende una vez al cargar) y conteo de días para Navidad.
+// El tema se puede apagar desde el panel (ajuste "Tema navideño").
+function initNavidadTheme() {
+  const luces = document.getElementById('luces');
+  if (luces && !luces.childElementCount) {
+    luces.innerHTML = Array.from({ length: 40 }, (_, i) => `<i style="--i:${i}"></i>`).join('');
+  }
+  // La guirnalda se esconde al bajar para no tapar el catálogo
+  const header = document.querySelector('.catalog-header');
+  if (header) window.addEventListener('scroll', () => header.classList.toggle('luces-off', window.scrollY > 80), { passive: true });
+}
+function updateNavidadCountdown() {
+  const tag = document.getElementById('hero-tag');
+  if (!tag) return;
+  const now = new Date();
+  const days = Math.round((new Date(now.getFullYear(), 11, 25) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+  if (days > 1) tag.textContent = `🎄 Faltan ${days} días para Navidad`;
+  else if (days === 1) tag.textContent = '🎄 Mañana es Navidad';
+  else if (days === 0) tag.textContent = '🎄 ¡Feliz Navidad!';
+  else tag.style.display = 'none'; // pasada la Navidad no se muestra
+}
+function applyNavidadTheme(enabled) {
+  document.body.classList.toggle('theme-navidad', enabled);
+  if (enabled) updateNavidadCountdown();
+}
+initNavidadTheme();
+
 // ====== MEJORAS DE EXPERIENCIA ======
 let currentSort = 'default';
 let wholesaleListView = false;
@@ -594,6 +622,7 @@ function applySettings() {
   safeText('footer-store-name', settings.storeName || 'Panda Venta');
   safeText('footer-store-name-2', settings.storeName || 'Panda Venta');
   safeText('footer-year', new Date().getFullYear());
+  applyNavidadTheme(settings.themeNavidad !== false);
   const footerWa = document.getElementById('footer-wa-link');
   const waDigits = String(settings.whatsapp || '').replace(/\D/g, '');
   if (footerWa) {
