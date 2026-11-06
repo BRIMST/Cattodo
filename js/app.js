@@ -24,7 +24,7 @@ import {
 import {
   getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
-import { WHOLESALE_MIN_QTY, wholesaleVisibility } from "./wholesale-visibility.js";
+import { WHOLESALE_MIN_QTY, wholesaleVisibility, getAvailableStock } from "./wholesale-visibility.js";
 import { isNewProduct, getCreatedAt, NEW_DAYS } from "./new-products.js";
 
 // ====== SECURITY - Password hashing ======
@@ -992,30 +992,24 @@ function updateWAButtonPosition() {
 }
 
 // Generador de prueba social creíble (determinístico)
-function getProductStats(id) {
-  let hash = 0;
-  const str = String(id);
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  const h = Math.abs(hash);
+// Calificaciones REALES: promedio y cantidad de opiniones aprobadas (reviewStats/{id}).
+let reviewStats = {};
+function getProductStats(id, p) {
+  const st = reviewStats[id];
+  const count = st && st.count > 0 ? st.count : 0;
+  const rating = count ? Math.round((st.sum / count) * 2) / 2 : null;
+  // Solo se avisa de "pocas unidades" cuando de verdad quedan pocas
+  const avail = p ? getAvailableStock(p) : null;
+  const microcopy = avail !== null && avail > 0 && avail <= 5 ? '⚠️ Pocas unidades' : null;
+  return { count, rating, microcopy };
+}
 
-  // Secuencia natural solicitada: 10, 25, 50, 75, 90, 100...
-  const soldOptions = [10, 25, 50, 75, 90, 100, 120, 150];
-  const sold = soldOptions[h % soldOptions.length];
-
-  const ratings = [4, 4.5, 5, 4.5, 5]; // Probabilidad alta de 4.5 y 5
-  const rating = ratings[h % ratings.length];
-
-  // Microcopy persuasivo (solo en ~35% de los productos)
-  let microcopy = null;
-  if (h % 100 < 35) {
-    const options = ["🔥 Más vendidos", "⚠️ Pocas unidades", "🚀 Vendidos esta semana"];
-    microcopy = options[h % options.length];
-  }
-
-  return { sold, rating, microcopy };
+async function loadReviewStats() {
+  try {
+    const snap = await get(ref(db, 'reviewStats'));
+    reviewStats = snap.exists() ? snap.val() : {};
+    if (isProductsLoaded) renderProducts();
+  } catch (e) { /* sin reseñas todavía o sin permiso */ }
 }
 
 function getStarsHTML(rating) {
@@ -1054,7 +1048,7 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
   const price = getProductPrice(p);
   const hasDiscount = !isWholesaleMode && p.originalPrice && parseFloat(p.originalPrice) > parseFloat(price);
   const discountPct = hasDiscount ? Math.round((1 - price / p.originalPrice) * 100) : 0;
-  const stats = getProductStats(p.id);
+  const stats = getProductStats(p.id, p);
 
   const hasVariants = p.variants && p.variants.length > 0;
   const selectedColor = selectedVariants[p.id] || (hasVariants ? p.variants[0].color : null);
@@ -1103,8 +1097,7 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
       ${getShippingBadgesHTML(price)}
       
       <div class="product-social-proof">
-        ${getStarsHTML(stats.rating)}
-        <span class="social-sold">+${stats.sold} ventas</span>
+        ${stats.count ? `${getStarsHTML(stats.rating)}<span class="social-sold">(${stats.count})</span>` : ''}
       </div>
       ${stats.microcopy ? `<div class="microcopy-badge">${stats.microcopy}</div>` : ''}
 
@@ -1126,7 +1119,7 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
             <span class="qty-display">${cart[cartId]}</span>
             <button class="btn-qty" aria-label="Agregar una unidad" onclick="updateCart('${cartId}', 1)">+</button>
           ` : (soldOut
-              ? `<button class="btn-add is-soldout" disabled>AGOTADO</button>`
+              ? `<button class="btn-add is-soldout" onclick="openStockAlert('${p.id}')">🔔 AVÍSAME</button>`
               : `<button class="btn-add ${hasDiscount ? 'btn-add-sale' : ''}" onclick="navigateTo('/producto/${p.id}')">VER DETALLES</button>`)}
         </div>
       </div>
@@ -1433,9 +1426,13 @@ window.openProductPage = function(productId) {
   safeStyle('detail-wholesale-min', 'display', isWholesaleMode ? 'block' : 'none');
   
   // Social Proof stats
-  const stats = getProductStats(p.id);
-  safeText('detail-sold-count', `+${stats.sold} vendidos`);
-  safeHTML('detail-stars', getStarsHTML(stats.rating));
+  const stats = getProductStats(p.id, p);
+  safeText('detail-sold-count', stats.count ? `${stats.count} ${stats.count === 1 ? 'opinión' : 'opiniones'}` : '');
+  safeHTML('detail-stars', stats.count ? getStarsHTML(stats.rating) : '');
+  safeStyle('detail-sold-count', 'display', stats.count ? '' : 'none');
+  const verifiedEl = document.querySelector('#view-product .social-verified');
+  if (verifiedEl) verifiedEl.style.display = stats.count ? '' : 'none';
+  renderStockAlertButton(p, soldOutDetail);
   
   // Image gallery
   const clipUrl = p.videoUrl || p.clipUrl || p.video || p.clip;
@@ -1730,65 +1727,169 @@ function renderRelatedProducts(currentProduct) {
   }).join('');
 }
 
-function renderProductReviews(product) {
+const escHtml = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Opiniones REALES: las envía el cliente, el administrador las aprueba y se
+// guardan en reviews/{productId}. No se inventan ni se completan con ejemplos.
+async function renderProductReviews(product) {
   const container = document.getElementById('detail-reviews-list');
+  const summary = document.getElementById('detail-reviews-summary');
   if (!container) return;
-  
-  let hash = 0;
-  const str = String(product.id);
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
+  const pid = product.id;
+  container.innerHTML = '';
+  if (summary) { summary.style.display = 'none'; summary.innerHTML = ''; }
+  resetReviewForm();
+
+  let list = [];
+  try {
+    const snap = await get(ref(db, `reviews/${pid}`));
+    if (snap.exists()) list = Object.values(snap.val()).filter(r => r && r.rating).sort((x, y) => (y.ts || 0) - (x.ts || 0));
+  } catch (e) { /* sin permiso o sin red: se muestra el estado vacío */ }
+  if (currentDetailProduct && currentDetailProduct.id !== pid) return; // el cliente ya cambió de producto
+
+  if (list.length === 0) {
+    container.innerHTML = '<p class="reviews-empty">Aún no hay opiniones de este producto. ¡Sé la primera persona en opinar!</p>';
+    return;
   }
-  const h = Math.abs(hash);
-  
-  const reviewers = [
-    { name: 'Diana Moreno', city: 'Bogotá', date: 'Hace 2 días' },
-    { name: 'Carlos Restrepo', city: 'Medellín', date: 'Hace 5 días' },
-    { name: 'Andrés Mendoza', city: 'Cali', date: 'Hace 1 semana' },
-    { name: 'Camila Torres', city: 'Barranquilla', date: 'Hace 1 semana' },
-    { name: 'Valentina Gomez', city: 'Bucaramanga', date: 'Hace 2 semanas' },
-    { name: 'Mateo Osorio', city: 'Manizales', date: 'Hace 3 semanas' }
-  ];
-  
-  const comments = [
-    '¡Excelente producto! Llegó super rápido en Bogotá y la calidad es increíble. Superó mis expectativas.',
-    'Muy buen servicio. Tuve dudas con el envío y me atendieron super rápido por WhatsApp. El producto llegó en perfecto estado.',
-    'Recomendado 100%. Relación calidad-precio inmejorable. Volveré a comprar sin duda.',
-    'Me encantó. El empaque muy seguro y el producto funciona excelente. La atención al cliente fue de primera clase.',
-    'Llegó rápido a mi ciudad y todo está tal cual la descripción. Es de muy buena calidad.'
-  ];
-  
-  const selectedReviews = [];
-  for (let i = 0; i < 3; i++) {
-    const revIdx = (h + i) % reviewers.length;
-    const commIdx = (h + i) % comments.length;
-    const rating = (h + i) % 5 === 0 ? 4 : 5;
-    
-    selectedReviews.push({
-      ...reviewers[revIdx],
-      comment: comments[commIdx],
-      rating
-    });
+  const total = list.length;
+  const avg = list.reduce((s, r) => s + Number(r.rating), 0) / total;
+  const dist = [5, 4, 3, 2, 1].map(n => ({ n, c: list.filter(r => Number(r.rating) === n).length }));
+  if (summary) {
+    summary.style.display = '';
+    summary.innerHTML = `
+      <div class="reviews-summary-score">
+        <div class="score-num">${avg.toFixed(1).replace('.', ',')}</div>
+        ${getStarsHTML(Math.round(avg * 2) / 2)}
+        <div class="reviews-count-text">${total} ${total === 1 ? 'opinión' : 'opiniones'}</div>
+      </div>
+      <div class="reviews-rating-bars">
+        ${dist.map(d => `<div class="rating-bar-row"><span>${d.n} ★</span><div class="bar-track"><div class="bar-fill" style="width:${Math.round(d.c / total * 100)}%;"></div></div><span>${Math.round(d.c / total * 100)}%</span></div>`).join('')}
+      </div>`;
   }
-  
-  container.innerHTML = selectedReviews.map(r => `
+  container.innerHTML = list.slice(0, 20).map(r => `
     <div class="review-item">
       <div class="review-header">
-        <div class="review-user-info">
-          <span class="review-username">${r.name}</span>
-          <span class="review-user-badge">✓ Cliente verificado</span>
-        </div>
-        <span class="review-date">${r.date}</span>
+        <div class="review-user-info"><span class="review-username">${escHtml(r.name || 'Cliente')}</span></div>
+        <span class="review-date">${r.ts ? new Date(r.ts).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</span>
       </div>
       <div class="review-rating">
-        <span class="social-stars">${'★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)}</span>
-        <span class="review-user-city">📍 ${r.city}</span>
+        <span class="social-stars">${'★'.repeat(Number(r.rating)) + '☆'.repeat(5 - Number(r.rating))}</span>
+        ${r.city ? `<span class="review-user-city">📍 ${escHtml(r.city)}</span>` : ''}
       </div>
-      <p class="review-comment">${r.comment}</p>
-    </div>
-  `).join('');
+      ${r.comment ? `<p class="review-comment">${escHtml(r.comment)}</p>` : ''}
+    </div>`).join('');
 }
+
+let reviewRating = 0;
+function resetReviewForm() {
+  reviewRating = 0;
+  safeStyle('review-form', 'display', 'none');
+  safeStyle('review-thanks', 'display', 'none');
+  safeStyle('btn-review-open', 'display', '');
+  document.querySelectorAll('#review-stars-input button').forEach(b => b.classList.remove('on'));
+  ['review-name', 'review-city', 'review-comment'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+}
+
+function initReviewForm() {
+  const open = document.getElementById('btn-review-open');
+  if (!open) return;
+  open.onclick = () => { safeStyle('review-form', 'display', 'flex'); open.style.display = 'none'; };
+  document.getElementById('btn-review-cancel').onclick = resetReviewForm;
+  document.querySelectorAll('#review-stars-input button').forEach(b => {
+    b.onclick = () => {
+      reviewRating = Number(b.dataset.v);
+      document.querySelectorAll('#review-stars-input button').forEach(x => x.classList.toggle('on', Number(x.dataset.v) <= reviewRating));
+    };
+  });
+  document.getElementById('review-form').onsubmit = async (e) => {
+    e.preventDefault();
+    if (!currentDetailProduct) return;
+    if (document.getElementById('review-website')?.value) return; // campo trampa para bots
+    const name = document.getElementById('review-name').value.trim();
+    const city = document.getElementById('review-city').value.trim();
+    const comment = document.getElementById('review-comment').value.trim();
+    if (!reviewRating) return showToast('Elige de 1 a 5 estrellas');
+    if (name.length < 2) return showToast('Escribe tu nombre');
+    if (comment.length < 5) return showToast('Cuéntanos un poco más de tu experiencia');
+    const key = 'review_sent_' + currentDetailProduct.id;
+    try { if (localStorage.getItem(key)) return showToast('Ya enviaste una opinión de este producto'); } catch (e2) {}
+    const btn = document.getElementById('btn-review-send');
+    btn.disabled = true;
+    try {
+      await push(ref(db, 'reviewsPending'), {
+        productId: currentDetailProduct.id, productName: String(currentDetailProduct.name || '').slice(0, 120),
+        name: name.slice(0, 40), city: city.slice(0, 40), rating: reviewRating, comment: comment.slice(0, 500), ts: Date.now()
+      });
+      try { localStorage.setItem(key, '1'); } catch (e2) {}
+      safeStyle('review-form', 'display', 'none');
+      safeStyle('review-thanks', 'display', 'block');
+    } catch (err) {
+      showToast('No pudimos enviar tu opinión. Intenta de nuevo.');
+    } finally { btn.disabled = false; }
+  };
+}
+
+// ====== AVÍSAME CUANDO LLEGUE ======
+function renderStockAlertButton(p, soldOut) {
+  let btn = document.getElementById('btn-detail-stock-alert');
+  if (!btn) {
+    const host = document.querySelector('#view-product .detail-cta-buttons');
+    if (!host) return;
+    btn = document.createElement('button');
+    btn.id = 'btn-detail-stock-alert';
+    btn.type = 'button';
+    btn.className = 'btn-stock-alert';
+    btn.textContent = '🔔 Avísame cuando llegue';
+    host.prepend(btn);
+  }
+  btn.style.display = soldOut ? '' : 'none';
+  btn.onclick = () => openStockAlert(p.id);
+}
+
+function openStockAlert(productId) {
+  const p = products.find(x => x.id === productId);
+  if (!p) return;
+  document.getElementById('stock-alert-modal')?.remove();
+  let savedPhone = '';
+  try { savedPhone = localStorage.getItem('alert_phone') || ''; } catch (e) {}
+  const m = document.createElement('div');
+  m.id = 'stock-alert-modal';
+  m.className = 'sa-overlay';
+  m.innerHTML = `
+    <div class="sa-card" role="dialog" aria-modal="true" aria-label="Avísame cuando llegue">
+      <button type="button" class="sa-close" aria-label="Cerrar">×</button>
+      <h3>🔔 Te avisamos</h3>
+      <p><b>${escHtml(p.name)}</b> está agotado. Déjanos tu WhatsApp y te escribimos apenas vuelva.</p>
+      <input type="tel" id="sa-phone" class="field-input" placeholder="Tu celular (WhatsApp)" inputmode="tel" autocomplete="tel" value="${escHtml(savedPhone)}" />
+      <input type="text" id="sa-name" class="field-input" placeholder="Tu nombre (opcional)" maxlength="40" />
+      <button type="button" class="btn-save-product" id="sa-send" style="width:100%">Avísame</button>
+      <p class="sa-msg" id="sa-msg"></p>
+    </div>`;
+  document.body.appendChild(m);
+  const close = () => m.remove();
+  m.querySelector('.sa-close').onclick = close;
+  m.addEventListener('click', (e) => { if (e.target === m) close(); });
+  document.getElementById('sa-send').onclick = async () => {
+    const phone = document.getElementById('sa-phone').value.replace(/\D/g, '');
+    const msg = document.getElementById('sa-msg');
+    if (phone.length < 10 || phone.length > 13) { msg.textContent = 'Escribe un celular válido.'; return; }
+    const key = `alert_${productId}_${phone}`;
+    try { if (localStorage.getItem(key)) { msg.textContent = 'Ya estás en la lista de este producto. ¡Te avisamos!'; return; } } catch (e) {}
+    const send = document.getElementById('sa-send'); send.disabled = true;
+    try {
+      await push(ref(db, `stockAlerts/${productId}`), {
+        phone, name: document.getElementById('sa-name').value.trim().slice(0, 40),
+        product: String(p.name || '').slice(0, 120), ts: Date.now()
+      });
+      try { localStorage.setItem(key, '1'); localStorage.setItem('alert_phone', phone); } catch (e) {}
+      trackEvent('avisame_stock', p.name, { item_id: p.id });
+      m.querySelector('.sa-card').innerHTML = '<div class="sa-done">✅<h3>¡Listo!</h3><p>Te escribiremos por WhatsApp cuando vuelva a estar disponible.</p><button type="button" class="btn-save-product" style="width:100%">Cerrar</button></div>';
+      m.querySelector('.sa-done button').onclick = close;
+    } catch (e) { msg.textContent = 'No pudimos guardar tu aviso. Intenta de nuevo.'; send.disabled = false; }
+  };
+  setTimeout(() => document.getElementById('sa-phone')?.focus(), 50);
+}
+window.openStockAlert = openStockAlert;
 
 // Navegación con URLs reales (antes: location.hash = '#/product/x').
 // Las URLs reales son necesarias para que los verificadores de Google
@@ -2165,6 +2266,8 @@ function initCriticalApp() {
   on('btn-wholesale-back-store', 'onclick', () => navigateTo('/'));
 
   on('sort-select', 'onchange', (e) => { currentSort = e.target.value; renderProducts(); });
+  initReviewForm();
+  setTimeout(loadReviewStats, 800);
   on('track-form', 'onsubmit', (e) => { e.preventDefault(); searchTracking(); return false; });
   on('btn-quick-discount', 'onclick', () => setQuickView('discount'));
   on('btn-quick-new', 'onclick', () => setQuickView('new'));

@@ -35,6 +35,12 @@ export function initAdmin(state, utils) {
   window.resetWholesalerPassword = resetWholesalerPassword;
   window.removeWholesalerAccess = removeWholesalerAccess;
   window.toggleOrderPaymentStatus = toggleOrderPaymentStatus;
+  window.approveReview = approveReview;
+  window.rejectReview = rejectReview;
+  window.loadPublishedReviews = loadPublishedReviews;
+  window.deletePublishedReview = deletePublishedReview;
+  window.removeStockAlert = removeStockAlert;
+  window.clearStockAlerts = clearStockAlerts;
 
   // Sesión: mostrar el usuario real conectado y permitir cerrar sesión
   const currentUser = appState.auth?.currentUser;
@@ -216,7 +222,7 @@ export function initAdmin(state, utils) {
 function initNavigation() {
   const NAV_LABELS = {
     dashboard: 'Panel de control', 'create-order': 'Crear pedido', orders: 'Pedidos',
-    products: 'Productos', clients: 'Clientes', reports: 'Reportes', finance: 'Financiero', settings: 'Tienda', wholesalers: 'Mayoristas'
+    products: 'Productos', clients: 'Clientes', reports: 'Reportes', finance: 'Financiero', settings: 'Tienda', wholesalers: 'Mayoristas', feedback: 'Opiniones y avisos'
   };
 
   document.querySelectorAll('.admin-nav-btn').forEach(btn => {
@@ -236,6 +242,7 @@ function initNavigation() {
       if (btn.dataset.tab === 'products') renderProductsTable();
       if (btn.dataset.tab === 'clients') renderClientsTable();
       if (btn.dataset.tab === 'wholesalers') { renderWholesalersTable(); renderWholesaleProductsTable(); }
+      if (btn.dataset.tab === 'feedback') renderFeedbackTab();
       if (btn.dataset.tab === 'reports') renderReports();
       if (btn.dataset.tab === 'finance') renderFinance();
       if (btn.dataset.tab === 'settings') loadSettingsForm();
@@ -294,6 +301,17 @@ function openAdminActual() {
       appState.clients = val ? Object.entries(val).map(([k, v]) => ({ id: k, ...v })) : [];
       renderClientsTable();
     });
+
+    // Opiniones por aprobar y clientes esperando productos agotados
+    onValue(ref(appState.db, 'reviewsPending'), snap => {
+      const val = snap.val();
+      appState.reviewsPending = val ? Object.entries(val).map(([k, v]) => ({ id: k, ...v })).sort((a, b) => (a.ts || 0) - (b.ts || 0)) : [];
+      renderFeedbackTab();
+    }, err => console.warn('Sin acceso a reviewsPending (revisa las reglas de Firebase):', err.code));
+    onValue(ref(appState.db, 'stockAlerts'), snap => {
+      appState.stockAlerts = snap.val() || {};
+      renderFeedbackTab();
+    }, err => console.warn('Sin acceso a stockAlerts (revisa las reglas de Firebase):', err.code));
 
     // Mayoristas, sus precios y la configuración (zona privada de la base de datos)
     onValue(ref(appState.db, 'wholesalers'), snap => {
@@ -362,6 +380,130 @@ function getTimeframeSince(timeframe) {
     case 'all': default: return 0;
   }
   return start.getTime();
+}
+
+// ==========================================
+// MODULE: OPINIONES Y AVISOS DE STOCK
+// ==========================================
+const escA = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function renderFeedbackTab() {
+  const pending = appState.reviewsPending || [];
+  const alerts = appState.stockAlerts || {};
+  const badge = document.getElementById('nav-feedback-badge');
+  const alertsReady = Object.keys(alerts).filter(pid => {
+    const p = (appState.products || []).find(x => x.id === pid);
+    return p && p.stock !== undefined && p.stock !== null && p.stock !== '' ? Number(p.stock) > 0 : false;
+  }).length;
+  const attention = pending.length + alertsReady;
+  if (badge) { badge.textContent = attention; badge.style.display = attention > 0 ? '' : 'none'; }
+
+  const pendEl = document.getElementById('feedback-pending');
+  if (pendEl) {
+    pendEl.innerHTML = pending.length === 0
+      ? '<p class="settings-hint">No hay opiniones por aprobar.</p>'
+      : pending.map(r => `
+        <div class="feedback-row">
+          <div><b>${escA(r.name)}</b>${r.city ? ` · ${escA(r.city)}` : ''} — <span style="color:#d4a017">${'★'.repeat(r.rating || 0)}${'☆'.repeat(5 - (r.rating || 0))}</span><br>
+            <small style="color:var(--text-muted)">${escA(r.productName || r.productId)}</small>
+            <p style="margin:0.3rem 0 0;">${escA(r.comment)}</p></div>
+          <div class="feedback-actions">
+            <button class="action-btn" onclick="approveReview('${escA(r.id)}')">✅ Publicar</button>
+            <button class="action-btn" style="color:var(--danger);" onclick="rejectReview('${escA(r.id)}')">Rechazar</button>
+          </div>
+        </div>`).join('');
+  }
+
+  const alertEl = document.getElementById('feedback-alerts');
+  if (alertEl) {
+    const rows = Object.entries(alerts).map(([pid, people]) => {
+      const p = (appState.products || []).find(x => x.id === pid);
+      const list = Object.entries(people || {}).map(([id, v]) => ({ id, ...v }));
+      return { pid, p, list };
+    }).filter(r => r.list.length);
+    const store = (appState.settings && appState.settings.storeName) || 'Panda Venta';
+    alertEl.innerHTML = rows.length === 0
+      ? '<p class="settings-hint">Nadie está esperando productos por ahora.</p>'
+      : rows.map(({ pid, p, list }) => {
+        const inStock = p && p.stock !== undefined && p.stock !== null && p.stock !== '' && Number(p.stock) > 0;
+        const name = p ? p.name : (list[0].product || pid);
+        return `<div class="feedback-row" style="flex-direction:column; align-items:stretch;">
+          <div><b>${escA(name)}</b> — ${list.length} ${list.length === 1 ? 'persona' : 'personas'}
+            ${inStock ? '<span style="color:var(--success); font-weight:700;"> · ¡Ya hay stock! Avísales</span>' : '<span style="color:var(--text-muted);"> · sigue agotado</span>'}</div>
+          <div style="margin-top:0.4rem; display:flex; flex-wrap:wrap; gap:0.4rem;">
+            ${list.map(v => {
+              const msg = encodeURIComponent(`¡Hola${v.name ? ' ' + v.name : ''}! Ya volvió a estar disponible "${name}" en ${store}. ¿Te lo apartamos? 🙌`);
+              const ph = String(v.phone || '').length === 10 ? '57' + v.phone : v.phone;
+              return `<span class="feedback-chip"><a href="https://wa.me/${escA(ph)}?text=${msg}" target="_blank" rel="noopener">💬 ${escA(v.name || v.phone)}</a>
+                <button type="button" title="Quitar" onclick="removeStockAlert('${escA(pid)}','${escA(v.id)}')">×</button></span>`;
+            }).join('')}
+          </div>
+          <div style="margin-top:0.4rem;"><button class="action-btn" onclick="clearStockAlerts('${escA(pid)}')">Vaciar lista</button></div>
+        </div>`;
+      }).join('');
+  }
+}
+
+async function approveReview(id) {
+  const r = (appState.reviewsPending || []).find(x => x.id === id);
+  if (!r) return;
+  try {
+    const statsSnap = await get(ref(appState.db, `reviewStats/${r.productId}`));
+    const st = statsSnap.exists() ? statsSnap.val() : { count: 0, sum: 0 };
+    const newKey = push(ref(appState.db, `reviews/${r.productId}`)).key;
+    const updates = {};
+    updates[`reviews/${r.productId}/${newKey}`] = { name: r.name, city: r.city || '', rating: r.rating, comment: r.comment, ts: r.ts || Date.now() };
+    updates[`reviewStats/${r.productId}`] = { count: (st.count || 0) + 1, sum: (st.sum || 0) + Number(r.rating) };
+    updates[`reviewsPending/${id}`] = null;
+    await update(ref(appState.db), updates);
+    appUtils.showToast('Opinión publicada');
+  } catch (e) { appUtils.showToast('Error: ' + e.message); }
+}
+
+async function rejectReview(id) {
+  if (!confirm('¿Rechazar esta opinión? Se elimina.')) return;
+  try { await remove(ref(appState.db, `reviewsPending/${id}`)); appUtils.showToast('Opinión rechazada'); }
+  catch (e) { appUtils.showToast('Error: ' + e.message); }
+}
+
+async function loadPublishedReviews() {
+  const box = document.getElementById('feedback-published');
+  if (!box) return;
+  try {
+    const snap = await get(ref(appState.db, 'reviews'));
+    const all = snap.exists() ? snap.val() : {};
+    const rows = [];
+    Object.entries(all).forEach(([pid, revs]) => Object.entries(revs || {}).forEach(([rid, r]) => rows.push({ pid, rid, ...r })));
+    rows.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    box.innerHTML = rows.length === 0 ? '<p class="settings-hint">Aún no hay opiniones publicadas.</p>' : rows.map(r => {
+      const p = (appState.products || []).find(x => x.id === r.pid);
+      return `<div class="feedback-row"><div><b>${escA(r.name)}</b> — <span style="color:#d4a017">${'★'.repeat(r.rating || 0)}</span><br><small style="color:var(--text-muted)">${escA(p ? p.name : r.pid)}</small><p style="margin:0.3rem 0 0;">${escA(r.comment)}</p></div>
+        <div class="feedback-actions"><button class="action-btn" style="color:var(--danger);" onclick="deletePublishedReview('${escA(r.pid)}','${escA(r.rid)}',${Number(r.rating) || 0})">Quitar</button></div></div>`;
+    }).join('');
+  } catch (e) { box.innerHTML = '<p class="settings-hint">No se pudieron cargar: ' + escA(e.message) + '</p>'; }
+}
+
+async function deletePublishedReview(pid, rid, rating) {
+  if (!confirm('¿Quitar esta opinión publicada?')) return;
+  try {
+    const statsSnap = await get(ref(appState.db, `reviewStats/${pid}`));
+    const st = statsSnap.exists() ? statsSnap.val() : { count: 1, sum: rating };
+    const updates = {};
+    updates[`reviews/${pid}/${rid}`] = null;
+    const count = Math.max(0, (st.count || 1) - 1);
+    updates[`reviewStats/${pid}`] = count === 0 ? null : { count, sum: Math.max(0, (st.sum || 0) - rating) };
+    await update(ref(appState.db), updates);
+    appUtils.showToast('Opinión quitada');
+    loadPublishedReviews();
+  } catch (e) { appUtils.showToast('Error: ' + e.message); }
+}
+
+async function removeStockAlert(pid, aid) {
+  try { await remove(ref(appState.db, `stockAlerts/${pid}/${aid}`)); } catch (e) { appUtils.showToast('Error: ' + e.message); }
+}
+async function clearStockAlerts(pid) {
+  if (!confirm('¿Vaciar la lista de espera de este producto?')) return;
+  try { await remove(ref(appState.db, `stockAlerts/${pid}`)); appUtils.showToast('Lista vaciada'); } catch (e) { appUtils.showToast('Error: ' + e.message); }
 }
 
 function renderDashboard() {

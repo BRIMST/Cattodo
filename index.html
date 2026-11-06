@@ -460,43 +460,29 @@
       <section class="product-reviews-section">
         <h3 class="reviews-section-title">Opiniones del producto</h3>
 
-        <div class="reviews-summary-card">
-          <div class="reviews-summary-score">
-            <div class="score-num">4.8</div>
-            <div class="social-stars">★★★★★</div>
-            <div class="reviews-count-text">Basado en valoraciones reales</div>
-          </div>
-          <div class="reviews-rating-bars">
-            <div class="rating-bar-row">
-              <span>5 ★</span>
-              <div class="bar-track"><div class="bar-fill" style="width: 85%;"></div></div>
-              <span>85%</span>
-            </div>
-            <div class="rating-bar-row">
-              <span>4 ★</span>
-              <div class="bar-track"><div class="bar-fill" style="width: 10%;"></div></div>
-              <span>10%</span>
-            </div>
-            <div class="rating-bar-row">
-              <span>3 ★</span>
-              <div class="bar-track"><div class="bar-fill" style="width: 3%;"></div></div>
-              <span>3%</span>
-            </div>
-            <div class="rating-bar-row">
-              <span>2 ★</span>
-              <div class="bar-track"><div class="bar-fill" style="width: 1%;"></div></div>
-              <span>1%</span>
-            </div>
-            <div class="rating-bar-row">
-              <span>1 ★</span>
-              <div class="bar-track"><div class="bar-fill" style="width: 1%;"></div></div>
-              <span>1%</span>
-            </div>
-          </div>
-        </div>
+        <div class="reviews-summary-card" id="detail-reviews-summary" style="display:none;"></div>
 
         <div class="reviews-list-container" id="detail-reviews-list">
           <!-- Dinámico por JS -->
+        </div>
+
+        <div class="review-write" id="review-write">
+          <button type="button" class="btn-review-open" id="btn-review-open">✍️ Escribir una opinión</button>
+          <form class="review-form" id="review-form" style="display:none;" onsubmit="return false;">
+            <div class="review-stars-input" id="review-stars-input" role="radiogroup" aria-label="Calificación">
+              <button type="button" data-v="1" aria-label="1 estrella">★</button><button type="button" data-v="2" aria-label="2 estrellas">★</button><button type="button" data-v="3" aria-label="3 estrellas">★</button><button type="button" data-v="4" aria-label="4 estrellas">★</button><button type="button" data-v="5" aria-label="5 estrellas">★</button>
+            </div>
+            <input type="text" id="review-name" class="field-input" placeholder="Tu nombre" maxlength="40" autocomplete="given-name" />
+            <input type="text" id="review-city" class="field-input" placeholder="Tu ciudad (opcional)" maxlength="40" />
+            <textarea id="review-comment" class="field-input" rows="3" maxlength="500" placeholder="¿Qué te pareció el producto?"></textarea>
+            <input type="text" id="review-website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;" />
+            <div class="review-form-actions">
+              <button type="button" class="btn-review-cancel" id="btn-review-cancel">Cancelar</button>
+              <button type="submit" class="btn-review-send" id="btn-review-send">Enviar opinión</button>
+            </div>
+            <p class="review-form-note">Revisamos cada opinión antes de publicarla.</p>
+          </form>
+          <div class="review-thanks" id="review-thanks" style="display:none;">¡Gracias! Tu opinión será publicada cuando la revisemos.</div>
         </div>
       </section>
     </div>
@@ -911,6 +897,10 @@
         <button class="admin-nav-btn" data-tab="clients">
           <span>👥</span> Clientes
         </button>
+        <button class="admin-nav-btn" data-tab="feedback">
+          <span>💬</span> Opiniones y avisos
+          <span class="nav-alert-badge" id="nav-feedback-badge" style="display:none;">0</span>
+        </button>
         <button class="admin-nav-btn" data-tab="wholesalers">
           <span>📦</span> Mayoristas
         </button>
@@ -1251,6 +1241,25 @@
       </div>
 
       <!-- TAB: MAYORISTAS -->
+      <div class="admin-tab-content" id="tab-feedback">
+        <div class="admin-page-header">
+          <h2>Opiniones y avisos</h2>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label">Opiniones por aprobar</label>
+          <div id="feedback-pending"></div>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label">Clientes esperando un producto agotado</label>
+          <p class="settings-hint">Aparecen cuando alguien pulsa "Avísame cuando llegue". Cuando el producto tenga stock, escríbeles por WhatsApp desde aquí.</p>
+          <div id="feedback-alerts"></div>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label">Opiniones publicadas</label>
+          <div id="feedback-published"><button class="action-btn" onclick="loadPublishedReviews()">Ver opiniones publicadas</button></div>
+        </div>
+      </div>
+
       <div class="admin-tab-content" id="tab-wholesalers">
         <div class="admin-page-header">
           <h2>Mayoristas</h2>
