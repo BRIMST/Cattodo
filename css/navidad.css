@@ -225,3 +225,48 @@ body.theme-navidad .site-footer a:hover { color: var(--crema-texto); }
   body.theme-navidad .hero-title { font-size: 1.9rem; }
   body.theme-navidad .trust-bar-inner { gap: 1rem; justify-content: flex-start; overflow-x: auto; }
 }
+
+/* ── Franja de confianza: tres columnas iguales, icono arriba en móvil ──── */
+body.theme-navidad .trust-bar-inner {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  overflow: visible;
+  text-align: left;
+}
+body.theme-navidad .trust-bar-inner span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  white-space: normal;
+  padding: 0.15rem 0.75rem;
+  border-left: 1px solid rgba(226, 176, 74, 0.28);
+  font-size: 0.8rem;
+  line-height: 1.25;
+}
+body.theme-navidad .trust-bar-inner span:first-child { border-left: 0; }
+body.theme-navidad .trust-bar-inner em { font-style: normal; }
+body.theme-navidad .trust-bar-inner b { display: block; font-size: 0.92rem; }
+body.theme-navidad .tb-ico {
+  font-style: normal;
+  flex: 0 0 auto;
+  width: 2rem; height: 2rem;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: rgba(226, 176, 74, 0.14);
+  border: 1px solid rgba(226, 176, 74, 0.4);
+  font-size: 1rem;
+}
+@media (max-width: 600px) {
+  body.theme-navidad .trust-bar-inner { flex-direction: row; }
+  body.theme-navidad .trust-bar-inner span {
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.1rem 0.3rem;
+    text-align: center;
+    font-size: 0.66rem;
+  }
+  body.theme-navidad .trust-bar-inner b { font-size: 0.72rem; }
+  body.theme-navidad .tb-ico { width: 1.8rem; height: 1.8rem; font-size: 0.9rem; }
+}

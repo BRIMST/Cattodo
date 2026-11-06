@@ -5308,3 +5308,5 @@ body.wholesale-mode .trust-bar { display: none; }
 .products-grid.list-view .product-social-proof,
 .products-grid.list-view .microcopy-badge,
 .products-grid.list-view .image-count-badge { display: none; }
+
+.trust-bar-inner .tb-ico, .trust-bar-inner em { font-style: normal; }
