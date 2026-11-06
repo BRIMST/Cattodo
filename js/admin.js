@@ -1216,9 +1216,15 @@ window.viewOrderDetails = function(orderId) {
         <option value="cancelado" ${o.status==='cancelado'?'selected':''}>Cancelado</option>
       </select>
     </div>
+    <div style="margin-top:0.75rem;">
+      <label class="field-label">Guía o enlace de seguimiento (lo ve el cliente)</label>
+      <input type="text" class="field-input" maxlength="300" placeholder="Ej: 123456789 o https://…" value="${String(o.numero_guia || '').replace(/"/g, '&quot;')}" onchange="saveOrderGuide('${o.id}', this.value)" />
+    </div>
   `;
   appUtils.safeStyle('modal-order-details', 'display', 'flex');
 };
+
+const trackingKey = (orderId) => 'PV-' + String(orderId || '').slice(-6).toUpperCase();
 
 async function changeOrderStatus(orderId, newStatus) {
   try {
@@ -1226,8 +1232,25 @@ async function changeOrderStatus(orderId, newStatus) {
     appUtils.showToast('Estado actualizado');
   } catch (e) {
     appUtils.showToast('Error: ' + e.message);
+    return;
   }
+  // Lo que ve el cliente en "Seguir mi pedido" (no debe impedir el cambio de estado)
+  try {
+    await update(ref(appState.db, `tracking/${trackingKey(orderId)}`), { estado: newStatus, upd: Date.now() });
+  } catch (e) { console.warn('Seguimiento no actualizado', e); }
 }
+
+// Guía o enlace de la transportadora: queda en el pedido y lo ve el cliente al consultar
+window.saveOrderGuide = async (orderId, value) => {
+  const guia = String(value || '').trim().slice(0, 300);
+  try {
+    await update(ref(appState.db, `orders/${orderId}`), { numero_guia: guia || null });
+    await update(ref(appState.db, `tracking/${trackingKey(orderId)}`), { guia: guia || null, upd: Date.now() });
+    appUtils.showToast(guia ? 'Guía guardada' : 'Guía quitada');
+  } catch (e) {
+    appUtils.showToast('No se pudo guardar la guía: ' + e.message);
+  }
+};
 
 // ==========================================
 // MODULE: PRODUCTOS

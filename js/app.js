@@ -16,7 +16,7 @@ const trackEvent = (eventName, label, extraParams = {}) => {
 // ====== FIREBASE MODULAR SDK ======
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import {
-  getDatabase, ref, onValue, push, get
+  getDatabase, ref, onValue, push, get, set
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 import {
   getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, createUserWithEmailAndPassword, updateProfile
@@ -504,7 +504,7 @@ const switchView = (viewName) => {
   if (typeof updateWAButtonPosition === 'function') updateWAButtonPosition();
   // SEO: noindex en vistas privadas — envuelto en try/catch para no romper nada
   try {
-    const privateViews = ['order', 'ticket', 'admin', 'login', 'wholesale-login'];
+    const privateViews = ['order', 'ticket', 'admin', 'login', 'wholesale-login', 'track'];
     let metaRobots = document.querySelector('meta[name="robots"]');
     if (!metaRobots) {
       metaRobots = document.createElement('meta');
@@ -1828,6 +1828,9 @@ function handleRoute() {
     switchView('returns-policy');
   } else if (path === '/contacto') {
     switchView('contact');
+  } else if (path === '/seguimiento' || path === '/seguimiento/') {
+    switchView('track');
+    prepareTrackView();
   } else {
     switchView('catalog');
   }
@@ -1855,6 +1858,96 @@ window.copyPaymentInfo = () => {
     showToast('Copiado al portapapeles');
   }
 };
+
+// ====== SEGUIMIENTO DE PEDIDO ======
+// El cliente consulta con su número de pedido + celular. Los pedidos son privados;
+// por eso se guarda un registro mínimo en tracking/{PV-XXXXXX} (estado, ciudad,
+// guía) que se lee solo por su clave exacta. El celular nunca se guarda: solo una
+// huella (SHA-256) para comprobar que quien consulta es quien hizo el pedido.
+async function trackHash(ticket, phone) {
+  const digits = String(phone || '').replace(/\D/g, '').slice(-10);
+  const data = new TextEncoder().encode(`${String(ticket).toUpperCase()}:${digits}`);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function registerTracking(ticket, customer, itemCount, total, days) {
+  try {
+    await set(ref(db, `tracking/${ticket}`), {
+      estado: 'gestion',
+      h: await trackHash(ticket, customer.phone),
+      ciudad: customer.city || '',
+      n: itemCount,
+      total: Number(total) || 0,
+      dias: days === undefined || days === null ? '' : String(days),
+      ts: Date.now(),
+      upd: Date.now()
+    });
+    try { localStorage.setItem('last_ticket', ticket); } catch (e) {}
+  } catch (e) { console.warn('No se pudo registrar el seguimiento', e); }
+}
+
+const TRACK_STEPS = [
+  { key: 'gestion', icon: '📝', title: 'Pedido recibido', text: 'Ya tenemos tu pedido y lo estamos confirmando.' },
+  { key: 'alistamiento', icon: '📦', title: 'Preparando tu pedido', text: 'Estamos alistando y empacando tus productos.' },
+  { key: 'terminado', icon: '🚚', title: 'En camino', text: 'Tu pedido ya salió o está listo para entregarse.' },
+  { key: 'entregado', icon: '🎉', title: 'Entregado', text: '¡Tu pedido llegó! Gracias por comprar.' }
+];
+
+function prepareTrackView() {
+  const params = new URLSearchParams(window.location.search);
+  let t = params.get('c') || '';
+  if (!t) { try { t = localStorage.getItem('last_ticket') || ''; } catch (e) {} }
+  const input = document.getElementById('track-ticket');
+  if (input && !input.value && t) input.value = t;
+  const result = document.getElementById('track-result');
+  if (result) result.innerHTML = '';
+}
+
+async function searchTracking() {
+  const result = document.getElementById('track-result');
+  const ticket = (document.getElementById('track-ticket')?.value || '').trim().toUpperCase().replace(/\s+/g, '');
+  const phone = document.getElementById('track-phone')?.value || '';
+  const btn = document.getElementById('btn-track-search');
+  const fail = (msg) => { result.innerHTML = `<div class="track-error">${msg}</div>`; };
+  if (!/^PV-[A-Z0-9_-]{6}$/.test(ticket)) return fail('Revisa el número de pedido: tiene la forma PV-XXXXXX.');
+  if (phone.replace(/\D/g, '').length < 7) return fail('Escribe el celular con el que hiciste el pedido.');
+  if (btn) { btn.disabled = true; btn.textContent = 'Consultando…'; }
+  try {
+    const snap = await get(ref(db, `tracking/${ticket}`));
+    const t = snap.exists() ? snap.val() : null;
+    if (!t || t.h !== await trackHash(ticket, phone)) {
+      return fail('No encontramos un pedido con esos datos. Verifica el número y el celular, o escríbenos por WhatsApp.');
+    }
+    renderTrackingResult(ticket, t);
+  } catch (e) {
+    fail('No pudimos consultar ahora. Intenta de nuevo en un momento.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Consultar'; }
+  }
+}
+
+function renderTrackingResult(ticket, t) {
+  const result = document.getElementById('track-result');
+  const estado = t.estado === 'pending' || t.estado === 'borrador' ? 'gestion' : t.estado;
+  const cancelled = estado === 'cancelado';
+  const idx = TRACK_STEPS.findIndex(s => s.key === estado);
+  const current = idx < 0 ? 0 : idx;
+  const when = t.upd ? new Date(t.upd).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+  const safeGuide = t.guia ? String(t.guia).replace(/[<>&"]/g, '') : '';
+  const guideLink = /^https?:\/\//i.test(safeGuide) ? `<a href="${safeGuide}" target="_blank" rel="noopener">Abrir seguimiento de la transportadora</a>` : safeGuide;
+  result.innerHTML = cancelled
+    ? `<div class="track-cancelled"><b>${ticket}</b><p>Este pedido fue cancelado. Si crees que es un error, escríbenos por WhatsApp.</p></div>`
+    : `<div class="track-head"><b>${ticket}</b><span>${t.ciudad ? '📍 ' + String(t.ciudad).replace(/[<>&"]/g, '') : ''}</span></div>
+       <ol class="track-steps">${TRACK_STEPS.map((s, i) => `
+         <li class="${i < current ? 'done' : (i === current ? 'current' : '')}">
+           <span class="track-dot">${i <= current ? s.icon : ''}</span>
+           <div><b>${s.title}</b>${i === current ? `<p>${s.text}</p>` : ''}</div>
+         </li>`).join('')}</ol>
+       ${safeGuide ? `<div class="track-guide">🔎 Guía / seguimiento: <b>${guideLink}</b></div>` : ''}
+       ${t.dias && current < 3 ? `<div class="track-eta">🚚 Entrega estimada: ${String(t.dias).toLowerCase() === 'hoy' ? 'hoy mismo' : t.dias + ' días hábiles'}.</div>` : ''}
+       ${when ? `<div class="track-updated">Última actualización: ${when}</div>` : ''}`;
+}
 
 // ====== SHIPPING ======
 let currentCalculatedShipping = 0;
@@ -2039,7 +2132,8 @@ function initCriticalApp() {
     'shipping-policy': document.getElementById('view-shipping-policy'),
     'returns-policy': document.getElementById('view-returns-policy'),
     contact: document.getElementById('view-contact'),
-    'wholesale-login': document.getElementById('view-wholesale-login')
+    'wholesale-login': document.getElementById('view-wholesale-login'),
+    track: document.getElementById('view-track')
   };
   els = {
     productsGrid: document.getElementById('products-grid'),
@@ -2071,6 +2165,7 @@ function initCriticalApp() {
   on('btn-wholesale-back-store', 'onclick', () => navigateTo('/'));
 
   on('sort-select', 'onchange', (e) => { currentSort = e.target.value; renderProducts(); });
+  on('track-form', 'onsubmit', (e) => { e.preventDefault(); searchTracking(); return false; });
   on('btn-quick-discount', 'onclick', () => setQuickView('discount'));
   on('btn-quick-new', 'onclick', () => setQuickView('new'));
   on('btn-clear-filters', 'onclick', () => {
@@ -2332,6 +2427,7 @@ function initSecondaryApp() {
     try {
       const newRef = await push(ref(db, 'orders'), orderData);
       const ticketNum = 'PV-' + newRef.key.slice(-6).toUpperCase();
+      registerTracking(ticketNum, customer, items.length, total, selectedShippingOption?.days);
       
       // Enviar orden a la transportadora integrada (Mastershop) si aplica
       try {

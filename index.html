@@ -39,8 +39,8 @@
   </style>
   <link rel="stylesheet" href="css/styles.css" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="css/styles.css"></noscript>
-  <link rel="stylesheet" href="css/navidad.css?v=6" media="print" onload="this.media='all'" />
-  <noscript><link rel="stylesheet" href="css/navidad.css?v=6"></noscript>
+  <link rel="stylesheet" href="css/navidad.css?v=7" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="css/navidad.css?v=7"></noscript>
   <meta name="theme-color" content="#2B5F8E">
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
@@ -278,6 +278,7 @@
       <div class="footer-policy-links">
         <a href="/envios" onclick="navigateTo('/envios'); return false;">Envíos</a>
         <a href="/devoluciones" onclick="navigateTo('/devoluciones'); return false;">Devoluciones</a>
+        <a href="/seguimiento" onclick="navigateTo('/seguimiento'); return false;">Seguir mi pedido</a>
         <a href="/contacto" onclick="navigateTo('/contacto'); return false;">Contacto</a>
         <a href="#" id="footer-wa-link" target="_blank" rel="noopener" style="display:none;">WhatsApp</a>
         <a href="/mayoristas" onclick="navigateTo('/mayoristas'); return false;">Mayoristas</a>
@@ -696,6 +697,7 @@
         <h3>¡Gracias por tu pedido!</h3>
         <p>Tu pedido <b id="thanks-ticket-number">—</b> quedó registrado.</p>
         <p id="thanks-delivery" class="order-thanks-delivery"></p>
+        <p class="order-thanks-track"><a href="/seguimiento" onclick="navigateTo('/seguimiento'); return false;">📍 Seguir mi pedido</a> · guarda tu número de pedido.</p>
         <p class="order-thanks-next">Siguiente paso: envíanos el ticket por WhatsApp para confirmar tu pedido.</p>
       </div>
 
@@ -841,6 +843,31 @@
   <!-- ═══════════════════════════════════════════════════════ -->
   <!--  VISTA: CONTACTO                                        -->
   <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="view-track" class="view" data-noindex="true">
+    <div class="page-wrapper policy-page">
+      <header class="page-header">
+        <button class="btn-back" onclick="navigateTo('/'); return false;">←</button>
+        <h2>Seguir mi pedido</h2>
+        <div></div>
+      </header>
+      <div class="track-card">
+        <p class="track-intro">Escribe el número de tu pedido (lo ves en tu ticket, por ejemplo <b>PV-A1B2C3</b>) y el celular con el que lo hiciste.</p>
+        <form id="track-form" onsubmit="return false;">
+          <div class="field-group">
+            <label class="field-label" for="track-ticket">Número de pedido</label>
+            <input type="text" id="track-ticket" class="field-input" placeholder="PV-XXXXXX" autocomplete="off" autocapitalize="characters" maxlength="12" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="track-phone">Celular</label>
+            <input type="tel" id="track-phone" class="field-input" placeholder="300 123 4567" autocomplete="tel" inputmode="tel" />
+          </div>
+          <button type="submit" class="btn-save-product" id="btn-track-search" style="width:100%">Consultar</button>
+        </form>
+        <div id="track-result" class="track-result" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="view-contact" class="view" data-noindex="false">
     <div class="page-wrapper policy-page">
       <header class="page-header">
