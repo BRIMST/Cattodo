@@ -25,6 +25,7 @@ import {
   getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
 import { WHOLESALE_MIN_QTY, wholesaleVisibility } from "./wholesale-visibility.js";
+import { isNewProduct, getCreatedAt, NEW_DAYS } from "./new-products.js";
 
 // ====== SECURITY - Password hashing ======
 const hashPassword = async (password) => {
@@ -70,6 +71,7 @@ let orders = [];
 const carts = { retail: {}, wholesale: {} };
 let cart = carts.retail;
 let currentFilter = 'all';
+let currentQuickView = null; // null | 'discount' | 'new'
 let isWholesaleMode = false;
 // En pedidos mayoristas se compran mínimo 3 unidades de cada producto
 // (se cuentan sumando todas sus variantes: colores, aromas, tamaños).
@@ -238,6 +240,7 @@ function setWholesaleMode(enabled) {
   const toggleBtn = document.getElementById('btn-wholesale-toggle');
   if (toggleBtn) toggleBtn.textContent = enabled ? 'Salir del portal' : '🔐 Acceso mayoristas';
   currentFilter = 'all'; // la categoría elegida puede no existir en el otro canal
+  currentQuickView = null;
   updateCartUI();
   if (isProductsLoaded) { renderSearchSuggestions(); renderFilters(); renderProducts(); }
 }
@@ -289,7 +292,12 @@ function sortProducts(list) {
   if (currentSort === 'price-asc') arr.sort((a, b) => getProductPrice(a) - getProductPrice(b));
   else if (currentSort === 'price-desc') arr.sort((a, b) => getProductPrice(b) - getProductPrice(a));
   else if (currentSort === 'name') arr.sort((a, b) => String(a.name).localeCompare(String(b.name), 'es'));
-  else if (currentSort === 'newest') arr.reverse(); // las claves de Firebase son cronológicas
+  else if (currentSort === 'newest') arr.sort((x, y) => (getCreatedAt(y) || 0) - (getCreatedAt(x) || 0));
+  else {
+    // Recomendados: los productos nuevos (últimos 90 días) van primero, el más reciente arriba
+    const fresh = arr.filter(p => isNewProduct(p)).sort((x, y) => (getCreatedAt(y) || 0) - (getCreatedAt(x) || 0));
+    if (fresh.length) return [...fresh, ...arr.filter(p => !isNewProduct(p))];
+  }
   return arr;
 }
 
@@ -558,7 +566,7 @@ window.loadCatalog = async function() {
     renderSearchSuggestions();
     renderFilters();
     renderProducts();
-    renderDiscountSection();
+    renderQuickViews();
     updateCartUI();
 
     if (adminOpen) {
@@ -795,6 +803,9 @@ function renderProducts() {
     filtered = filtered.filter(p => p.category === currentFilter);
   }
 
+  if (currentQuickView === 'discount') filtered = filtered.filter(hasActiveDiscount);
+  else if (currentQuickView === 'new') filtered = filtered.filter(p => isNewProduct(p));
+
   if (searchTerms.length > 0) {
     filtered = filtered.filter(p => {
       const text = `${p.name} ${p.ref || ''} ${p.category || ''}`.toLowerCase();
@@ -809,7 +820,7 @@ function renderProducts() {
     if (isProductsLoaded) {
       container.style.display = 'none';
       if (emptyState) emptyState.style.display = 'flex';
-      const hasFilters = !!searchQuery || currentFilter !== 'all';
+      const hasFilters = !!searchQuery || currentFilter !== 'all' || !!currentQuickView;
       safeText('empty-state-text', hasFilters
         ? (searchQuery ? `No encontramos resultados para "${searchQuery}". Revisa la ortografía o prueba con otra palabra.` : 'No hay productos en esta categoría por ahora.')
         : 'No hay productos disponibles');
@@ -822,7 +833,7 @@ function renderProducts() {
   if (emptyState) emptyState.style.display = 'none';
 
   if (typeof renderCampaign === 'function') renderCampaign();
-  if (typeof renderDiscountSection === 'function') renderDiscountSection();
+  renderQuickViews();
 
   const countEl = document.getElementById('products-count');
   if (countEl) countEl.textContent = `${filtered.length} artículo${filtered.length !== 1 ? 's' : ''}`;
@@ -1079,7 +1090,7 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
   return `
     <div class="product-image-container ${soldOut ? 'is-soldout-img' : ''}" onclick="navigateTo('/producto/${p.id}')" style="cursor:pointer;">
       ${soldOut ? '<div class="badge-soldout">AGOTADO</div>' : ''}
-      ${badgeText && !soldOut ? `<div class="badge-campaign">${badgeText}</div>` : ''}
+      ${badgeText && !soldOut ? `<div class="badge-campaign">${badgeText}</div>` : (!soldOut && isNewProduct(p) ? '<div class="badge-campaign badge-new">✨ Nuevo</div>' : '')}
       ${mainImg ? `<img src="${mainImg}" alt="Comprar ${p.name} - Panda Venta" 
         ${isCritical ? 'fetchpriority="high"' : 'loading="lazy"'} 
         decoding="async" width="300" height="300" />` : '<span style="font-size:2rem">📦</span>'}
@@ -1123,38 +1134,47 @@ function getProductHTML(p, badgeText = null, isCritical = false) {
   `;
 }
 
-function renderDiscountSection() {
-  const discounted = products.filter(p => p.active && p.originalPrice && parseFloat(p.originalPrice) > parseFloat(getProductPrice(p)));
-  const section = document.getElementById('discount-section');
-  const grid = document.getElementById('discount-grid');
-  if (!section || !grid) return;
-  if (isWholesaleMode || discounted.length === 0) { section.style.display = 'none'; return; }
-  section.style.display = 'block';
-  grid.innerHTML = discounted.map(p => {
-    const pImages = p.images || (p.image ? [p.image] : []);
-    const mainImg = pImages[0];
-    const price = getProductPrice(p);
-    const discountPct = Math.round((1 - price / p.originalPrice) * 100);
-    return `
-      <div class="discount-card">
-        <div class="discount-card-img">
-          ${mainImg ? `<img src="${mainImg}" alt="Comprar ${p.name} - Panda Venta" loading="lazy" decoding="async" />` : '<span style="font-size:1.5rem">📦</span>'}
-          <div class="discount-pct-badge">-${discountPct}%</div>
-        </div>
-        <div class="discount-card-info">
-          <div class="discount-card-name">${p.name}</div>
-          <div class="discount-card-prices">
-            <span class="discount-original">${settings.currency} ${parseFloat(p.originalPrice).toLocaleString('es-CO')}</span>
-            <span class="discount-new">${settings.currency} ${parseFloat(price).toLocaleString('es-CO')}</span>
-            ${isWholesaleMode ? '<span style="font-size:0.6rem; color:var(--success); font-weight:700; margin-left:4px;">(Por mayor)</span>' : ''}
-          </div>
-          <button class="discount-card-btn ${cart[p.id] ? 'in-cart' : ''}" onclick="updateCart('${p.id}',${cart[p.id] ? -cart[p.id] : 1})">
-            ${cart[p.id] ? '✓ En carrito (' + cart[p.id] + ')' : '🛒 Lo quiero'}
-          </button>
-        </div>
-      </div>
-    `;
-  }).join('');
+// ====== ACCESOS RÁPIDOS: DESCUENTOS Y PRODUCTOS NUEVOS ======
+function hasActiveDiscount(p) {
+  return !isWholesaleMode && p.originalPrice && parseFloat(p.originalPrice) > parseFloat(getProductPrice(p));
+}
+
+const QUICK_VIEW_TITLES = { discount: '🔥 Productos en descuento', new: '✨ Productos nuevos' };
+
+function setQuickView(view) {
+  currentQuickView = currentQuickView === view ? null : view; // volver a pulsar lo quita
+  safeText('catalog-section-title', currentQuickView
+    ? QUICK_VIEW_TITLES[currentQuickView]
+    : (isWholesaleMode ? 'Catálogo mayorista' : 'Todos los productos'));
+  trackEvent('vista_rapida', currentQuickView || 'todos');
+  renderProducts();
+  if (currentQuickView) document.getElementById('catalog-toolbar')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderQuickViews() {
+  const wrap = document.getElementById('quick-views');
+  if (!wrap) return;
+  const visible = getShownProducts();
+  const nDiscount = visible.filter(hasActiveDiscount).length;
+  const nNew = visible.filter(p => isNewProduct(p)).length;
+
+  // Si la vista elegida ya no tiene productos (p. ej. se acabó una oferta), se vuelve a todos
+  if ((currentQuickView === 'discount' && nDiscount === 0) || (currentQuickView === 'new' && nNew === 0)) {
+    currentQuickView = null;
+    safeText('catalog-section-title', isWholesaleMode ? 'Catálogo mayorista' : 'Todos los productos');
+  }
+
+  const setBtn = (id, countId, n, view) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.style.display = n > 0 ? '' : 'none';
+    btn.classList.toggle('active', currentQuickView === view);
+    btn.setAttribute('aria-pressed', String(currentQuickView === view));
+    safeText(countId, n > 0 ? String(n) : '');
+  };
+  setBtn('btn-quick-discount', 'quick-discount-count', nDiscount, 'discount');
+  setBtn('btn-quick-new', 'quick-new-count', nNew, 'new');
+  wrap.style.display = (nDiscount > 0 || nNew > 0) ? '' : 'none';
 }
 
 // ====== CART ======
@@ -2051,8 +2071,12 @@ function initCriticalApp() {
   on('btn-wholesale-back-store', 'onclick', () => navigateTo('/'));
 
   on('sort-select', 'onchange', (e) => { currentSort = e.target.value; renderProducts(); });
+  on('btn-quick-discount', 'onclick', () => setQuickView('discount'));
+  on('btn-quick-new', 'onclick', () => setQuickView('new'));
   on('btn-clear-filters', 'onclick', () => {
     currentFilter = 'all';
+    currentQuickView = null;
+    safeText('catalog-section-title', isWholesaleMode ? 'Catálogo mayorista' : 'Todos los productos');
     safeValue('search-input', '');
     renderFilters();
     renderProducts();

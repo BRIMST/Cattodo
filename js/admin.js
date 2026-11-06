@@ -2272,6 +2272,7 @@ async function saveProduct() {
       savedId = window.currentEditId;
       await update(ref(appState.db, `products/${savedId}`), pData);
     } else {
+      pData.createdAt = Date.now();
       const newRef = await push(ref(appState.db, 'products'), pData);
       savedId = newRef.key;
     }
@@ -2652,7 +2653,7 @@ async function handleStockExcelUpload(e) {
       const newPrices = {};
       create.forEach(c => {
         const key = push(ref(appState.db, 'products')).key;
-        updates[`products/${key}`] = c.data;
+        updates[`products/${key}`] = { ...c.data, createdAt: Date.now() };
         if (c.wholesale) { updates[`wholesalePrices/${key}`] = c.wholesale; newPrices[key] = c.wholesale; }
       });
       restock.forEach(r => {

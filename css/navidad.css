@@ -315,3 +315,13 @@ body.theme-navidad .product-image-container { background: rgba(244, 238, 223, 0.
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   body.theme-navidad .product-card { background: rgba(255, 255, 255, 0.92); }
 }
+
+/* ── Accesos rápidos (descuentos / nuevos) ───────────────────────────────── */
+body.theme-navidad .quick-views { background: #FFF9EA; border-bottom: 1px solid rgba(226, 176, 74, 0.5); }
+body.theme-navidad .quick-view-btn { border-color: var(--primary); color: var(--primary); background: #fff; }
+body.theme-navidad .quick-view-btn:hover { background: var(--primary-light); }
+body.theme-navidad .quick-view-btn.active { background: var(--primary); border-color: var(--oro); color: var(--crema-texto); }
+body.theme-navidad .quick-view-btn[data-view="new"] { border-color: var(--pino-2); color: var(--pino-2); }
+body.theme-navidad .quick-view-btn[data-view="new"]:hover { background: rgba(31, 90, 67, 0.08); }
+body.theme-navidad .quick-view-btn[data-view="new"].active { background: var(--pino); border-color: var(--oro); color: var(--oro); }
+body.theme-navidad .badge-campaign.badge-new { background: var(--pino-2); color: var(--crema-texto); }

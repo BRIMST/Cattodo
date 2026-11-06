@@ -5310,3 +5310,18 @@ body.wholesale-mode .trust-bar { display: none; }
 .products-grid.list-view .image-count-badge { display: none; }
 
 .trust-bar-inner .tb-ico, .trust-bar-inner em { font-style: normal; }
+
+/* ====== ACCESOS RÁPIDOS: DESCUENTOS / NUEVOS ====== */
+.quick-views { background: var(--surface, #fff); border-bottom: 1px solid var(--border, #e5e7eb); }
+.quick-views-inner { max-width: var(--max-catalog); margin: 0 auto; padding: 0.85rem var(--px); display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.quick-view-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; flex: 0 1 auto; min-height: 44px; padding: 0.6rem 1.1rem; border-radius: 999px; border: 1.5px solid var(--primary); background: transparent; color: var(--primary); font: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.15s; }
+.quick-view-btn:hover { background: var(--primary-light); }
+.quick-view-btn:active { transform: scale(0.97); }
+.quick-view-btn.active { background: var(--primary); color: #fff; }
+.quick-view-count { min-width: 1.4rem; padding: 0.05rem 0.4rem; border-radius: 999px; background: rgba(0,0,0,0.08); font-size: 0.72rem; text-align: center; }
+.quick-view-btn.active .quick-view-count { background: rgba(255,255,255,0.28); }
+.quick-view-count:empty { display: none; }
+.badge-campaign.badge-new { background: #0E7C5A; color: #fff; }
+@media (max-width: 480px) { .quick-view-btn { flex: 1 1 calc(50% - 0.3rem); padding: 0.6rem 0.5rem; font-size: 0.78rem; } }
+@media (max-width: 480px) { .quick-view-btn { white-space: nowrap; font-size: 0.72rem; gap: 0.3rem; padding: 0.6rem 0.4rem; } }
+@media (max-width: 480px) { .quick-views-inner { flex-wrap: nowrap; gap: 0.4rem; } .quick-view-btn { flex: 1 1 0; min-width: 0; } }

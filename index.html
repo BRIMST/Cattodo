@@ -39,8 +39,8 @@
   </style>
   <link rel="stylesheet" href="css/styles.css" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="css/styles.css"></noscript>
-  <link rel="stylesheet" href="css/navidad.css?v=3" media="print" onload="this.media='all'" />
-  <noscript><link rel="stylesheet" href="css/navidad.css?v=3"></noscript>
+  <link rel="stylesheet" href="css/navidad.css?v=4" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="css/navidad.css?v=4"></noscript>
   <meta name="theme-color" content="#2B5F8E">
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
@@ -167,17 +167,11 @@
       </div>
     </div>
 
-    <!-- Descuentos section -->
-    <div id="discount-section" style="display:none; background:var(--surface); border-bottom:1px solid var(--border);">
-      <div style="max-width:var(--max-catalog); margin:0 auto; padding:1rem var(--px) 0;">
-        <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
-          <span style="font-size:1.1rem;">🔥</span>
-          <h2 style="font-size:0.95rem; font-weight:800; color:var(--text-main);">En Descuento</h2>
-          <span style="background:#EF4444;color:#fff;font-size:0.62rem;font-weight:800;padding:0.15rem 0.5rem;border-radius:10px;">OFERTA</span>
-        </div>
-      </div>
-      <div style="max-width:var(--max-catalog); margin:0 auto; padding:0 var(--px) 1rem; overflow-x:auto;">
-        <div id="discount-grid" style="display:flex; gap:0.75rem; width:max-content; padding-bottom:0.25rem;"></div>
+    <!-- Accesos rápidos: descuentos y productos nuevos -->
+    <div class="quick-views" id="quick-views" style="display:none;">
+      <div class="quick-views-inner">
+        <button type="button" class="quick-view-btn" id="btn-quick-discount" data-view="discount" aria-pressed="false" style="display:none;">🔥 Ver descuentos <span class="quick-view-count" id="quick-discount-count"></span></button>
+        <button type="button" class="quick-view-btn" id="btn-quick-new" data-view="new" aria-pressed="false" style="display:none;">✨ Ver productos nuevos <span class="quick-view-count" id="quick-new-count"></span></button>
       </div>
     </div>
 
