@@ -961,6 +961,7 @@
             <div class="metric-value" id="dash-inventory-value">COP 0</div>
           </div>
         </div>
+        <div class="dash-attention" id="dash-attention"></div>
         <div class="dashboard-charts-row" id="dashboard-charts-row">
           <!-- Rendered by JS: gráfica de tendencia de ventas -->
         </div>
@@ -1118,7 +1119,7 @@
           <div class="header-actions">
             <button class="btn-add-product" id="btn-add-product">+ Agregar producto</button>
             <button class="btn-add-product" id="btn-bulk-stock" style="background:#0EA5E9;" title="Carga mercancía con la plantilla Pedido: crea los productos nuevos y suma unidades a los existentes">📦 Cargar mercancía</button>
-            <input type="file" id="bulk-upload-stock" accept=".xlsx, .xls" style="display:none;" />
+            <input type="file" id="bulk-upload-stock" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display:none;" />
             <button class="btn-add-product" id="btn-bulk-photos" style="background:#8B5CF6;">Subir Fotos</button>
             <input type="file" id="bulk-upload-photos" accept="image/*" multiple style="display:none;" />
             <button class="btn-add-product" id="btn-optimize-photos" style="background:#64748B;" title="Mueve a Firebase Storage las fotos pesadas que quedaron guardadas dentro de los productos">⚡ Optimizar fotos</button>
@@ -1631,6 +1632,12 @@
               <label class="settings-label">Texto del Badge (Etiqueta sobre la foto)</label>
               <input type="text" id="settings-camp-badge" class="settings-input" placeholder="Ej: Regalo Perfecto" />
             </div>
+          </div>
+          <div class="settings-group">
+            <label class="settings-label">💾 Respaldo de tu información</label>
+            <small class="settings-hint">Descarga un archivo con tus productos, pedidos, clientes, mayoristas, opiniones y la configuración de la tienda. Guárdalo en tu computador o en Drive. Se recomienda cada semana.</small>
+            <button type="button" class="action-btn" id="btn-download-backup" style="margin-top:0.6rem;">⬇️ Descargar respaldo ahora</button>
+            <small class="settings-hint" id="backup-last" style="display:block; margin-top:0.4rem;"></small>
           </div>
           <button class="btn-save-settings" id="btn-save-settings">
             Guardar configuración

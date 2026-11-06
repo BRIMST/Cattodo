@@ -1324,6 +1324,28 @@ function renderViewer() {
 // Marca cada página de producto con datos estructurados schema.org/Product —
 // es lo que le permite a Google (Merchant Center y Búsqueda normal) reconocer
 // cada producto individualmente, sin depender solo del feed.
+// Título, descripción y canonical al día mientras se navega (Google ejecuta JavaScript;
+// para WhatsApp/Facebook, que no lo hacen, api/producto.js ya entrega estos datos en el HTML).
+const DEFAULT_META = {};
+function setPageMeta(meta) {
+  const q = (sel) => document.querySelector(sel);
+  if (!DEFAULT_META.title) {
+    // Valores de la portada (no se leen del DOM: en /producto/... el servidor ya los cambió)
+    DEFAULT_META.title = 'Panda Venta | Tienda Online con Envío a toda Colombia';
+    DEFAULT_META.desc = 'Compra online en Panda Venta. Productos con envío a toda Colombia y envío gratis en Bogotá. Haz tu pedido fácil por WhatsApp.';
+    DEFAULT_META.canonical = 'https://pandaventa.com/';
+  }
+  const m = meta || {};
+  document.title = m.title || DEFAULT_META.title;
+  const d = q('meta[name="description"]'); if (d) d.content = m.description || DEFAULT_META.desc;
+  const c = q('link[rel="canonical"]'); if (c) c.href = m.url || DEFAULT_META.canonical;
+  const set = (prop, val) => { const el = q(`meta[property="${prop}"]`); if (el && val) el.content = val; };
+  set('og:title', m.title || DEFAULT_META.title);
+  set('og:description', m.description || DEFAULT_META.desc);
+  set('og:url', m.url || DEFAULT_META.canonical);
+  if (m.image) set('og:image', m.image);
+}
+
 function injectProductStructuredData(p, price) {
   let script = document.getElementById('product-structured-data');
   if (!script) {
@@ -1354,6 +1376,11 @@ function injectProductStructuredData(p, price) {
       "itemCondition": "https://schema.org/NewCondition"
     }
   };
+  const st = getProductStats(p.id, p);
+  if (st.count > 0) {
+    // Solo calificaciones reales aprobadas; nunca se inventan
+    data.aggregateRating = { "@type": "AggregateRating", "ratingValue": (reviewStats[p.id].sum / st.count).toFixed(1), "reviewCount": st.count };
+  }
 
   script.textContent = JSON.stringify(data);
 }
@@ -1390,6 +1417,12 @@ window.openProductPage = function(productId) {
   const hasDiscount = !isWholesaleMode && p.originalPrice && parseFloat(p.originalPrice) > parseFloat(price);
 
   injectProductStructuredData(p, parseFloat(p.price) || 0); // SEO: siempre el precio al detal
+  setPageMeta({
+    title: `${p.name} | ${settings.storeName || 'Panda Venta'}`,
+    description: String(p.description || `${p.name} con envío a toda Colombia.`).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200),
+    url: `https://pandaventa.com/producto/${p.id}`,
+    image: (p.images && p.images[0]) || p.image || ''
+  });
   const discountPct = hasDiscount ? Math.round((1 - price / p.originalPrice) * 100) : 0;
   
   const originalPriceEl = document.getElementById('detail-price-original');
@@ -1705,17 +1738,29 @@ function renderRelatedProducts(currentProduct) {
   const grid = document.getElementById('related-products-grid');
   if (!grid) return;
   
-  let related = getShownProducts().filter(p => p.id !== currentProduct.id);
-  if (currentProduct.category) {
-    related = related.filter(p => p.category === currentProduct.category);
-  }
-  
-  related = related.slice(0, 4);
-  
-  if (related.length === 0) {
-    related = getShownProducts().filter(p => p.id !== currentProduct.id).slice(0, 4);
-  }
-  
+  // Puntaje de parecido: misma categoría > palabras en común del nombre > precio parecido.
+  // Los agotados quedan al final y los más nuevos desempatan.
+  const words = (t) => new Set(String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .split(/[^a-z0-9]+/).filter(w => w.length > 3));
+  const baseWords = words(currentProduct.name);
+  const basePrice = parseFloat(getProductPrice(currentProduct)) || 0;
+  const score = (p) => {
+    let sc = 0;
+    if (currentProduct.category && p.category === currentProduct.category) sc += 4;
+    let shared = 0; words(p.name).forEach(w => { if (baseWords.has(w)) shared++; });
+    sc += Math.min(shared, 3);
+    const pr = parseFloat(getProductPrice(p)) || 0;
+    if (basePrice && pr && pr >= basePrice * 0.5 && pr <= basePrice * 1.5) sc += 1;
+    if (isOutOfStock(p)) sc -= 10;
+    return sc;
+  };
+  let related = getShownProducts()
+    .filter(p => p.id !== currentProduct.id)
+    .map(p => ({ p, sc: score(p), t: getCreatedAt(p) || 0 }))
+    .sort((x, y) => y.sc - x.sc || y.t - x.t)
+    .slice(0, 4)
+    .map(x => x.p);
+
   if (related.length === 0) {
     grid.parentElement.style.display = 'none';
     return;
@@ -1906,6 +1951,7 @@ window.navigateTo = navigateTo;
 
 function handleRoute() {
   const path = window.location.pathname;
+  if (!path.startsWith('/producto/')) setPageMeta(null);
   // El canal mayorista se activa al entrar a /mayoristas y se mantiene al ver
   // productos, el pedido y las políticas; al volver al catálogo normal se apaga.
   if (path === '/mayoristas' || path === '/mayoristas/') {

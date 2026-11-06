@@ -11,6 +11,7 @@
   "routes": [
     { "handle": "filesystem" },
     { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/producto/([^/]+)/?", "dest": "/api/producto?id=$1" },
     { "src": "/sitemap.xml", "dest": "/api/sitemap" },
     { "src": "/product-feed.xml", "dest": "/api/product-feed" },
     { "src": "/(.*)", "dest": "/index.html" }

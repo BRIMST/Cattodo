@@ -1,7 +1,7 @@
 ﻿import { ref, set, update, remove, push, onValue, get } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
 import { initializeApp, getApps, deleteApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
 import { parseMercanciaRows, planMercancia } from "./mercancia.js";
-import { wholesaleVisibility } from "./wholesale-visibility.js";
+import { wholesaleVisibility, getAvailableStock } from "./wholesale-visibility.js";
 import { getAuth, signOut, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
 
 let appState = {};
@@ -35,6 +35,7 @@ export function initAdmin(state, utils) {
   window.resetWholesalerPassword = resetWholesalerPassword;
   window.removeWholesalerAccess = removeWholesalerAccess;
   window.toggleOrderPaymentStatus = toggleOrderPaymentStatus;
+  window.downloadBackup = downloadBackup;
   window.approveReview = approveReview;
   window.rejectReview = rejectReview;
   window.loadPublishedReviews = loadPublishedReviews;
@@ -113,11 +114,12 @@ export function initAdmin(state, utils) {
   document.getElementById('product-barcode')?.addEventListener('input', (e) => renderProductQR(e.target.value.trim()));
 
   // Carga masiva: Excel y fotos de producto
-  on('btn-bulk-stock', 'onclick', () => document.getElementById('bulk-upload-stock')?.click());
+  on('btn-bulk-stock', 'onclick', () => { const i = document.getElementById('bulk-upload-stock'); if (i) { i.value = ''; i.click(); } });
   on('bulk-upload-stock', 'onchange', handleStockExcelUpload);
   on('btn-bulk-photos', 'onclick', () => document.getElementById('bulk-upload-photos')?.click());
   on('bulk-upload-photos', 'onchange', handleBulkPhotoUpload);
   on('btn-optimize-photos', 'onclick', optimizeHeavyPhotos);
+  on('btn-download-backup', 'onclick', downloadBackup);
   on('btn-bulk-barcodes', 'onclick', bulkGenerateBarcodes);
 
   // Productos: búsqueda, filtros, orden, paginación y selección múltiple
@@ -245,7 +247,7 @@ function initNavigation() {
       if (btn.dataset.tab === 'feedback') renderFeedbackTab();
       if (btn.dataset.tab === 'reports') renderReports();
       if (btn.dataset.tab === 'finance') renderFinance();
-      if (btn.dataset.tab === 'settings') loadSettingsForm();
+      if (btn.dataset.tab === 'settings') { loadSettingsForm(); updateBackupLabel(); }
 
       // En móvil, el menú lateral es un panel deslizante — se cierra solo
       // al elegir una sección, como se espera de ese patrón.
@@ -544,8 +546,88 @@ function renderDashboard() {
   appUtils.safeText('dash-pending-orders', pendingCount);
   appUtils.safeText('dash-inventory-value', appUtils.formatMoney(inventoryValue));
 
+  renderDashboardAttention(pendingCount);
   renderDashboardTrendChart();
 }
+
+// ==========================================
+// MODULE: QUÉ ATENDER HOY + RESPALDO
+// ==========================================
+function goToTab(tab) { document.querySelector(`.admin-nav-btn[data-tab="${tab}"]`)?.click(); }
+window.goToTab = goToTab;
+
+function getLastBackup() { try { return Number(localStorage.getItem('last_backup')) || 0; } catch (e) { return 0; } }
+
+function renderDashboardAttention(pendingOrders) {
+  const box = document.getElementById('dash-attention');
+  if (!box) return;
+  const active = (appState.products || []).filter(p => p.active !== false);
+  const stockOf = (p) => getAvailableStock(p);
+  const soldOut = active.filter(p => stockOf(p) === 0).length;
+  const low = active.filter(p => { const s = stockOf(p); return s !== null && s > 0 && s <= 3; }).length;
+  const noPhoto = active.filter(p => !(p.images && p.images.length) && !p.image).length;
+  const reviews = (appState.reviewsPending || []).length;
+  const alerts = appState.stockAlerts || {};
+  const alertsReady = Object.keys(alerts).filter(pid => {
+    const p = (appState.products || []).find(x => x.id === pid);
+    return p && stockOf(p) > 0 && Object.keys(alerts[pid] || {}).length;
+  }).length;
+  const last = getLastBackup();
+  const days = last ? Math.floor((Date.now() - last) / 86400000) : null;
+
+  const items = [];
+  if (pendingOrders > 0) items.push({ icon: '📦', text: `<b>${pendingOrders}</b> ${pendingOrders === 1 ? 'pedido por atender' : 'pedidos por atender'}`, tab: 'orders', cta: 'Ver pedidos' });
+  if (alertsReady > 0) items.push({ icon: '🔔', text: `<b>${alertsReady}</b> ${alertsReady === 1 ? 'producto con clientes esperando ya tiene' : 'productos con clientes esperando ya tienen'} stock`, tab: 'feedback', cta: 'Avisarles' });
+  if (reviews > 0) items.push({ icon: '💬', text: `<b>${reviews}</b> ${reviews === 1 ? 'opinión por aprobar' : 'opiniones por aprobar'}`, tab: 'feedback', cta: 'Revisar' });
+  if (soldOut > 0) items.push({ icon: '🚫', text: `<b>${soldOut}</b> ${soldOut === 1 ? 'producto agotado' : 'productos agotados'}`, tab: 'products', cta: 'Reabastecer' });
+  if (low > 0) items.push({ icon: '⚠️', text: `<b>${low}</b> con stock bajo (3 o menos)`, tab: 'products', cta: 'Ver' });
+  if (noPhoto > 0) items.push({ icon: '🖼️', text: `<b>${noPhoto}</b> ${noPhoto === 1 ? 'producto sin foto' : 'productos sin foto'}`, tab: 'products', cta: 'Subir fotos' });
+  if (days === null || days >= 7) items.push({ icon: '💾', text: days === null ? 'Aún no has descargado un respaldo' : `Último respaldo hace <b>${days}</b> días`, tab: 'settings', cta: 'Hacer respaldo' });
+
+  box.innerHTML = items.length === 0
+    ? '<div class="attention-card attention-ok">✅ Todo al día: no hay nada pendiente por atender.</div>'
+    : `<div class="attention-card"><h4 class="report-title">🔔 Para atender hoy</h4>
+        ${items.map(i => `<div class="attention-row"><span>${i.icon} ${i.text}</span><button class="action-btn" onclick="goToTab('${i.tab}')">${i.cta}</button></div>`).join('')}</div>`;
+}
+
+// Respaldo: baja un JSON con todo lo que el panel puede leer. Lo que una cuenta no
+// tenga permiso de leer queda anotado en "sinAcceso" en vez de detener la descarga.
+async function downloadBackup() {
+  const btn = document.getElementById('btn-download-backup');
+  if (btn) { btn.disabled = true; btn.textContent = 'Preparando respaldo…'; }
+  const nodes = ['products', 'orders', 'clients', 'settings', 'wholesalers', 'wholesalePrices', 'wholesaleConfig', 'reviews', 'reviewStats', 'reviewsPending', 'stockAlerts', 'tracking'];
+  const out = { generado: new Date().toISOString(), tienda: (appState.settings && appState.settings.storeName) || '', datos: {}, sinAcceso: [] };
+  try {
+    for (const n of nodes) {
+      try {
+        const snap = await get(ref(appState.db, n));
+        out.datos[n] = snap.exists() ? snap.val() : null;
+      } catch (e) { out.sinAcceso.push(n); }
+    }
+    const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `respaldo-pandaventa-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    try { localStorage.setItem('last_backup', String(Date.now())); } catch (e) {}
+    appUtils.showToast(out.sinAcceso.length ? `Respaldo descargado (sin acceso a: ${out.sinAcceso.join(', ')})` : 'Respaldo descargado');
+    updateBackupLabel();
+    renderDashboard();
+  } catch (e) {
+    appUtils.showToast('No se pudo crear el respaldo: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⬇️ Descargar respaldo ahora'; }
+  }
+}
+
+function updateBackupLabel() {
+  const el = document.getElementById('backup-last');
+  if (!el) return;
+  const last = getLastBackup();
+  el.textContent = last ? `Último respaldo descargado desde este navegador: ${new Date(last).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}` : 'Aún no has descargado un respaldo desde este navegador.';
+}
+
 
 // Gráfica simple de ventas de los últimos 14 días, sin depender de ninguna
 // librería externa — barras generadas con divs, dimensionadas por CSS.
@@ -2760,33 +2842,59 @@ async function optimizeHeavyPhotos() {
 }
 
 // Carga de mercancía (plantilla "Pedido"): crea productos nuevos y reabastece los existentes.
+// Ventana propia (en vez de confirm/alert del navegador, que algunos móviles bloquean
+// y dejan la carga "sin hacer nada"). Devuelve true si el usuario pulsa el botón principal.
+function mercanciaDialog({ title, body, confirmText, cancelText, busy }) {
+  document.getElementById('mercancia-dialog')?.remove();
+  return new Promise(resolve => {
+    const m = document.createElement('div');
+    m.id = 'mercancia-dialog';
+    m.className = 'sa-overlay';
+    const esc = (t) => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    m.innerHTML = `<div class="sa-card" style="max-width:480px; max-height:88vh;">
+      <h3>${esc(title)}</h3>
+      <div class="mercancia-body">${busy ? '<div class="mercancia-spinner"></div>' : ''}<pre>${esc(body)}</pre></div>
+      <div style="display:flex; gap:0.5rem;">
+        ${cancelText ? `<button type="button" class="action-btn" data-r="0" style="flex:1;">${esc(cancelText)}</button>` : ''}
+        ${confirmText ? `<button type="button" class="btn-save-product" data-r="1" style="flex:1;">${esc(confirmText)}</button>` : ''}
+      </div></div>`;
+    document.body.appendChild(m);
+    m.querySelectorAll('button[data-r]').forEach(b => b.onclick = () => { m.remove(); resolve(b.dataset.r === '1'); });
+    if (!confirmText && !cancelText) resolve(false);
+  });
+}
+
 async function handleStockExcelUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
   const input = e.target;
+  input.value = ''; // así se puede volver a elegir el mismo archivo si algo falla
+  if (typeof XLSX === 'undefined') {
+    return mercanciaDialog({ title: 'No se puede leer el Excel', body: 'No cargó la librería de Excel (internet lento o un bloqueador de contenido). Recarga la página e inténtalo de nuevo.', cancelText: 'Cerrar' });
+  }
   appUtils.showToast('Leyendo mercancía...');
 
   const reader = new FileReader();
-  reader.onerror = () => { appUtils.showToast('No se pudo leer el archivo'); input.value = ''; };
+  reader.onerror = () => { mercanciaDialog({ title: 'No se pudo leer el archivo', body: 'Intenta de nuevo o descarga la plantilla otra vez.', cancelText: 'Cerrar' }); };
   reader.onload = async (evt) => {
     try {
       const workbook = XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-      if (rows.length === 0) return appUtils.showToast('El archivo está vacío.');
+      if (rows.length === 0) return mercanciaDialog({ title: 'Archivo vacío', body: 'El archivo no tiene filas para cargar.', cancelText: 'Cerrar' });
 
       const { items, skipped: parseSkipped, columnsOk } = parseMercanciaRows(rows);
       if (!columnsOk) {
-        return appUtils.showToast('No encontré las columnas "Referencia" o "Cód. Barras". Usa la plantilla Pedido.');
+        return mercanciaDialog({ title: 'Columnas no reconocidas', body: 'No encontré las columnas "Referencia" o "Cód. Barras". Usa la plantilla Pedido.', cancelText: 'Cerrar' });
       }
       const { create, restock, skipped: planSkipped } = planMercancia(items, appState.products || []);
       const skipped = [...parseSkipped, ...planSkipped];
 
       if (create.length === 0 && restock.length === 0) {
         console.warn('Mercancía omitida:', skipped);
-        return appUtils.showToast(skipped.length
-          ? `No se cargó nada. Primer problema (fila ${skipped[0].row}): ${skipped[0].reason}`
-          : 'No hay filas para cargar.');
+        return mercanciaDialog({ title: 'No se cargó nada', body: skipped.length
+          ? skipped.slice(0, 8).map(s => `Fila ${s.row} (${s.name || 'sin nombre'}): ${s.reason}`).join('\n')
+          : 'No hay filas para cargar.', cancelText: 'Cerrar' });
       }
 
       // Vista previa antes de tocar la base de datos
@@ -2811,7 +2919,10 @@ async function handleStockExcelUpload(e) {
         lines.push('');
       }
       lines.push('Los productos existentes solo reciben stock y costo; sus precios no se tocan.', '', '¿Continuar?');
-      if (!confirm(lines.join('\n'))) return appUtils.showToast('Carga cancelada');
+      lines.pop(); lines.pop(); // quita la pregunta "¿Continuar?": ahora la hacen los botones
+      const go = await mercanciaDialog({ title: 'Vista previa de la carga', body: lines.join('\n'), confirmText: 'Cargar mercancía', cancelText: 'Cancelar' });
+      if (!go) return appUtils.showToast('Carga cancelada');
+      mercanciaDialog({ title: 'Guardando…', body: `Guardando ${create.length + restock.length} producto(s). No cierres la página.`, busy: true });
 
       // Todo en una sola escritura atómica: se guarda completo o no se guarda nada
       const updates = {};
@@ -2826,7 +2937,11 @@ async function handleStockExcelUpload(e) {
         if (r.cost !== null) updates[`products/${r.id}/cost`] = r.cost;
         if (r.barcode) updates[`products/${r.id}/barcode`] = r.barcode;
       });
-      await update(ref(appState.db), updates);
+      // Firebase no avisa si no hay conexión: espera la confirmación y, si tarda, lo dice
+      await Promise.race([
+        update(ref(appState.db), updates),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('La base de datos no respondió en 30 segundos. Revisa tu internet e inténtalo de nuevo (si la conexión vuelve, los cambios pueden guardarse solos: revisa Productos antes de repetir la carga).')), 30000))
+      ]);
 
       appState.wholesalePrices = { ...(appState.wholesalePrices || {}), ...newPrices };
       const totalUnits = create.reduce((a, c) => a + c.data.stock, 0) + restock.reduce((a, r) => a + r.add, 0);
@@ -2834,14 +2949,14 @@ async function handleStockExcelUpload(e) {
       if (skipped.length) summary += ` — ⚠️ ${skipped.length} omitida(s)`;
       if (create.length) summary += `. Los nuevos no tienen foto: usa "Subir Fotos" con el nombre del archivo igual a la referencia`;
       appUtils.showToast(summary);
+      await mercanciaDialog({ title: 'Mercancía cargada ✅', body: summary.replace('Mercancía cargada ✅ ', '').replace(/\. /g, '.\n') + (skipped.length ? '\n\nOmitidas:\n' + skipped.slice(0, 8).map(s => `Fila ${s.row} (${s.name || 'sin nombre'}): ${s.reason}`).join('\n') : ''), cancelText: 'Cerrar' });
       if (skipped.length) console.warn('Mercancía omitida:', skipped);
       if (window.loadCatalog) window.loadCatalog();
       renderProductsTable();
     } catch (err) {
       console.error(err);
       appUtils.showToast('Error al cargar la mercancía: ' + err.message);
-    } finally {
-      input.value = '';
+      mercanciaDialog({ title: 'No se pudo cargar la mercancía', body: String((err && err.code) ? `${err.code}\n${err.message}` : (err && err.message) || err), cancelText: 'Cerrar' });
     }
   };
   reader.readAsArrayBuffer(file);
