@@ -1509,8 +1509,8 @@ function downloadCSV(filename, headers, rows) {
 // lista para llenar y subir con "Cargar mercancía".
 function downloadMercanciaTemplate() {
   const a = document.createElement('a');
-  a.href = '/plantillas/Mercancia.xlsx';
-  a.download = 'Mercancia.xlsx';
+  a.href = '/plantillas/Mercancia_con_fotos.xlsx';
+  a.download = 'Mercancia_con_fotos.xlsx';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

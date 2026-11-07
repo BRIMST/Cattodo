@@ -1,4 +1,4 @@
-const CACHE_NAME = 'catalogo-v32';
+const CACHE_NAME = 'catalogo-v33';
 const PRE_CACHE = [
   './',
   './index.html',
