@@ -2562,6 +2562,10 @@ function loadSettingsForm() {
   appUtils.safeValue('settings-currency', appState.settings.currency || 'COP');
   appUtils.safeValue('settings-payment-info', appState.settings.paymentInfo || '');
   appUtils.safeValue('settings-shipping-cost', appState.settings.shippingCost || 0);
+  { const g = (k, d) => (appState.settings[k] === undefined || appState.settings[k] === null || appState.settings[k] === '') ? d : appState.settings[k];
+    appUtils.safeValue('settings-free-ship-retail', g('freeShipRetail', 100000));
+    appUtils.safeValue('settings-free-ship-wholesale', g('freeShipWholesale', 300000));
+    appUtils.safeValue('settings-bogota-fee', g('bogotaShippingFee', 8000)); }
   { const t = document.getElementById('settings-theme-navidad'); if (t) t.checked = appState.settings.themeNavidad !== false; }
   appUtils.safeValue('settings-wholesale-discount', (appState.wholesaleConfig || {}).discount !== undefined ? appState.wholesaleConfig.discount : 20);
 
@@ -2615,6 +2619,9 @@ async function saveSettings() {
     currency: document.getElementById('settings-currency')?.value || 'COP',
     paymentInfo: document.getElementById('settings-payment-info')?.value || '',
     shippingCost: parseFloat(document.getElementById('settings-shipping-cost')?.value) || 0,
+    freeShipRetail: Math.max(0, parseFloat(document.getElementById('settings-free-ship-retail')?.value) || 0),
+    freeShipWholesale: Math.max(0, parseFloat(document.getElementById('settings-free-ship-wholesale')?.value) || 0),
+    bogotaShippingFee: Math.max(0, parseFloat(document.getElementById('settings-bogota-fee')?.value) || 0),
     originAddress: {
       name: document.getElementById('settings-origin-name')?.value || '',
       phone: document.getElementById('settings-origin-phone')?.value || '',

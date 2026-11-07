@@ -39,8 +39,8 @@
   </style>
   <link rel="stylesheet" href="css/styles.css" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="css/styles.css"></noscript>
-  <link rel="stylesheet" href="css/navidad.css?v=7" media="print" onload="this.media='all'" />
-  <noscript><link rel="stylesheet" href="css/navidad.css?v=7"></noscript>
+  <link rel="stylesheet" href="css/navidad.css?v=8" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="css/navidad.css?v=8"></noscript>
   <meta name="theme-color" content="#2B5F8E">
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
@@ -537,8 +537,10 @@
         <li class="order-step" data-step="3"><span class="order-step-num">3</span><span class="order-step-label">Confirmar</span></li>
       </ol>
 
+      <div class="fs fs-card" id="fs-order" style="display:none;"></div>
+
       <p class="order-intro">Ya casi terminas 🎉 Revisa tu pedido y completa tus datos de envío.</p>
-      <p class="order-shipping-note" id="order-shipping-note">🚚 Envío gratis en Bogotá. Para el resto del país, el costo se calcula al elegir tu ciudad, antes de confirmar.</p>
+      <p class="order-shipping-note" id="order-shipping-note">🚚 Envío gratis en Bogotá al llegar a la meta del carrito. Para el resto del país, el costo se calcula al elegir tu ciudad, antes de confirmar.</p>
 
       <div class="order-content">
         <!-- Order items list -->
@@ -1559,7 +1561,26 @@
           <div class="settings-group">
             <label class="settings-label">Costo de envío de respaldo (si falla la cotización)</label>
             <input type="number" id="settings-shipping-cost" class="settings-input" placeholder="Ej: 15000" min="0" />
-            <small class="settings-hint">El envío a Bogotá D.C. siempre es <strong>GRATIS</strong>. Este valor solo se usa como respaldo si no se puede cotizar en tiempo real con la transportadora (por ejemplo, si falla la conexión).</small>
+            <small class="settings-hint">Este valor solo se usa como respaldo si no se puede cotizar en tiempo real con la transportadora (por ejemplo, si falla la conexión).</small>
+          </div>
+
+          <div class="settings-group">
+            <label class="settings-label">🚚 Envío gratis en Bogotá: metas del carrito</label>
+            <small class="settings-hint">La barra del carrito se llena hasta la meta; al alcanzarla el envío a Bogotá D.C. es gratis. Pon <strong>0</strong> en una meta para que el envío a Bogotá sea siempre gratis para ese tipo de cliente.</small>
+            <div class="field-row" style="margin-top:0.6rem;">
+              <div class="field-group">
+                <label class="field-label">Meta clientes al detal (COP)</label>
+                <input type="number" id="settings-free-ship-retail" class="settings-input" placeholder="100000" min="0" step="1000" />
+              </div>
+              <div class="field-group">
+                <label class="field-label">Meta mayoristas (COP)</label>
+                <input type="number" id="settings-free-ship-wholesale" class="settings-input" placeholder="300000" min="0" step="1000" />
+              </div>
+            </div>
+            <div class="field-group" style="margin-top:0.6rem;">
+              <label class="field-label">Costo del envío a Bogotá si NO llega a la meta (COP)</label>
+              <input type="number" id="settings-bogota-fee" class="settings-input" placeholder="8000" min="0" step="500" />
+            </div>
           </div>
 
           <div class="settings-group">
@@ -2109,6 +2130,7 @@
        cuando cambias de vista (antes vivía dentro de #view-catalog y se
        ocultaba junto con esa vista, sin importar lo que dijera el JS). -->
   <div class="cart-bar" id="cart-bar" style="display:none">
+    <div class="fs fs-compact" id="fs-cart" style="display:none;"></div>
     <div class="cart-bar-inner">
       <div class="cart-summary">
         <span class="cart-count" id="cart-count">0</span>

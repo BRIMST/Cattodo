@@ -352,3 +352,9 @@ body.theme-navidad .trust-bar { padding-top: 2.5rem; }
   body.theme-navidad .quick-view-count { padding: 0 0.3rem; min-width: 1.1rem; font-size: 0.64rem; }
 }
 body.theme-navidad #view-track .btn-save-product { background: var(--primary); }
+
+/* Barra de envío gratis: tono pino/dorado */
+body.theme-navidad .fs-card{background:linear-gradient(135deg,#f0fdf4,#fefce8);border-color:#d9c27a}
+body.theme-navidad .fs-fill{background:linear-gradient(90deg,#166534,#22c55e);box-shadow:0 0 12px rgba(34,197,94,.5)}
+body.theme-navidad .fs-done .fs-fill{background:linear-gradient(90deg,#b8860b,#f5d061,#b8860b);box-shadow:0 0 14px rgba(245,208,97,.8)}
+

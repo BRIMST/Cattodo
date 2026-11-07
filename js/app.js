@@ -58,6 +58,7 @@ let settings = {
   storeName: 'Panda Venta', tagline: 'Pedidos por WhatsApp', whatsapp: '',
   color: '#6c63ff', currency: 'COP', logo: '', adminPassword: '',
   paymentInfo: '', paymentQR: '', shippingCost: 0,
+  freeShipRetail: 100000, freeShipWholesale: 300000, bogotaShippingFee: 8000,
   locContent: {
     bgtTitle: '¡Envío GRATIS hoy en Bogotá! ⚡',
     bgtSub: 'Pide antes de las 12 PM y recibe hoy mismo.',
@@ -675,6 +676,8 @@ function applySettings() {
   } else {
     console.warn('⚠️ No se encontró el botón de WhatsApp');
   }
+  if (userLocation) setUserLocation(userLocation); // refresca textos de envío gratis con las metas
+  renderFreeShip();
 }
 
 // Galería de "Clientes Felices": fotos reales subidas desde el panel de admin,
@@ -907,7 +910,7 @@ function getShippingBadgesHTML(price) {
     html += `
       <div class="badge-shipping free">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 3h15v13H1zM16 8h4l3 3v5h-7M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg>
-        Envío GRATIS
+        Envío GRATIS${freeShipLabel()}
       </div>`;
 
     if (day !== 0 && hours < 12) {
@@ -941,12 +944,13 @@ function setUserLocation(locKey) {
   const loc = settings.locContent || {};
 
   if (locKey === 'bogota') {
-    if (heroTitle) heroTitle.innerHTML = loc.bgtTitle || '¡Envío GRATIS hoy en Bogotá! ⚡';
+    const oldBgt = '¡Envío GRATIS hoy en Bogotá! ⚡';
+    if (heroTitle) heroTitle.innerHTML = (loc.bgtTitle && loc.bgtTitle !== oldBgt) ? loc.bgtTitle : `¡Envío GRATIS en Bogotá${freeShipLabel()}! ⚡`;
     if (heroSub) heroSub.textContent = loc.bgtSub || 'Pide antes de las 12 PM y recibe hoy mismo.';
     if (trustBar) {
       trustBar.innerHTML = `
         <span><i class="tb-ico">🚀</i><em><b>Llega HOY</b> en Bogotá</em></span>
-        <span><i class="tb-ico">✅</i><em><b>Envío GRATIS</b></em></span>
+        <span><i class="tb-ico">✅</i><em><b>Envío GRATIS</b>${freeShipLabel()}</em></span>
         <span><i class="tb-ico">🛡️</i><em>Compra <b>100% segura</b></em></span>
       `;
     }
@@ -963,6 +967,7 @@ function setUserLocation(locKey) {
   }
   
   renderProducts(); // Re-render badges smoothly
+  renderFreeShip();
 }
 window.setUserLocation = setUserLocation;
 
@@ -1243,6 +1248,7 @@ function updateCartUI(animate = false) {
   } else {
     els.cartBar.style.display = 'none';
   }
+  renderFreeShip();
   updateWAButtonPosition();
 }
 
@@ -1283,6 +1289,7 @@ function renderOrderList() {
     `;
   }).join('');
   els.orderTotalAmount.textContent = formatMoney(total);
+  renderFreeShip();
   updateOrderSteps();
   if (Object.keys(cart).length === 0) switchView('catalog');
   
@@ -1565,7 +1572,7 @@ window.openProductPage = function(productId) {
           <div class="promo-icon">⚡</div>
           <div class="promo-text-wrapper">
             <div class="promo-title">¡Llega HOY en Bogotá!</div>
-            <div class="promo-desc">Envío GRATIS. Haz tu pedido en los próximos minutos para entrega HOY.</div>
+            <div class="promo-desc">Envío GRATIS${freeShipLabel()}. Haz tu pedido en los próximos minutos para entrega HOY.</div>
           </div>
         `;
       } else {
@@ -1573,7 +1580,7 @@ window.openProductPage = function(productId) {
         promoHTML = `
           <div class="promo-icon">🚀</div>
           <div class="promo-text-wrapper">
-            <div class="promo-title">Envío GRATIS a Bogotá</div>
+            <div class="promo-title">Envío GRATIS a Bogotá${freeShipLabel()}</div>
             <div class="promo-desc">Tu pedido se despachará con prioridad para entrega ${nextDay}.</div>
           </div>
         `;
@@ -2006,6 +2013,101 @@ window.copyPaymentInfo = () => {
   }
 };
 
+// ====== META DE ENVÍO GRATIS EN BOGOTÁ ======
+// Cada tipo de cliente (detal / mayorista) tiene su propia meta, configurable en
+// Admin → Tienda. Meta 0 = el envío a Bogotá es siempre gratis. Debajo de la meta
+// el envío a Bogotá cuesta "bogotaShippingFee".
+const numSetting = (v, d) => (v === undefined || v === null || v === '' || Number.isNaN(Number(v))) ? d : Math.max(0, Number(v));
+
+function getCartSubtotal() {
+  return Object.entries(cart).reduce((t, [cartId, q]) => {
+    const p = products.find(x => x.id === cartId.split(':')[0]);
+    return t + (p ? getProductPrice(p) * q : 0);
+  }, 0);
+}
+function getFreeShipGoal() {
+  return isWholesaleMode ? numSetting(settings.freeShipWholesale, 300000) : numSetting(settings.freeShipRetail, 100000);
+}
+function getBogotaFee() { return numSetting(settings.bogotaShippingFee, 8000); }
+function bogotaShippingPrice(subtotal = getCartSubtotal()) {
+  const goal = getFreeShipGoal();
+  return goal > 0 && subtotal < goal ? getBogotaFee() : 0;
+}
+function freeShipLabel() {
+  const goal = getFreeShipGoal();
+  return goal > 0 ? ` desde ${formatMoney(goal)}` : '';
+}
+
+// El envío a Bogotá depende del total del carrito: se recalcula cada vez que cambia
+function applyBogotaShipping() {
+  const price = bogotaShippingPrice();
+  const goal = getFreeShipGoal();
+  selectedShippingOption = { price, carrier: 'local', service: 'Envío Local', days: 'Hoy' };
+  currentCalculatedShipping = price;
+  const display = document.getElementById('shipping-cost-display');
+  const freeMsg = document.getElementById('shipping-free-msg');
+  if (display) { display.textContent = price === 0 ? 'GRATIS' : formatMoney(price); display.style.color = price === 0 ? 'var(--success)' : 'var(--text-main)'; }
+  if (freeMsg) {
+    freeMsg.style.display = 'block';
+    freeMsg.textContent = price === 0
+      ? '✅ ¡Envío gratis para Bogotá!'
+      : `Agrega ${formatMoney(goal - getCartSubtotal())} más y el envío a Bogotá es GRATIS`;
+  }
+  updateOrderSteps();
+}
+
+// Barra que se llena con el valor del carrito (se dibuja una vez y luego solo se actualiza,
+// para que el relleno se anime suavemente)
+function buildFreeShipBar(el) {
+  el.innerHTML = `
+    <div class="fs-msg"></div>
+    <div class="fs-track"><div class="fs-fill"></div><span class="fs-truck" aria-hidden="true">🚚</span></div>
+    <div class="fs-scale"><span>${formatMoney(0)}</span><span class="fs-goal"></span></div>`;
+  el.dataset.built = '1';
+}
+
+let fsWasReached = false;
+function renderFreeShip() {
+  const goal = getFreeShipGoal();
+  const total = getCartSubtotal();
+  const city = (document.getElementById('customer-city')?.value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+  const otherCity = city && !city.startsWith('BOGOTA');
+  const show = goal > 0 && total > 0 && userLocation !== 'nacional' && !otherCity;
+  const reached = goal > 0 && total >= goal;
+  const pct = goal > 0 ? Math.min(100, Math.round((total / goal) * 100)) : 0;
+
+  ['fs-cart', 'fs-order'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = show ? '' : 'none';
+    if (!show) return;
+    if (!el.dataset.built) buildFreeShipBar(el);
+    el.classList.toggle('fs-done', reached);
+    el.querySelector('.fs-msg').innerHTML = reached
+      ? '🎉 ¡Envío <b>GRATIS en Bogotá</b> desbloqueado!'
+      : `Te faltan <b>${formatMoney(goal - total)}</b> para envío <b>GRATIS en Bogotá</b>`;
+    el.querySelector('.fs-fill').style.width = pct + '%';
+    el.querySelector('.fs-truck').style.left = pct + '%';
+    el.querySelector('.fs-goal').textContent = formatMoney(goal);
+    el.setAttribute('role', 'progressbar');
+    el.setAttribute('aria-valuenow', String(pct));
+    el.setAttribute('aria-valuemin', '0');
+    el.setAttribute('aria-valuemax', '100');
+  });
+
+  if (show && reached && !fsWasReached) {
+    ['fs-cart', 'fs-order'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.classList.remove('fs-celebrate'); void el.offsetWidth; el.classList.add('fs-celebrate'); }
+    });
+    if (navigator.vibrate) { try { navigator.vibrate(40); } catch (e) {} }
+  }
+  fsWasReached = show && reached;
+
+  // Si el envío elegido es el local de Bogotá, su precio sigue al carrito
+  if (selectedShippingOption && selectedShippingOption.carrier === 'local') applyBogotaShipping();
+}
+
 // ====== SEGUIMIENTO DE PEDIDO ======
 // El cliente consulta con su número de pedido + celular. Los pedidos son privados;
 // por eso se guarda un registro mínimo en tracking/{PV-XXXXXX} (estado, ciudad,
@@ -2137,17 +2239,16 @@ function resetShippingState(dept, city) {
   }
 
   if (esBogota) {
-    selectedShippingOption = { price: 0, carrier: 'local', service: 'Envío Local', days: 'Hoy' }; updateOrderSteps();
-    currentCalculatedShipping = 0;
-    if (display) { display.textContent = 'GRATIS'; display.style.color = 'var(--success)'; }
-    if (freeMsg) freeMsg.style.display = 'block';
+    applyBogotaShipping();
     if (quoteBtn) quoteBtn.style.display = 'none';
     if (ticketBtn) ticketBtn.style.display = 'flex';
+    renderFreeShip();
     return;
   }
 
   if (display) { display.textContent = 'Sin cotizar'; display.style.color = 'var(--text-muted)'; }
   if (quoteBtn) quoteBtn.style.display = 'block';
+  renderFreeShip();
 }
 
 // Dispara la cotización real con las transportadoras (Interrapidísimo,
@@ -2204,9 +2305,8 @@ window.quoteShipping = async function quoteShipping() {
     const data = await response.json();
 
     if (data.es_gratis) {
-      selectedShippingOption = { price: 0, carrier: 'local', service: data.metodo_entrega || 'Envío Local', days: 'Hoy' }; updateOrderSteps();
-      currentCalculatedShipping = 0;
-      if (display) { display.textContent = 'GRATIS'; display.style.color = 'var(--success)'; }
+      applyBogotaShipping(); // Bogotá: gratis solo si el carrito llega a la meta
+      if (selectedShippingOption) selectedShippingOption.service = data.metodo_entrega || 'Envío Local';
       if (quoteBtn) quoteBtn.style.display = 'none';
       document.getElementById('btn-generate-ticket').style.display = 'flex';
       return;
