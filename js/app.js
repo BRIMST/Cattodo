@@ -26,6 +26,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
 import { WHOLESALE_MIN_QTY, wholesaleVisibility, getAvailableStock } from "./wholesale-visibility.js";
 import { isNewProduct, getCreatedAt, NEW_DAYS } from "./new-products.js";
+import { installEmojiIcons } from "./icons.js";
+installEmojiIcons(); // emojis → íconos SVG en toda la tienda
 
 // ====== SECURITY - Password hashing ======
 const hashPassword = async (password) => {
@@ -500,6 +502,7 @@ const switchView = (viewName) => {
   window.scrollTo(0, 0);
   Object.values(views).forEach(v => { if (v) v.classList.remove('active'); });
   if (views[viewName]) views[viewName].classList.add('active');
+  document.body.dataset.view = viewName; // el CSS oculta la barra flotante del carrito en pedido/ticket/admin
   // El botón flotante de WhatsApp debe evitar tapar la barra fija de "Tu
   // pedido" (o el carrito), cuya presencia depende de la vista activa.
   if (typeof updateWAButtonPosition === 'function') updateWAButtonPosition();
@@ -573,7 +576,7 @@ window.loadCatalog = async function() {
     if (adminOpen) {
       // El panel de admin sigue abierto: solo refrescamos sus datos, sin
       // tocar la vista de cliente que hay detrás (evita el "kick out").
-      import('./admin.js').then(m => m.renderAdminProducts());
+      import('./admin.js').then(async m => { await m.hydrateCosts(); m.renderAdminProducts(); });
     } else {
       handleRoute();
     }
@@ -989,7 +992,7 @@ function updateWAButtonPosition() {
       // (que cambia: crece cuando aparece el selector de transportadora).
       bottom = (orderFooter.offsetHeight || 90) + 16;
     } else if (cartBar && cartBar.style.display !== 'none') {
-      bottom = (cartBar.offsetHeight || 70) + 24;
+      bottom = Math.max(24, (parseFloat(getComputedStyle(cartBar).bottom) || 0) + (cartBar.offsetHeight || 60) + 12);
     }
     waBtn.style.bottom = bottom + 'px';
     if (floatingCb) floatingCb(bottom);

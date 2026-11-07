@@ -24,6 +24,8 @@ module.exports = async function handler(req, res) {
 
         const settings = await settingsRes.json();
         const products = await productsRes.json();
+        // Defensa extra: el costo nunca sale en el catálogo público (vive en productCosts/, solo personal)
+        if (products && typeof products === 'object') Object.values(products).forEach(p => { if (p) { delete p.cost; delete p.costo; } });
 
         return res.status(200).json({ settings, products });
     } catch (error) {

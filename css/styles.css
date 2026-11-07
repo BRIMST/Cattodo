@@ -5420,3 +5420,23 @@ body.wholesale-mode .trust-bar { display: none; }
 .cart-bar:has(#fs-cart:not([style*="none"])){flex-direction:column;align-items:stretch}
 @media (prefers-reduced-motion:reduce){.fs-fill::after,.fs-celebrate{animation:none}.fs-fill,.fs-truck{transition:none}}
 
+/* ===== Barra flotante del carrito: compacta y sin estorbar ===== */
+body[data-view="order"] .cart-bar,body[data-view="ticket"] .cart-bar,body[data-view="admin"] .cart-bar,
+body[data-view="login"] .cart-bar,body[data-view="wholesale-login"] .cart-bar{display:none !important}
+.cart-bar{padding:.45rem .55rem .45rem .8rem;border-radius:999px;max-width:420px;bottom:14px}
+.cart-bar-inner{gap:.6rem}
+.cart-count{width:24px;height:24px;font-size:.72rem}
+.cart-label{font-size:.7rem}
+.cart-total{font-size:.98rem}
+.btn-view-order{padding:.5rem 1rem;font-size:.85rem}
+.cart-bar:has(#fs-cart:not([style*="none"])){border-radius:18px;padding-top:.5rem}
+.fs-compact{padding:0 0 .4rem;margin:0 0 .4rem;border-bottom:0}
+.fs-compact .fs-msg{font-size:.7rem;margin-bottom:.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fs-compact .fs-track{height:6px;margin:0}
+.fs-compact .fs-truck,.fs-compact .fs-scale{display:none}
+@media (max-width:640px){.cart-bar{bottom:12px !important;width:calc(100% - 1.5rem)}}
+
+/* ===== Íconos SVG (reemplazan emojis) ===== */
+.ico{width:1.15em;height:1.15em;vertical-align:-.2em;display:inline-block;flex:none;stroke-width:2}
+.ico-star{fill:currentColor}
+.logo-emoji .ico{width:1.3em;height:1.3em}

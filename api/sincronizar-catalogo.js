@@ -59,9 +59,14 @@ module.exports = async function handler(req, res) {
                             body: JSON.stringify({
                                 price: nuevoPVP,
                                 stock: nuevoStock,
-                                cost: nuevoCostoProveedor, // Actualizamos tu "Costo / Utilidad" interno
                                 last_sync: new Date().toISOString()
                             })
+                        });
+                        // El costo es privado: va a productCosts/ (no al nodo público products/)
+                        await fetch(`${FIREBASE_URL}/productCosts/${key}.json`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(nuevoCostoProveedor)
                         });
 
                         actualizados++;

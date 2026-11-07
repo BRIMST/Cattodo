@@ -112,3 +112,17 @@ Agregar dentro de `"rules"` (junto a `wholesalers`, `clients`, etc.). `STAFF` si
 - `tracking`: el cliente lo consulta solo por su número exacto (`PV-XXXXXX`); no se puede listar.
 - `reviewsPending` / `stockAlerts`: cualquier visitante puede **crear** una entrada, pero solo el equipo puede leerlas, aprobarlas o borrarlas.
 - `reviews` / `reviewStats`: lectura pública, escritura solo del equipo.
+
+
+## 4. Costos privados de productos (nuevo)
+
+Agrega este bloque dentro de `"rules"` (junto a `wholesalePrices`). Solo el personal puede leer y escribir los costos:
+
+```json
+"productCosts": {
+  ".read": "auth != null && !root.child('wholesalers').child(auth.uid).exists()",
+  ".write": "auth != null && !root.child('wholesalers').child(auth.uid).exists()"
+}
+```
+
+Al abrir el panel de administración con la sesión iniciada, los costos que aún estén dentro de `products/` se mueven solos a `productCosts/` y se borran del nodo público.

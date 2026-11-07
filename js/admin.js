@@ -44,6 +44,8 @@ export function initAdmin(state, utils) {
   window.removeStockAlert = removeStockAlert;
   window.clearStockAlerts = clearStockAlerts;
 
+  hydrateCosts().then(ok => { if (ok) { try { renderProductsTable(); renderDashboard(); } catch (e) {} } });
+
   // Sesión: mostrar el usuario real conectado y permitir cerrar sesión
   const currentUser = appState.auth?.currentUser;
   appUtils.safeText('admin-current-user-email', currentUser?.email || '—');
@@ -2349,6 +2351,43 @@ function renderClientsTable() {
 
 export function renderAdminProducts() { renderProductsTable(); }
 
+// ====== COSTOS PRIVADOS ======
+// El costo de cada producto vive en productCosts/{id}, un nodo que solo lee el personal.
+// (products/ es público: cualquiera podía ver tus costos y márgenes.)
+// Aquí se traen esos costos, se unen a los productos en memoria y, si todavía quedan
+// costos viejos dentro de products/, se mueven solos al nodo privado.
+export async function hydrateCosts() {
+  const list = appState.products || [];
+  // El catálogo público ya no trae costos. Una vez por sesión se leen los que todavía estén
+  // dentro de products/ (datos viejos) para moverlos al nodo privado.
+  if (!hydrateCosts.legacy) {
+    hydrateCosts.legacy = {};
+    try {
+      const raw = (await get(ref(appState.db, 'products'))).val() || {};
+      Object.entries(raw).forEach(([id, v]) => { if (v && v.cost !== undefined && v.cost !== null) hydrateCosts.legacy[id] = v.cost; });
+    } catch (e) { /* sin acceso: se sigue con lo que haya en productCosts */ }
+  }
+  let costs = {}, privateOk = true;
+  try { costs = (await get(ref(appState.db, 'productCosts'))).val() || {}; }
+  catch (e) { privateOk = false; console.warn('No se pudieron leer los costos privados (¿publicaste las reglas nuevas?):', e.message); }
+
+  const migrate = {};
+  Object.entries(hydrateCosts.legacy).forEach(([id, c]) => {
+    const n = parseFloat(c);
+    if (costs[id] === undefined && !Number.isNaN(n)) { costs[id] = n; if (privateOk) migrate[`productCosts/${id}`] = n; }
+    if (privateOk) migrate[`products/${id}/cost`] = null; // borra la copia pública
+  });
+  list.forEach(p => { p.cost = costs[p.id] !== undefined ? Number(costs[p.id]) || 0 : 0; });
+  if (Object.keys(migrate).length) {
+    try {
+      await update(ref(appState.db), migrate);
+      console.info('Costos movidos al nodo privado:', Object.keys(migrate).length);
+      hydrateCosts.legacy = {};
+    } catch (e) { console.warn('No se pudo mover los costos al nodo privado:', e.message); }
+  }
+  return true;
+}
+
 // ==========================================
 // MODULE: MODAL DE PRODUCTO (Crear/Editar/Eliminar)
 // ==========================================
@@ -2484,7 +2523,7 @@ async function saveProduct() {
     category: document.getElementById('product-category')?.value || '',
     tags: document.getElementById('product-tags')?.value || '',
     originalPrice: originalPrice,
-    cost: cost,
+    cost: null, // el costo es privado: se guarda en productCosts/{id}
     wholesalePrice: null, // el precio mayorista ya no vive en el producto (es público): va a wholesalePrices/{id}
     weight: weight,
     stock: parseInt(document.getElementById('product-stock')?.value) || 0,
@@ -2525,6 +2564,7 @@ async function saveProduct() {
       savedId = newRef.key;
     }
     await saveWholesalePrice(savedId, wholesalePrice);
+    await set(ref(appState.db, `productCosts/${savedId}`), cost === null || Number.isNaN(cost) ? null : cost);
     appUtils.safeStyle('modal-product', 'display', 'none');
     appUtils.showToast('Guardado ✅');
     if (window.loadCatalog) window.loadCatalog();
@@ -2965,12 +3005,13 @@ async function handleStockExcelUpload(e) {
       const newPrices = {};
       create.forEach(c => {
         const key = push(ref(appState.db, 'products')).key;
-        updates[`products/${key}`] = { ...c.data, images: photoUrls.has(c) ? [photoUrls.get(c)] : c.data.images, createdAt: Date.now() };
+        if (c.data.cost !== undefined && c.data.cost !== null) updates[`productCosts/${key}`] = c.data.cost;
+        updates[`products/${key}`] = { ...c.data, cost: null, images: photoUrls.has(c) ? [photoUrls.get(c)] : c.data.images, createdAt: Date.now() };
         if (c.wholesale) { updates[`wholesalePrices/${key}`] = c.wholesale; newPrices[key] = c.wholesale; }
       });
       restock.forEach(r => {
         updates[`products/${r.id}/stock`] = r.stockAfter;
-        if (r.cost !== null) updates[`products/${r.id}/cost`] = r.cost;
+        if (r.cost !== null) updates[`productCosts/${r.id}`] = r.cost;
         if (r.barcode) updates[`products/${r.id}/barcode`] = r.barcode;
         if (photoUrls.has(r)) {
           // la foto del Excel pasa a ser la principal; las demás del producto se conservan
