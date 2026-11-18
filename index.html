@@ -1564,6 +1564,24 @@
             <small class="settings-hint">Este valor solo se usa como respaldo si no se puede cotizar en tiempo real con la transportadora (por ejemplo, si falla la conexión).</small>
           </div>
 
+          <div class="settings-group" id="banners-admin-group">
+            <label class="settings-label">🖼 Banners de la portada (carrusel)</label>
+            <small class="settings-hint">Los banners se van pasando solos, como en las tiendas grandes. Tamaño recomendado: <strong>1920 × 600 px</strong> para computador y <strong>800 × 560 px</strong> para celular (opcional). Si no subes imagen para celular se usa la de computador. El enlace puede ser <code>#catalog-toolbar</code> (baja al catálogo), una página de la tienda o una URL completa.</small>
+            <div id="banners-admin-list" style="margin-top:.7rem;"></div>
+            <button type="button" class="btn-secondary" id="btn-add-banner" style="margin-top:.6rem;">+ Agregar banner</button>
+            <div class="field-row" style="margin-top:.8rem;">
+              <div class="field-group">
+                <label class="field-label">Segundos por banner</label>
+                <input type="number" id="settings-hero-interval" class="settings-input" min="3" max="30" placeholder="5" />
+              </div>
+              <div class="field-group">
+                <label class="field-label" style="display:flex;align-items:center;gap:.5rem;margin-top:1.6rem;">
+                  <input type="checkbox" id="settings-hero-showtext" /> Mostrar primero el banner de texto (cuenta regresiva y envío gratis)
+                </label>
+              </div>
+            </div>
+          </div>
+
           <div class="settings-group">
             <label class="settings-label">🚚 Envío gratis en Bogotá: metas del carrito</label>
             <small class="settings-hint">La barra del carrito se llena hasta la meta; al alcanzarla el envío a Bogotá D.C. es gratis. Pon <strong>0</strong> en una meta para que el envío a Bogotá sea siempre gratis para ese tipo de cliente.</small>

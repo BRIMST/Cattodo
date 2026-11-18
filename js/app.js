@@ -27,6 +27,7 @@ import {
 import { WHOLESALE_MIN_QTY, wholesaleVisibility, getAvailableStock } from "./wholesale-visibility.js";
 import { isNewProduct, getCreatedAt, NEW_DAYS } from "./new-products.js";
 import { installEmojiIcons } from "./icons.js";
+import { renderHeroCarousel } from "./hero-carousel.js";
 installEmojiIcons(); // emojis → íconos SVG en toda la tienda
 
 // ====== SECURITY - Password hashing ======
@@ -61,6 +62,7 @@ let settings = {
   color: '#6c63ff', currency: 'COP', logo: '', adminPassword: '',
   paymentInfo: '', paymentQR: '', shippingCost: 0,
   freeShipRetail: 100000, freeShipWholesale: 300000, bogotaShippingFee: 8000,
+  heroBanners: [], heroInterval: 5, heroShowText: true,
   locContent: {
     bgtTitle: '¡Envío GRATIS hoy en Bogotá! ⚡',
     bgtSub: 'Pide antes de las 12 PM y recibe hoy mismo.',
@@ -679,6 +681,7 @@ function applySettings() {
   } else {
     console.warn('⚠️ No se encontró el botón de WhatsApp');
   }
+  renderHeroCarousel(settings); // banners de la portada
   if (userLocation) setUserLocation(userLocation); // refresca textos de envío gratis con las metas
   renderFreeShip();
 }

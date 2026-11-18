@@ -1505,6 +1505,90 @@ function downloadCSV(filename, headers, rows) {
   URL.revokeObjectURL(url);
 }
 
+// ====== BANNERS DE LA PORTADA ======
+let bannersDraft = [];
+const escAttr = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+function loadBannersAdmin() {
+  const raw = appState.settings.heroBanners;
+  const list = Array.isArray(raw) ? raw : Object.values(raw || {});
+  bannersDraft = list.map(b => ({ ...b }));
+  const iv = document.getElementById('settings-hero-interval'); if (iv) iv.value = appState.settings.heroInterval || 5;
+  const st = document.getElementById('settings-hero-showtext'); if (st) st.checked = appState.settings.heroShowText !== false;
+  renderBannersAdmin();
+  const add = document.getElementById('btn-add-banner');
+  if (add && !add.dataset.bound) {
+    add.dataset.bound = '1';
+    add.onclick = () => { bannersDraft.push({ image: '', imageMobile: '', title: '', sub: '', btn: '', link: '#catalog-toolbar', active: true }); renderBannersAdmin(); };
+  }
+}
+
+function renderBannersAdmin() {
+  const box = document.getElementById('banners-admin-list');
+  if (!box) return;
+  if (!bannersDraft.length) { box.innerHTML = '<div class="settings-hint" style="padding:.6rem 0;">Aún no hay banners: la portada muestra solo el texto de siempre.</div>'; return; }
+  box.innerHTML = bannersDraft.map((b, i) => `
+    <div class="bn-row" data-i="${i}">
+      <div class="bn-head">
+        <b>Banner ${i + 1}</b>
+        <label class="bn-active"><input type="checkbox" data-f="active" ${b.active !== false ? 'checked' : ''}> Activo</label>
+        <span class="bn-tools">
+          <button type="button" data-act="up" ${i === 0 ? 'disabled' : ''} title="Subir">↑</button>
+          <button type="button" data-act="down" ${i === bannersDraft.length - 1 ? 'disabled' : ''} title="Bajar">↓</button>
+          <button type="button" data-act="del" title="Eliminar">✕</button>
+        </span>
+      </div>
+      <div class="bn-imgs">
+        <div class="bn-img">
+          <div class="bn-thumb bn-wide">${b.image ? `<img src="${escAttr(b.image)}" alt="">` : '<span>Sin imagen</span>'}</div>
+          <label class="btn-secondary bn-up">Imagen computador<input type="file" accept="image/*" data-up="image" hidden></label>
+        </div>
+        <div class="bn-img">
+          <div class="bn-thumb bn-tall">${b.imageMobile ? `<img src="${escAttr(b.imageMobile)}" alt="">` : '<span>Sin imagen</span>'}</div>
+          <label class="btn-secondary bn-up">Imagen celular<input type="file" accept="image/*" data-up="imageMobile" hidden></label>
+          ${b.imageMobile ? '<button type="button" class="bn-clear" data-act="clearm">Quitar</button>' : ''}
+        </div>
+      </div>
+      <div class="bn-fields">
+        <input class="settings-input" data-f="title" placeholder="Título sobre la imagen (opcional)" value="${escAttr(b.title)}">
+        <input class="settings-input" data-f="sub" placeholder="Subtítulo (opcional)" value="${escAttr(b.sub)}">
+        <input class="settings-input" data-f="btn" placeholder="Texto del botón (opcional) · Ej: Ver ofertas" value="${escAttr(b.btn)}">
+        <input class="settings-input" data-f="link" placeholder="Enlace · Ej: #catalog-toolbar o https://…" value="${escAttr(b.link)}">
+      </div>
+    </div>`).join('');
+  if (!box.dataset.bound) {
+    box.dataset.bound = '1';
+    box.addEventListener('input', (e) => {
+      const row = e.target.closest('.bn-row'); if (!row) return;
+      const b = bannersDraft[+row.dataset.i], f = e.target.dataset.f;
+      if (f) b[f] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    });
+    box.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-act]'); if (!btn) return;
+      const i = +btn.closest('.bn-row').dataset.i, act = btn.dataset.act;
+      if (act === 'del') { if (!confirm('¿Eliminar este banner?')) return; bannersDraft.splice(i, 1); }
+      else if (act === 'up' && i > 0) [bannersDraft[i - 1], bannersDraft[i]] = [bannersDraft[i], bannersDraft[i - 1]];
+      else if (act === 'down' && i < bannersDraft.length - 1) [bannersDraft[i + 1], bannersDraft[i]] = [bannersDraft[i], bannersDraft[i + 1]];
+      else if (act === 'clearm') bannersDraft[i].imageMobile = '';
+      renderBannersAdmin();
+    });
+    box.addEventListener('change', async (e) => {
+      const inp = e.target.closest('input[data-up]'); if (!inp || !inp.files[0]) return;
+      const i = +inp.closest('.bn-row').dataset.i, field = inp.dataset.up;
+      const label = inp.closest('label'); const old = label.firstChild.textContent;
+      label.firstChild.textContent = 'Subiendo…';
+      try {
+        bannersDraft[i][field] = await appUtils.uploadImageFile(inp.files[0], 'products');
+        renderBannersAdmin();
+        appUtils.showToast('Imagen subida. Recuerda pulsar "Guardar" para publicar los cambios.');
+      } catch (err) {
+        label.firstChild.textContent = old;
+        appUtils.showToast('No se pudo subir la imagen: ' + (err.message || err));
+      }
+    });
+  }
+}
+
 // Descarga la plantilla de mercancía tal cual (hoja "Pedido", tabla, fórmulas y columnas),
 // lista para llenar y subir con "Cargar mercancía".
 function downloadMercanciaTemplate() {
@@ -2606,6 +2690,7 @@ function loadSettingsForm() {
     appUtils.safeValue('settings-free-ship-retail', g('freeShipRetail', 100000));
     appUtils.safeValue('settings-free-ship-wholesale', g('freeShipWholesale', 300000));
     appUtils.safeValue('settings-bogota-fee', g('bogotaShippingFee', 8000)); }
+  loadBannersAdmin();
   { const t = document.getElementById('settings-theme-navidad'); if (t) t.checked = appState.settings.themeNavidad !== false; }
   appUtils.safeValue('settings-wholesale-discount', (appState.wholesaleConfig || {}).discount !== undefined ? appState.wholesaleConfig.discount : 20);
 
@@ -2662,6 +2747,9 @@ async function saveSettings() {
     freeShipRetail: Math.max(0, parseFloat(document.getElementById('settings-free-ship-retail')?.value) || 0),
     freeShipWholesale: Math.max(0, parseFloat(document.getElementById('settings-free-ship-wholesale')?.value) || 0),
     bogotaShippingFee: Math.max(0, parseFloat(document.getElementById('settings-bogota-fee')?.value) || 0),
+    heroBanners: bannersDraft.map(b => ({ image: b.image || '', imageMobile: b.imageMobile || '', title: (b.title || '').trim(), sub: (b.sub || '').trim(), btn: (b.btn || '').trim(), link: (b.link || '').trim(), active: b.active !== false })).filter(b => b.image || b.imageMobile || b.title),
+    heroInterval: Math.min(30, Math.max(3, parseInt(document.getElementById('settings-hero-interval')?.value) || 5)),
+    heroShowText: document.getElementById('settings-hero-showtext') ? document.getElementById('settings-hero-showtext').checked : true,
     originAddress: {
       name: document.getElementById('settings-origin-name')?.value || '',
       phone: document.getElementById('settings-origin-phone')?.value || '',
