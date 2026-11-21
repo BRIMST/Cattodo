@@ -150,6 +150,7 @@ export function initAdmin(state, utils) {
   });
   on('btn-delete-selected-products', 'onclick', deleteSelectedProducts);
   on('btn-export-products-csv', 'onclick', downloadMercanciaTemplate);
+  on('btn-wholesale-pdf', 'onclick', downloadWholesalePdf);
   on('btn-export-orders-csv', 'onclick', exportOrdersCSV);
   on('btn-export-clients-csv', 'onclick', exportClientsCSV);
 
@@ -1503,6 +1504,27 @@ function downloadCSV(filename, headers, rows) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// ====== CATÁLOGO MAYORISTA EN PDF ======
+async function downloadWholesalePdf() {
+  const btn = document.getElementById('btn-wholesale-pdf');
+  if (!btn || btn.disabled) return;
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  try {
+    const { generateWholesalePdf } = await import('./catalogo-pdf.js');
+    const res = await generateWholesalePdf(appState, { onProgress: (t) => { btn.textContent = t; } });
+    btn.textContent = 'Guardando PDF…';
+    res.doc.save(res.filename);
+    appUtils.showToast(`Catálogo listo: ${res.count} productos en ${res.pages} páginas.`);
+  } catch (err) {
+    console.error(err);
+    appUtils.showToast('No se pudo crear el PDF: ' + (err.message || err));
+  } finally {
+    btn.innerHTML = original;
+    btn.disabled = false;
+  }
 }
 
 // ====== BANNERS DE LA PORTADA ======

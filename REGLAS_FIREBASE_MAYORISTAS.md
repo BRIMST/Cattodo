@@ -126,3 +126,21 @@ Agrega este bloque dentro de `"rules"` (junto a `wholesalePrices`). Solo el pers
 ```
 
 Al abrir el panel de administración con la sesión iniciada, los costos que aún estén dentro de `products/` se mueven solos a `productCosts/` y se borran del nodo público.
+
+
+## 5. Portal mayorista abierto (sin usuario ni contraseña)
+
+Para que cualquier cliente entre a `pandaventa.com/mayoristas` sin cuenta, los precios mayoristas deben poder leerse sin sesión. Cambia estos dos nodos para que la lectura sea pública (la escritura sigue solo para el personal):
+
+```json
+"wholesalePrices": {
+  ".read": true,
+  ".write": "auth != null && !root.child('wholesalers').child(auth.uid).exists()"
+},
+"wholesaleConfig": {
+  ".read": true,
+  ".write": "auth != null && !root.child('wholesalers').child(auth.uid).exists()"
+}
+```
+
+Importante: con esto los precios mayoristas dejan de ser privados; los puede ver cualquiera que conozca el enlace (o lea la base de datos). Mientras no publiques este cambio, el portal sigue pidiendo usuario y contraseña como antes.

@@ -131,11 +131,32 @@ function showWholesaleLoginState(state, message) {
   }
 }
 
+// Acceso abierto: los precios mayoristas son de lectura pública, así que cualquiera que
+// entre a /mayoristas (por el enlace o el botón) ve el catálogo sin usuario ni clave.
+const OPEN_PORTAL_UID = 'portal-abierto';
+async function openWholesaleSession() {
+  try {
+    const [pricesSnap, configSnap] = await Promise.all([
+      get(ref(db, 'wholesalePrices')),
+      get(ref(db, 'wholesaleConfig'))
+    ]);
+    wholesalePrices = pricesSnap.val() || {};
+    wholesaleConfig = configSnap.val() || {};
+    wholesaleSession = { uid: OPEN_PORTAL_UID, name: '', email: '', phone: '' };
+    return true;
+  } catch (err) {
+    // Las reglas de Firebase aún no permiten lectura pública: se usa el acceso con cuenta de antes.
+    console.warn('Portal abierto no disponible (¿falta publicar la regla de lectura pública?):', err.code || err);
+    return false;
+  }
+}
+
 async function enterWholesalePortal() {
   switchView('wholesale-login');
   showWholesaleLoginState('checking');
   await authReady;
   if (!wholesaleSession && auth.currentUser) await verifyWholesaler(auth.currentUser);
+  if (!wholesaleSession) await openWholesaleSession();
   // Si el usuario ya navegó a otra página mientras verificábamos, no tocamos nada.
   if (window.location.pathname.replace(/\/$/, '') !== '/mayoristas') return;
 
@@ -144,7 +165,7 @@ async function enterWholesalePortal() {
     return;
   }
   setWholesaleMode(true);
-  safeText('wholesale-welcome', `Hola, ${wholesaleSession.name}`);
+  safeText('wholesale-welcome', wholesaleSession.name ? `Hola, ${wholesaleSession.name}` : 'Catálogo mayorista');
   // Adelantamos los datos del cliente en el checkout
   if (!document.getElementById('customer-name')?.value) safeValue('customer-name', wholesaleSession.name);
   if (!document.getElementById('customer-phone')?.value && wholesaleSession.phone) safeValue('customer-phone', wholesaleSession.phone);
@@ -195,7 +216,7 @@ async function wholesaleLogin(email, password) {
 }
 
 async function wholesaleLogout() {
-  const wasWholesaler = !!wholesaleSession;
+  const wasWholesaler = !!wholesaleSession && wholesaleSession.uid !== OPEN_PORTAL_UID;
   wholesaleSession = null;
   wholesalePrices = {};
   wholesaleConfig = {};
@@ -2630,7 +2651,7 @@ function initSecondaryApp() {
       return showToast('Primero cotiza y elige tu opción de envío');
     }
     if (isWholesaleMode && !wholesaleSession) {
-      return showToast('Inicia sesión en el portal mayorista para hacer pedidos');
+      return showToast('Entra al portal mayorista para hacer pedidos');
     }
     const shortfalls = getWholesaleShortfalls();
     if (shortfalls.length > 0) {
@@ -2676,7 +2697,7 @@ function initSecondaryApp() {
       channel: isWholesaleMode ? 'mayorista' : 'web'
     };
     if (isWholesaleMode && wholesaleSession) {
-      orderData.wholesaler = { uid: wholesaleSession.uid, name: wholesaleSession.name, email: wholesaleSession.email };
+      orderData.wholesaler = { uid: wholesaleSession.uid, name: wholesaleSession.name || customer.name || '', email: wholesaleSession.email || '' };
     }
 
     try {
